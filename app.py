@@ -116,18 +116,16 @@ except:
 st.markdown(f"<div class='price'>₹{price:,.2f}</div>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ================= BUY/SELL Signal Function (तुमच्या अचूक Logic नुसार) =================
+# ================= BUY/SELL Signal Function (5 मिनिटे Timeframe) =================
 def calculate_signals():
-    """तुमच्या Buy/Sell Logic नुसार Signal Calculate करते"""
-    
     symbol = symbols[asset]
     
-    # Get NIFTY data for trend filter (only for NIFTY asset)
-    nifty_df = yf.download("^NSEI", period="7d", interval="15m", progress=False)
+    # Get NIFTY data for trend filter
+    nifty_df = yf.download("^NSEI", period="7d", interval="5m", progress=False)
     nifty_df.columns = [str(c).lower() for c in nifty_df.columns]
     
-    # Get stock/commodity data
-    stock_df = yf.download(symbol, period="7d", interval="15m", progress=False)
+    # Get stock/commodity data - 5 MINUTE TIMEFRAME
+    stock_df = yf.download(symbol, period="7d", interval="5m", progress=False)
     
     if stock_df.empty or len(stock_df) < 30:
         return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0}
@@ -137,7 +135,7 @@ def calculate_signals():
     if 'close' not in stock_df.columns:
         return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0}
     
-    # ================= NIFTY Trend (niftyPositive / niftyNegative) =================
+    # ================= NIFTY Trend =================
     nifty_positive = False
     nifty_negative = False
     
@@ -148,11 +146,11 @@ def calculate_signals():
         nifty_negative = nifty_current < nifty_ema20
     
     # ================= Sideways Condition =================
-    # Calculate ATR or ADX to determine sideways
     nifty_high = nifty_df['high'].iloc[-20:].max() if 'high' in nifty_df.columns else 0
     nifty_low = nifty_df['low'].iloc[-20:].min() if 'low' in nifty_df.columns else 0
+    nifty_current = nifty_df['close'].iloc[-1] if 'close' in nifty_df.columns else 23500
     nifty_range = (nifty_high - nifty_low) / nifty_current if nifty_current > 0 else 0
-    sideways = nifty_range < 0.005  # 0.5% range = sideways
+    sideways = nifty_range < 0.005
     
     # ================= Stock Calculations =================
     close = stock_df['close']
@@ -169,11 +167,15 @@ def calculate_signals():
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     
-    # Calculate ADX for trend strength
+    # Volume filter
+    volume = stock_df['volume'] if 'volume' in stock_df.columns else pd.Series([1000000] * len(stock_df))
+    volume_sma = volume.rolling(20).mean()
+    volume_filter = volume.iloc[-1] > volume_sma.iloc[-1] if not volume_sma.isna().iloc[-1] else True
+    
+    # ADX calculation
     high = stock_df['high'] if 'high' in stock_df.columns else close
     low = stock_df['low'] if 'low' in stock_df.columns else close
     
-    # Simple ADX approximation
     plus_dm = high.diff()
     minus_dm = low.diff()
     plus_dm = plus_dm.where(plus_dm > 0, 0)
@@ -184,12 +186,12 @@ def calculate_signals():
         'lc': abs(low - close.shift())
     }).max(axis=1)
     atr = tr.rolling(14).mean()
-    adx = 25  # Default, will be calculated properly
     
-    # Volume filter
-    volume = stock_df['volume'] if 'volume' in stock_df.columns else pd.Series([1000000] * len(stock_df))
-    volume_sma = volume.rolling(20).mean()
-    volume_filter = volume.iloc[-1] > volume_sma.iloc[-1] if not volume_sma.isna().iloc[-1] else True
+    # ADX approximation
+    plus_di = 100 * (plus_dm.rolling(14).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(14).mean() / atr)
+    dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+    adx = dx.rolling(14).mean().iloc[-1] if len(dx) > 14 else 25
     
     # ================= Strong Bull/Bear Conditions =================
     c1 = stock_df.iloc[-2]
@@ -204,10 +206,10 @@ def calculate_signals():
     current_rsi = rsi.iloc[-1]
     current_ema200 = ema200.iloc[-1] if not ema200.isna().all() else current_price
     
-    # Trends across timeframes
-    trend5_up = ema9.iloc[-1] > ema20.iloc[-1]  # 5m trend (using 15m as proxy)
-    trend15_up = ema9.iloc[-2] > ema20.iloc[-2] if len(ema9) > 1 else trend5_up
-    trend1h_up = ema9.iloc[-4] > ema20.iloc[-4] if len(ema9) > 4 else trend5_up
+    # Trends across timeframes (5m, 15m, 1h using 5m data)
+    trend5_up = ema9.iloc[-1] > ema20.iloc[-1]
+    trend15_up = ema9.iloc[-3] > ema20.iloc[-3] if len(ema9) > 3 else trend5_up
+    trend1h_up = ema9.iloc[-12] > ema20.iloc[-12] if len(ema9) > 12 else trend5_up
     
     # ================= Strong Bull/Bear Stock =================
     strong_bull_stock = (
@@ -230,7 +232,7 @@ def calculate_signals():
         current_price < c1['low']
     )
     
-    # Sector trend (simplified - using NIFTY trend)
+    # Sector trend
     sector_bullish = nifty_positive
     sector_bearish = nifty_negative
     
@@ -366,7 +368,7 @@ if st.session_state.running and market_hours and trades_today < max_trades:
 # ================= Status =================
 st.markdown("---")
 if st.session_state.running and market_hours:
-    st.success("🟢 ALGO RUNNING")
+    st.success("🟢 ALGO RUNNING (5 min timeframe)")
 elif not market_hours:
     st.info("⏰ Market closed. Algo will run during trading hours.")
 else:
@@ -379,6 +381,9 @@ col1, col2, col3 = st.columns(3)
 col1.metric("NIFTY", f"{st.session_state.nifty_trades}/2")
 col2.metric("CRUDE", f"{st.session_state.crude_trades}/2")
 col3.metric("NG", f"{st.session_state.ng_trades}/2")
+
+# ================= Timeframe Info =================
+st.info("⏱️ Signal check every 5 minutes")
 
 # ================= Clock =================
 st.caption(f"🕐 {datetime.now().strftime('%H:%M:%S')} | Auto Refresh")
