@@ -108,8 +108,8 @@ with col2:
 st.markdown("---")
 
 # Live Price
+symbols = {"NIFTY": "^NSEI", "CRUDEOIL": "CL=F", "NATURALGAS": "NG=F"}
 try:
-    symbols = {"NIFTY": "^NSEI", "CRUDEOIL": "CL=F", "NATURALGAS": "NG=F"}
     ticker = yf.Ticker(symbols[asset])
     data = ticker.history(period="1d")
     if not data.empty:
@@ -126,8 +126,9 @@ def get_signals():
     df = yf.download(symbol, period="7d", interval="15m", progress=False)
     
     if df.empty or len(df) < 30:
-        return {"signal": "WAIT", "price": 0, "trend": "NEUTRAL"}
+        return {"signal": "WAIT", "price": 0, "trend": "NEUTRAL", "rsi": 50, "ema20": 0}
     
+    # Clean column names (convert to lowercase)
     df.columns = [str(c).lower() for c in df.columns]
     close = df['close']
     
@@ -146,7 +147,7 @@ def get_signals():
     current_ema20 = ema20.iloc[-1]
     current_rsi = rsi.iloc[-1]
     
-    # Simple Signal Logic
+    # Signal Logic
     if current > current_ema20 and current_rsi < 70:
         signal = "BUY"
     elif current < current_ema20 and current_rsi > 30:
@@ -160,9 +161,9 @@ signals = get_signals()
 
 # Display
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Price", f"₹{signals['price']:.2f}")
+col1.metric("Price", f"₹{signals['price']:.2f}" if signals['price'] else "N/A")
 col2.metric("Signal", signals['signal'])
-col3.metric("RSI", f"{signals['rsi']:.1f}")
+col3.metric("RSI", f"{signals['rsi']:.1f}" if signals['rsi'] else "N/A")
 col4.metric("Trend", signals['trend'])
 
 st.markdown("---")
