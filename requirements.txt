@@ -7,6 +7,5 @@ requests==2.32.3
 numpy==1.26.4
 SmartApi==1.2.0
 pyotp==4.0.1
-nsefin==0.1.0
 streamlit_autorefresh==1.0.1
 flask==3.0.3
