@@ -1,11 +1,9 @@
 streamlit==1.35.0
 pandas==2.2.2
-pandas_ta==0.3.14b0
 yfinance==0.2.40
 plotly==5.24.1
 requests==2.32.3
 numpy==1.26.4
 SmartApi==1.2.0
 pyotp==4.0.1
-streamlit_autorefresh==1.0.1
-flask==3.0.3
+streamlit-autorefresh==1.0.1
