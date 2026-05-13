@@ -383,7 +383,7 @@ col2.metric("CRUDE", f"{st.session_state.crude_trades}/2")
 col3.metric("NG", f"{st.session_state.ng_trades}/2")
 
 # ================= Timeframe Info =================
-st.info("⏱️ Signal check every 5 minutes")
+st.info("⏱️ Signal check every 1 minutes")
 
 # ================= Clock =================
 st.caption(f"🕐 {datetime.now().strftime('%H:%M:%S')} | Auto Refresh")
