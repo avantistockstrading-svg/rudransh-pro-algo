@@ -2,8 +2,4 @@ streamlit
 pandas
 yfinance
 plotly
-requests
-numpy
-SmartAPI
-pyotp
 streamlit-autorefresh
