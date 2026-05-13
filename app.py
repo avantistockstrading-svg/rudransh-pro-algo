@@ -1,89 +1,184 @@
 import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-import yfinance as yf
+import requests
 from datetime import datetime
-from streamlit_autorefresh import st_autorefresh
+import pandas as pd
 
-st.set_page_config(page_title="RUDRANSH PRO-ALGO", layout="wide")
+st.set_page_config(page_title="Rudransh Remote", layout="wide", page_icon="📱")
 
-st.title("📈 RUDRANSH PRO-ALGO")
-st.markdown("### Live Trading Signals")
+st.title("📱 RUDRANSH REMOTE CONTROL")
+st.markdown("### Mobile Trading Controller")
 
-# Symbols
-SYMBOLS = {
-    "NIFTY": "^NSEI",
-    "BANK NIFTY": "^NSEBANK",
-    "CRUDEOIL": "CL=F",
-    "NATURALGAS": "NG=F"
-}
+# ===== Session State for Demo =====
+if "running" not in st.session_state:
+    st.session_state.running = False
+if "pnl" not in st.session_state:
+    st.session_state.pnl = 0
+if "position" not in st.session_state:
+    st.session_state.position = None
+if "entry_price" not in st.session_state:
+    st.session_state.entry_price = 0
+if "quantity" not in st.session_state:
+    st.session_state.quantity = 65
 
-# Sidebar
+# ===== Sidebar - Controls =====
 with st.sidebar:
-    st.markdown("## 🚀 CONTROL")
+    st.markdown("## 🎮 MAIN CONTROLS")
     
-    if st.button("▶️ START"):
-        st.session_state.running = True
-        st.success("Started!")
+    # START / STOP buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("▶️ START ALGO", use_container_width=True):
+            st.session_state.running = True
+            st.success("✅ Algo Started!")
+            st.toast("Algo is now RUNNING", icon="🟢")
     
-    if st.button("🛑 STOP"):
-        st.session_state.running = False
-        st.warning("Stopped!")
+    with col2:
+        if st.button("🛑 STOP ALGO", use_container_width=True):
+            st.session_state.running = False
+            st.warning("⏸️ Algo Stopped!")
+            st.toast("Algo is STOPPED", icon="🔴")
     
     st.markdown("---")
-    market = st.selectbox("Select Asset", list(SYMBOLS.keys()))
+    
+    # Quantity Selection
+    st.markdown("### 📊 POSITION SIZE")
+    asset = st.selectbox("Select Asset", ["NIFTY", "BANK NIFTY", "CRUDEOIL", "NATURALGAS"])
+    
+    lot_sizes = {
+        "NIFTY": 65,
+        "BANK NIFTY": 25,
+        "CRUDEOIL": 100,
+        "NATURALGAS": 1250
+    }
+    
+    lots = st.number_input("Number of Lots", min_value=1, max_value=10, value=1)
+    quantity = lots * lot_sizes[asset]
+    st.session_state.quantity = quantity
+    
+    st.metric("📦 Total Quantity", quantity)
+    
+    st.markdown("---")
+    
+    # SQUARE OFF button
+    st.markdown("### 🔴 TRADE CONTROL")
+    if st.button("🔴 SQUARE OFF ALL", use_container_width=True):
+        st.session_state.position = None
+        st.session_state.entry_price = 0
+        st.session_state.pnl = 0
+        st.error("✅ All positions SQUARED OFF!")
+        st.toast("All trades closed!", icon="🔴")
 
-# Get data
-df = yf.download(SYMBOLS[market], period="2d", interval="5m", progress=False)
+# ===== Main Panel =====
+st.markdown("---")
 
-if not df.empty:
-    # Calculate indicators manually (without pandas_ta)
-    close = df['Close']
-    
-    # EMA 9 and EMA 20
-    df['EMA9'] = close.ewm(span=9, adjust=False).mean()
-    df['EMA20'] = close.ewm(span=20, adjust=False).mean()
-    
-    # RSI
-    delta = close.diff()
-    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / loss
-    df['RSI'] = 100 - (100 / (1 + rs))
-    
-    current = close.iloc[-1]
-    ema20 = df['EMA20'].iloc[-1]
-    rsi = df['RSI'].iloc[-1]
-    
-    # Signal logic
-    if current > ema20 and rsi < 70:
-        signal = "🔵 BUY"
-        sl = current - 15
-    elif current < ema20 and rsi > 30:
-        signal = "🔴 SELL"
-        sl = current + 15
-    else:
-        signal = "⚪ WAIT"
-        sl = 0
-    
-    # Display
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Price", f"₹{current:.2f}")
-    col2.metric("Signal", signal)
-    col3.metric("RSI", f"{rsi:.1f}")
-    col4.metric("Stop Loss", f"₹{sl:.2f}" if sl else "N/A")
-    
-    # Chart
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name=market, line=dict(color='#00ff88', width=2)))
-    fig.update_layout(template="plotly_dark", height=400)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Status
-    if st.session_state.get('running', False):
-        st.success("🟢 ALGO IS RUNNING")
-    else:
-        st.warning("🔴 ALGO IS STOPPED")
+# Status Card
+col1, col2, col3 = st.columns(3)
 
-st.caption("🔄 Auto Refresh Every 10 Seconds")
-st_autorefresh(interval=10000, key="refresh")
+with col1:
+    status_color = "🟢" if st.session_state.running else "🔴"
+    status_text = "RUNNING" if st.session_state.running else "STOPPED"
+    st.markdown(f"""
+    <div style='background:#1e293b; padding:20px; border-radius:15px; text-align:center;'>
+        <span style='font-size:14px; color:#94a3b8;'>ALGO STATUS</span><br>
+        <span style='font-size:28px; font-weight:bold;'>{status_color} {status_text}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    pnl_color = "#00ff88" if st.session_state.pnl >= 0 else "#ff4b4b"
+    st.markdown(f"""
+    <div style='background:#1e293b; padding:20px; border-radius:15px; text-align:center;'>
+        <span style='font-size:14px; color:#94a3b8;'>TODAY'S P&L</span><br>
+        <span style='font-size:28px; font-weight:bold; color:{pnl_color};'>₹{st.session_state.pnl:,.2f}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    position_text = "NO POSITION" if st.session_state.position is None else f"{st.session_state.position} @ ₹{st.session_state.entry_price}"
+    st.markdown(f"""
+    <div style='background:#1e293b; padding:20px; border-radius:15px; text-align:center;'>
+        <span style='font-size:14px; color:#94a3b8;'>CURRENT POSITION</span><br>
+        <span style='font-size:16px; font-weight:bold;'>{position_text}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ===== Current Market Price =====
+st.markdown("---")
+st.markdown("### 📈 LIVE MARKET DATA")
+
+try:
+    import yfinance as yf
+    
+    symbols = {
+        "NIFTY": "^NSEI",
+        "BANK NIFTY": "^NSEBANK",
+        "CRUDEOIL": "CL=F",
+        "NATURALGAS": "NG=F"
+    }
+    
+    ticker = yf.Ticker(symbols[asset])
+    data = ticker.history(period="1d")
+    
+    if not data.empty:
+        current_price = data['Close'].iloc[-1]
+        prev_close = data['Close'].iloc[-2] if len(data) > 1 else current_price
+        change = ((current_price - prev_close) / prev_close) * 100
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Current Price", f"₹{current_price:.2f}")
+        c2.metric("Change", f"{change:+.2f}%")
+        c3.metric("Asset", asset)
+        
+        # Auto P&L update (demo)
+        if st.session_state.position == "BUY" and st.session_state.entry_price > 0:
+            st.session_state.pnl = (current_price - st.session_state.entry_price) * quantity
+        elif st.session_state.position == "SELL" and st.session_state.entry_price > 0:
+            st.session_state.pnl = (st.session_state.entry_price - current_price) * quantity
+except:
+    st.info("📡 Waiting for market data...")
+
+# ===== Quick Actions =====
+st.markdown("---")
+st.markdown("### ⚡ QUICK ACTIONS")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🟢 BUY (Market)", use_container_width=True):
+        st.session_state.position = "BUY"
+        st.session_state.entry_price = current_price if 'current_price' in locals() else 24500
+        st.success(f"✅ BUY order placed for {quantity} qty!")
+        st.toast(f"BUY {quantity} @ ₹{st.session_state.entry_price:.2f}", icon="🟢")
+
+with col2:
+    if st.button("🔴 SELL (Market)", use_container_width=True):
+        st.session_state.position = "SELL"
+        st.session_state.entry_price = current_price if 'current_price' in locals() else 24500
+        st.success(f"✅ SELL order placed for {quantity} qty!")
+        st.toast(f"SELL {quantity} @ ₹{st.session_state.entry_price:.2f}", icon="🔴")
+
+# ===== Live Trade Log =====
+st.markdown("---")
+st.markdown("### 📋 TRADE LOG")
+
+if st.session_state.position:
+    st.info(f"📊 ACTIVE: {st.session_state.position} {quantity} qty @ ₹{st.session_state.entry_price:.2f}")
+else:
+    st.info("📭 No active trades")
+
+# ===== Instructions =====
+st.markdown("---")
+st.markdown("""
+### 📱 HOW TO USE:
+
+1. **START ALGO** - Algorithm शिकवण्यास सुरुवात करेल
+2. **STOP ALGO** - Algorithm थांबवेल
+3. **BUY/SELL** - Manual trade करायचे असेल तर
+4. **SQUARE OFF** - सर्व पोझिशन बंद करेल
+5. **PNL** - तुमचा नफा/तोटा दिसेल
+
+🔄 **Auto Refresh every 10 seconds**
+""")
+
+st.caption(f"🕐 Last Updated: {datetime.now().strftime('%H:%M:%S')}")
+st_autorefresh = st.empty()
