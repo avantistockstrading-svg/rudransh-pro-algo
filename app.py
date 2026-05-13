@@ -190,31 +190,29 @@ try:
         auto_adjust=True
     )
 
-    if not data.empty:
+    if data is not None and not data.empty:
 
-        if "Close" in data.columns:
-
-            last_price = data["Close"].iloc[-1]
-
-            # SAFE FLOAT CONVERSION
-            if pd.notna(last_price):
-
-                price = float(last_price)
+        # Get last close price safely
+        last_close = data["Close"].iloc[-1]
+        
+        # Check if it's a valid number
+        if hasattr(last_close, 'iloc'):
+            last_close = last_close.iloc[-1]
+        
+        if pd.api.types.is_number(last_close):
+            price = float(last_close)
 
 except Exception as e:
-
-    st.warning(f"Live price error: {e}")
+    # Silent fail - use default price
+    pass
 
 # ================= PRICE DISPLAY =================
 try:
-
     st.markdown(
-        f"<div class='price'>₹{float(price):,.2f}</div>",
+        f"<div class='price'>₹{price:,.2f}</div>",
         unsafe_allow_html=True
     )
-
 except:
-
     st.markdown(
         "<div class='price'>₹0.00</div>",
         unsafe_allow_html=True
