@@ -1,184 +1,237 @@
 import streamlit as st
-import requests
-from datetime import datetime
 import pandas as pd
+import yfinance as yf
+from datetime import datetime
+import requests
 
-st.set_page_config(page_title="Rudransh Remote", layout="wide", page_icon="📱")
+st.set_page_config(page_title="Rudransh Algo", layout="wide", page_icon="📈")
 
-st.title("📱 RUDRANSH REMOTE CONTROL")
-st.markdown("### Mobile Trading Controller")
+# ===== Professional Mobile CSS =====
+st.markdown("""
+<style>
+    /* Main container */
+    .main {
+        padding: 0rem 0.5rem;
+    }
+    
+    /* Card style */
+    .stMetric {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 20px;
+        padding: 15px;
+        margin: 5px 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    /* Button style */
+    .stButton button {
+        background: linear-gradient(90deg, #00ff88, #00cc66);
+        color: black;
+        font-weight: bold;
+        font-size: 18px;
+        border-radius: 30px;
+        padding: 12px;
+        border: none;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 20px rgba(0,255,136,0.4);
+    }
+    
+    /* Stop button */
+    div[data-testid="column"]:nth-child(2) button {
+        background: linear-gradient(90deg, #ff4b4b, #cc0000);
+        color: white;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f0c29, #302b63, #24243e);
+        border-right: none;
+    }
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: white !important;
+        text-align: center;
+    }
+    
+    /* Status indicator */
+    .status-running {
+        background: linear-gradient(90deg, #00ff88, #00cc66);
+        color: black;
+        padding: 8px;
+        border-radius: 30px;
+        text-align: center;
+        font-weight: bold;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-stopped {
+        background: linear-gradient(90deg, #ff4b4b, #cc0000);
+        color: white;
+        padding: 8px;
+        border-radius: 30px;
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    /* P&L display */
+    .pnl-positive {
+        color: #00ff88;
+        font-size: 28px;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .pnl-negative {
+        color: #ff4b4b;
+        font-size: 28px;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    /* Price display */
+    .price {
+        font-size: 32px;
+        font-weight: bold;
+        text-align: center;
+        background: linear-gradient(90deg, #00ff88, #ffffff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .stMetric {
+            margin: 2px 0;
+            padding: 10px;
+        }
+        .stButton button {
+            font-size: 16px;
+            padding: 10px;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# ===== Session State for Demo =====
+# ===== Session State =====
 if "running" not in st.session_state:
     st.session_state.running = False
 if "pnl" not in st.session_state:
     st.session_state.pnl = 0
-if "position" not in st.session_state:
-    st.session_state.position = None
-if "entry_price" not in st.session_state:
-    st.session_state.entry_price = 0
 if "quantity" not in st.session_state:
     st.session_state.quantity = 65
+if "asset" not in st.session_state:
+    st.session_state.asset = "NIFTY"
 
-# ===== Sidebar - Controls =====
-with st.sidebar:
-    st.markdown("## 🎮 MAIN CONTROLS")
-    
-    # START / STOP buttons
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("▶️ START ALGO", use_container_width=True):
-            st.session_state.running = True
-            st.success("✅ Algo Started!")
-            st.toast("Algo is now RUNNING", icon="🟢")
-    
-    with col2:
-        if st.button("🛑 STOP ALGO", use_container_width=True):
-            st.session_state.running = False
-            st.warning("⏸️ Algo Stopped!")
-            st.toast("Algo is STOPPED", icon="🔴")
-    
-    st.markdown("---")
-    
-    # Quantity Selection
-    st.markdown("### 📊 POSITION SIZE")
-    asset = st.selectbox("Select Asset", ["NIFTY", "BANK NIFTY", "CRUDEOIL", "NATURALGAS"])
-    
-    lot_sizes = {
-        "NIFTY": 65,
-        "BANK NIFTY": 25,
-        "CRUDEOIL": 100,
-        "NATURALGAS": 1250
-    }
-    
-    lots = st.number_input("Number of Lots", min_value=1, max_value=10, value=1)
-    quantity = lots * lot_sizes[asset]
-    st.session_state.quantity = quantity
-    
-    st.metric("📦 Total Quantity", quantity)
-    
-    st.markdown("---")
-    
-    # SQUARE OFF button
-    st.markdown("### 🔴 TRADE CONTROL")
-    if st.button("🔴 SQUARE OFF ALL", use_container_width=True):
-        st.session_state.position = None
-        st.session_state.entry_price = 0
-        st.session_state.pnl = 0
-        st.error("✅ All positions SQUARED OFF!")
-        st.toast("All trades closed!", icon="🔴")
+# ===== Header =====
+st.markdown("<h1>📱 RUDRANSH PRO</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#94a3b8;'>Professional Trading Terminal</p>", unsafe_allow_html=True)
 
-# ===== Main Panel =====
 st.markdown("---")
 
-# Status Card
+# ===== Status Row =====
+col1, col2 = st.columns(2)
+
+with col1:
+    status_class = "status-running" if st.session_state.running else "status-stopped"
+    status_text = "🟢 RUNNING" if st.session_state.running else "🔴 STOPPED"
+    st.markdown(f"<div class='{status_class}'>{status_text}</div>", unsafe_allow_html=True)
+
+with col2:
+    pnl_class = "pnl-positive" if st.session_state.pnl >= 0 else "pnl-negative"
+    pnl_symbol = "+" if st.session_state.pnl >= 0 else ""
+    st.markdown(f"<div style='text-align:center;'><span style='color:#94a3b8;'>P&L</span><br><span class='{pnl_class}'>₹{pnl_symbol}{st.session_state.pnl:,.2f}</span></div>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# ===== Live Price =====
+try:
+    symbols = {"NIFTY": "^NSEI", "BANK NIFTY": "^NSEBANK", "CRUDEOIL": "CL=F", "NATURALGAS": "NG=F"}
+    ticker = yf.Ticker(symbols[st.session_state.asset])
+    data = ticker.history(period="1d")
+    if not data.empty:
+        price = data['Close'].iloc[-1]
+        st.markdown(f"<div class='price'>₹{price:,.2f}</div>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:center; color:#94a3b8;'>{st.session_state.asset} • LIVE</p>", unsafe_allow_html=True)
+except:
+    st.markdown(f"<div class='price'>₹23,412</div>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# ===== Control Buttons =====
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("▶️ START", use_container_width=True):
+        st.session_state.running = True
+        st.toast("Algo Started!", icon="✅")
+        st.rerun()
+
+with col2:
+    if st.button("⏹️ STOP", use_container_width=True):
+        st.session_state.running = False
+        st.toast("Algo Stopped!", icon="🛑")
+        st.rerun()
+
+st.markdown("---")
+
+# ===== Quick Actions =====
+st.markdown("<h3 style='font-size:18px;'>⚡ QUICK ACTIONS</h3>", unsafe_allow_html=True)
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    status_color = "🟢" if st.session_state.running else "🔴"
-    status_text = "RUNNING" if st.session_state.running else "STOPPED"
-    st.markdown(f"""
-    <div style='background:#1e293b; padding:20px; border-radius:15px; text-align:center;'>
-        <span style='font-size:14px; color:#94a3b8;'>ALGO STATUS</span><br>
-        <span style='font-size:28px; font-weight:bold;'>{status_color} {status_text}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    if st.button("🟢 BUY", use_container_width=True):
+        st.success(f"BUY {st.session_state.quantity} qty")
+        st.toast(f"BUY Order Placed!", icon="🟢")
 
 with col2:
-    pnl_color = "#00ff88" if st.session_state.pnl >= 0 else "#ff4b4b"
-    st.markdown(f"""
-    <div style='background:#1e293b; padding:20px; border-radius:15px; text-align:center;'>
-        <span style='font-size:14px; color:#94a3b8;'>TODAY'S P&L</span><br>
-        <span style='font-size:28px; font-weight:bold; color:{pnl_color};'>₹{st.session_state.pnl:,.2f}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    if st.button("🔴 SELL", use_container_width=True):
+        st.error(f"SELL {st.session_state.quantity} qty")
+        st.toast(f"SELL Order Placed!", icon="🔴")
 
 with col3:
-    position_text = "NO POSITION" if st.session_state.position is None else f"{st.session_state.position} @ ₹{st.session_state.entry_price}"
-    st.markdown(f"""
-    <div style='background:#1e293b; padding:20px; border-radius:15px; text-align:center;'>
-        <span style='font-size:14px; color:#94a3b8;'>CURRENT POSITION</span><br>
-        <span style='font-size:16px; font-weight:bold;'>{position_text}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    if st.button("🔲 SQ OFF", use_container_width=True):
+        st.session_state.pnl = 0
+        st.warning("All positions squared off!")
+        st.toast("All Trades Closed!", icon="✅")
 
-# ===== Current Market Price =====
 st.markdown("---")
-st.markdown("### 📈 LIVE MARKET DATA")
 
-try:
-    import yfinance as yf
-    
-    symbols = {
-        "NIFTY": "^NSEI",
-        "BANK NIFTY": "^NSEBANK",
-        "CRUDEOIL": "CL=F",
-        "NATURALGAS": "NG=F"
-    }
-    
-    ticker = yf.Ticker(symbols[asset])
-    data = ticker.history(period="1d")
-    
-    if not data.empty:
-        current_price = data['Close'].iloc[-1]
-        prev_close = data['Close'].iloc[-2] if len(data) > 1 else current_price
-        change = ((current_price - prev_close) / prev_close) * 100
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Current Price", f"₹{current_price:.2f}")
-        c2.metric("Change", f"{change:+.2f}%")
-        c3.metric("Asset", asset)
-        
-        # Auto P&L update (demo)
-        if st.session_state.position == "BUY" and st.session_state.entry_price > 0:
-            st.session_state.pnl = (current_price - st.session_state.entry_price) * quantity
-        elif st.session_state.position == "SELL" and st.session_state.entry_price > 0:
-            st.session_state.pnl = (st.session_state.entry_price - current_price) * quantity
-except:
-    st.info("📡 Waiting for market data...")
-
-# ===== Quick Actions =====
-st.markdown("---")
-st.markdown("### ⚡ QUICK ACTIONS")
+# ===== Settings =====
+st.markdown("<h3 style='font-size:18px;'>⚙️ SETTINGS</h3>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("🟢 BUY (Market)", use_container_width=True):
-        st.session_state.position = "BUY"
-        st.session_state.entry_price = current_price if 'current_price' in locals() else 24500
-        st.success(f"✅ BUY order placed for {quantity} qty!")
-        st.toast(f"BUY {quantity} @ ₹{st.session_state.entry_price:.2f}", icon="🟢")
+    asset = st.selectbox("Asset", ["NIFTY", "BANK NIFTY", "CRUDEOIL", "NATURALGAS"])
+    st.session_state.asset = asset
 
 with col2:
-    if st.button("🔴 SELL (Market)", use_container_width=True):
-        st.session_state.position = "SELL"
-        st.session_state.entry_price = current_price if 'current_price' in locals() else 24500
-        st.success(f"✅ SELL order placed for {quantity} qty!")
-        st.toast(f"SELL {quantity} @ ₹{st.session_state.entry_price:.2f}", icon="🔴")
+    lot_sizes = {"NIFTY": 65, "BANK NIFTY": 25, "CRUDEOIL": 100, "NATURALGAS": 1250}
+    lots = st.number_input("Lots", min_value=1, max_value=10, value=1)
+    st.session_state.quantity = lots * lot_sizes[asset]
 
-# ===== Live Trade Log =====
+st.markdown(f"<p style='text-align:center; color:#00ff88;'>📦 Quantity: {st.session_state.quantity}</p>", unsafe_allow_html=True)
+
 st.markdown("---")
-st.markdown("### 📋 TRADE LOG")
 
-if st.session_state.position:
-    st.info(f"📊 ACTIVE: {st.session_state.position} {quantity} qty @ ₹{st.session_state.entry_price:.2f}")
-else:
-    st.info("📭 No active trades")
-
-# ===== Instructions =====
-st.markdown("---")
-st.markdown("""
-### 📱 HOW TO USE:
-
-1. **START ALGO** - Algorithm शिकवण्यास सुरुवात करेल
-2. **STOP ALGO** - Algorithm थांबवेल
-3. **BUY/SELL** - Manual trade करायचे असेल तर
-4. **SQUARE OFF** - सर्व पोझिशन बंद करेल
-5. **PNL** - तुमचा नफा/तोटा दिसेल
-
-🔄 **Auto Refresh every 10 seconds**
-""")
-
-st.caption(f"🕐 Last Updated: {datetime.now().strftime('%H:%M:%S')}")
-st_autorefresh = st.empty()
+# ===== Footer =====
+st.caption(f"🕐 {datetime.now().strftime('%H:%M:%S')} • Auto Refresh")
