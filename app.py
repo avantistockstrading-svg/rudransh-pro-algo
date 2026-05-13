@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import pandas_ta as ta
 import plotly.graph_objects as go
 import yfinance as yf
 from datetime import datetime
@@ -22,25 +21,37 @@ SYMBOLS = {
 # Sidebar
 with st.sidebar:
     st.markdown("## 🚀 CONTROL")
+    
     if st.button("▶️ START"):
         st.session_state.running = True
-        st.success("Started")
+        st.success("Started!")
+    
     if st.button("🛑 STOP"):
         st.session_state.running = False
-        st.warning("Stopped")
+        st.warning("Stopped!")
     
+    st.markdown("---")
     market = st.selectbox("Select Asset", list(SYMBOLS.keys()))
 
 # Get data
 df = yf.download(SYMBOLS[market], period="2d", interval="5m", progress=False)
 
 if not df.empty:
-    # Calculate indicators
-    df['EMA9'] = ta.ema(df['Close'], 9)
-    df['EMA20'] = ta.ema(df['Close'], 20)
-    df['RSI'] = ta.rsi(df['Close'], 14)
+    # Calculate indicators manually (without pandas_ta)
+    close = df['Close']
     
-    current = df['Close'].iloc[-1]
+    # EMA 9 and EMA 20
+    df['EMA9'] = close.ewm(span=9, adjust=False).mean()
+    df['EMA20'] = close.ewm(span=20, adjust=False).mean()
+    
+    # RSI
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+    
+    current = close.iloc[-1]
     ema20 = df['EMA20'].iloc[-1]
     rsi = df['RSI'].iloc[-1]
     
@@ -69,7 +80,10 @@ if not df.empty:
     st.plotly_chart(fig, use_container_width=True)
     
     # Status
-    st.info("🟢 ALGO READY" if st.session_state.get('running', False) else "🔴 ALGO STOPPED")
+    if st.session_state.get('running', False):
+        st.success("🟢 ALGO IS RUNNING")
+    else:
+        st.warning("🔴 ALGO IS STOPPED")
 
 st.caption("🔄 Auto Refresh Every 10 Seconds")
 st_autorefresh(interval=10000, key="refresh")
