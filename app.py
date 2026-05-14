@@ -99,8 +99,7 @@ with st.sidebar:
     signal_mode = st.radio(
         "Select Trading Mode",
         ["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"],
-        index=["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"].index(st.session_state.signal_mode) if st.session_state.signal_mode in ["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"] else 0,
-        help="EARLY: Less conditions, More signals | STRICT: All conditions, Safe signals | BOTH: Combined"
+        index=0
     )
     st.session_state.signal_mode = signal_mode
     
@@ -189,7 +188,6 @@ def get_sector_symbol(ticker):
 # ================= Signal Calculation =================
 def calculate_signals():
     symbol = symbols[asset]
-    tp_sl = get_tp_sl(asset)
     
     # NIFTY data
     nifty_df = yf.download("^NSEI", period="7d", interval="5m", progress=False)
@@ -204,12 +202,12 @@ def calculate_signals():
     stock_df = yf.download(symbol, period="7d", interval="5m", progress=False)
     
     if stock_df.empty or len(stock_df) < 30:
-        return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0}
+        return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0, "ema20": price}
     
     stock_df.columns = [str(c).lower() for c in stock_df.columns]
     
     if 'close' not in stock_df.columns:
-        return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0}
+        return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0, "ema20": price}
     
     # ================= NIFTY Trend =================
     nifty_positive = False
@@ -233,7 +231,6 @@ def calculate_signals():
     
     # ================= Stock Calculations =================
     close = stock_df['close']
-    open_prices = stock_df['open'] if 'open' in stock_df.columns else close
     high = stock_df['high'] if 'high' in stock_df.columns else close
     low = stock_df['low'] if 'low' in stock_df.columns else close
     volume = stock_df['volume'] if 'volume' in stock_df.columns else pd.Series([1000000] * len(stock_df))
@@ -270,7 +267,7 @@ def calculate_signals():
     dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
     adx = dx.rolling(14).mean().iloc[-1] if len(dx) > 14 else 25
     
-    # Sideways (Pine Script: rsi >45 and rsi<55 and adx<20)
+    # Sideways
     current_rsi = rsi.iloc[-1]
     sideways = (45 < current_rsi < 55) and adx < 20
     
@@ -315,15 +312,15 @@ def calculate_signals():
     strong_bull_stock = (current_ema9 > current_ema20 and current_price > current_ema200 and current_rsi >= 60 and adx >= 25 and volume_filter and strong_bull and current_price > c1['high'])
     strong_bear_stock = (current_ema9 < current_ema20 and current_price < current_ema200 and current_rsi <= 40 and adx >= 25 and volume_filter and strong_bear and current_price < c1['low'])
     
-    # ================= EARLY CONDITIONS (Pine Script earlyBuy/earlySell) =================
+    # Early Conditions
     early_buy = (current_ema9 > current_ema20 and current_price > current_ema20 and strong_bull and current_rsi > 55 and nifty_positive)
     early_sell = (current_ema9 < current_ema20 and current_price < current_ema20 and strong_bear and current_rsi < 45 and nifty_negative)
     
-    # ================= STRICT CONDITIONS (Pine Script emaBuy/emaSell) =================
+    # Strict Conditions
     strict_buy = (nifty_positive and not nifty_negative and not sideways and sector_bullish and strong_bull_stock and trend5_up and trend15_up and trend1h_up and current_price > current_ema20)
     strict_sell = (nifty_negative and not nifty_positive and not sideways and sector_bearish and strong_bear_stock and not trend5_up and not trend15_up and not trend1h_up and current_price < current_ema20)
     
-    # ================= MODE BASED SIGNAL =================
+    # Mode based signal
     mode = st.session_state.signal_mode
     
     if "EARLY" in mode and "STRICT" not in mode and "BOTH" not in mode:
@@ -332,7 +329,7 @@ def calculate_signals():
     elif "STRICT" in mode and "EARLY" not in mode:
         buy_condition = strict_buy
         sell_condition = strict_sell
-    else:  # BOTH Mode
+    else:
         buy_condition = early_buy or strict_buy
         sell_condition = early_sell or strict_sell
     
