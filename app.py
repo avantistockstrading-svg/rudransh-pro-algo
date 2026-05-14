@@ -24,7 +24,7 @@ div[data-testid="column"]:nth-child(2) button { background: linear-gradient(90de
 .pnl-positive { color: #00ff88; font-size: 24px; font-weight: bold; text-align: center; }
 .pnl-negative { color: #ff4b4b; font-size: 24px; font-weight: bold; text-align: center; }
 .price { font-size: 32px; font-weight: bold; text-align: center; background: linear-gradient(90deg, #00ff88, #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.highlight { background-color: #1e293b; padding: 10px; border-radius: 10px; margin: 5px 0; }
+.loss-limit-hit { background: #ff0000; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,32 +53,78 @@ if "last_trade_time" not in st.session_state:
     st.session_state.last_trade_time = get_ist_now() - timedelta(minutes=10)
 if "nifty_trades" not in st.session_state:
     st.session_state.nifty_trades = 0
+if "nifty_buy_done" not in st.session_state:
+    st.session_state.nifty_buy_done = False
+if "nifty_sell_done" not in st.session_state:
+    st.session_state.nifty_sell_done = False
 if "crude_trades" not in st.session_state:
     st.session_state.crude_trades = 0
+if "crude_buy_done" not in st.session_state:
+    st.session_state.crude_buy_done = False
+if "crude_sell_done" not in st.session_state:
+    st.session_state.crude_sell_done = False
 if "ng_trades" not in st.session_state:
     st.session_state.ng_trades = 0
+if "ng_buy_done" not in st.session_state:
+    st.session_state.ng_buy_done = False
+if "ng_sell_done" not in st.session_state:
+    st.session_state.ng_sell_done = False
 if "last_trade_date" not in st.session_state:
     st.session_state.last_trade_date = get_ist_now().date()
 if "signal_mode" not in st.session_state:
-    st.session_state.signal_mode = "EARLY"
+    st.session_state.signal_mode = "STRICT"
+if "daily_loss" not in st.session_state:
+    st.session_state.daily_loss = 0
 
 # Reset daily trades (IST मध्ये)
 if get_ist_now().date() != st.session_state.last_trade_date:
     st.session_state.nifty_trades = 0
+    st.session_state.nifty_buy_done = False
+    st.session_state.nifty_sell_done = False
     st.session_state.crude_trades = 0
+    st.session_state.crude_buy_done = False
+    st.session_state.crude_sell_done = False
     st.session_state.ng_trades = 0
+    st.session_state.ng_buy_done = False
+    st.session_state.ng_sell_done = False
+    st.session_state.daily_loss = 0
+    st.session_state.pnl = 0
     st.session_state.last_trade_date = get_ist_now().date()
 
-# ================= Pine Script सारखी TP/SL Settings =================
+# ================= Settings as per your requirement =================
+MAX_DAILY_LOSS = 100000  # ₹1,00,000
+
+# ITM Settings
+ITM_SETTINGS = {
+    "NIFTY": {"itm_points": 100},
+    "CRUDEOIL": {"itm_points": 100},
+    "NATURALGAS": {"itm_points": 10}
+}
+
+# TP Booking Percentages
+TP_BOOKING = {
+    "tp1_percent": 50,
+    "tp2_percent": 25,
+    "tp3_percent": 25
+}
+
+# TP/SL Points
+TP_SL_POINTS = {
+    "NIFTY": {"sl": 20, "tp1": 10, "tp2": 20, "tp3": 30, "lot": 65},
+    "CRUDEOIL": {"sl": 30, "tp1": 15, "tp2": 10, "tp3": 20, "lot": 100},
+    "NATURALGAS": {"sl": 1.50, "tp1": 1, "tp2": 1.5, "tp3": 2, "lot": 1250}
+}
+
 def get_tp_sl(asset):
-    if asset == "NIFTY":
-        return {"sl": 20, "tp1": 10, "tp2": 20, "tp3": 30, "lot": 65}
-    elif asset == "CRUDEOIL":
-        return {"sl": 30, "tp1": 15, "tp2": 10, "tp3": 20, "lot": 100}
-    elif asset == "NATURALGAS":
-        return {"sl": 1.50, "tp1": 1, "tp2": 1.5, "tp3": 2, "lot": 1250}
+    return TP_SL_POINTS.get(asset, TP_SL_POINTS["NIFTY"])
+
+def get_itm_strike(price, asset):
+    """Calculate ITM strike price for options"""
+    itm_points = ITM_SETTINGS[asset]["itm_points"]
+    if asset == "NATURALGAS":
+        return round(price - itm_points, 1)
     else:
-        return {"sl": 10, "tp1": 5, "tp2": 10, "tp3": 15, "lot": 65}
+        return int(price - itm_points)
 
 # ================= Title =================
 st.markdown("<h1>📱 RUDRANSH PRO-ALGO</h1>", unsafe_allow_html=True)
@@ -105,17 +151,9 @@ with st.sidebar:
     signal_mode = st.radio(
         "Select Trading Mode",
         ["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"],
-        index=0
+        index=1
     )
     st.session_state.signal_mode = signal_mode
-    
-    # Mode Status Display
-    if "EARLY" in signal_mode and "STRICT" not in signal_mode and "BOTH" not in signal_mode:
-        st.info("🟢 EARLY MODE - Fast signals (Less conditions)")
-    elif "STRICT" in signal_mode and "EARLY" not in signal_mode:
-        st.info("🔴 STRICT MODE - Safe signals (All conditions)")
-    elif "BOTH" in signal_mode:
-        st.info("🟣 BOTH MODE - Mixed signals (Early + Strict)")
     
     st.markdown("---")
     
@@ -130,7 +168,7 @@ with st.sidebar:
     st.markdown(f"<p style='text-align:center; color:#00ff88;'>📦 Qty: {st.session_state.quantity}</p>", unsafe_allow_html=True)
 
 # ================= Status =================
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     if st.session_state.running:
         st.markdown("<div class='status-running'>🟢 RUNNING</div>", unsafe_allow_html=True)
@@ -139,6 +177,15 @@ with col1:
 with col2:
     color = "pnl-positive" if st.session_state.pnl >= 0 else "pnl-negative"
     st.markdown(f"<div style='text-align:center;'>P&L<br><span class='{color}'>₹{st.session_state.pnl:,.0f}</span></div>", unsafe_allow_html=True)
+with col3:
+    loss_color = "red" if st.session_state.daily_loss <= -MAX_DAILY_LOSS else "white"
+    st.markdown(f"<div style='text-align:center;'>Daily Loss<br><span style='color:{loss_color}; font-weight:bold;'>₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f}</span></div>", unsafe_allow_html=True)
+
+# Loss Limit Check
+loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
+
+if loss_limit_hit:
+    st.markdown(f"<div class='loss-limit-hit'>⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! TRADING STOPPED FOR TODAY ⚠️</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -153,7 +200,11 @@ try:
 except:
     pass
 
+# ITM Strike Price
+itm_strike = get_itm_strike(price, asset)
+
 st.markdown(f"<div class='price'>₹{price:,.2f}</div>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center; color:#ffaa00;'>🎯 ITM Strike: {itm_strike} (ITM: {ITM_SETTINGS[asset]['itm_points']} points)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= Sector Detection =================
@@ -215,7 +266,7 @@ def calculate_signals():
     if 'close' not in stock_df.columns:
         return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0, "ema20": price}
     
-    # ================= NIFTY Trend =================
+    # NIFTY Trend
     nifty_positive = False
     nifty_negative = False
     
@@ -225,7 +276,7 @@ def calculate_signals():
         nifty_positive = nifty_current > nifty_ema20
         nifty_negative = nifty_current < nifty_ema20
     
-    # ================= Sector Trend =================
+    # Sector Trend
     sector_bullish = False
     sector_bearish = False
     
@@ -235,7 +286,7 @@ def calculate_signals():
         sector_bullish = sector_current > sector_ema20
         sector_bearish = sector_current < sector_ema20
     
-    # ================= Stock Calculations =================
+    # Stock Calculations
     close = stock_df['close']
     high = stock_df['high'] if 'high' in stock_df.columns else close
     low = stock_df['low'] if 'low' in stock_df.columns else close
@@ -382,34 +433,15 @@ col2.metric("Signal", signals['signal'])
 col3.metric("RSI", f"{signals['rsi']:.1f}")
 col4.metric("Trend", signals['trend'])
 
-# Additional Info
 st.markdown("---")
-st.markdown("### 📊 Signal Conditions Status")
+st.markdown("### 🎯 TP/SL & Booking Settings")
 
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(f"**NIFTY Trend:** {'🟢 BULLISH' if signals.get('nifty_positive', False) else '🔴 BEARISH'}")
-    st.markdown(f"**Sector Trend:** {'🟢 BULLISH' if signals.get('sector_bullish', False) else '🔴 BEARISH'}")
-    st.markdown(f"**Sideways:** {'⚠️ YES' if signals.get('sideways', False) else '✅ NO'}")
-
-with col2:
-    st.markdown(f"**ADX:** {signals['adx']:.1f} {'✅' if signals['adx'] >= 25 else '❌'}")
-    st.markdown(f"**RSI:** {signals['rsi']:.1f}")
-    st.markdown(f"**Price vs EMA20:** {'🟢 ABOVE' if signals['price'] > signals['ema20'] else '🔴 BELOW'}")
-
-with col3:
-    st.markdown(f"**Early Buy Signal:** {'✅ READY' if signals.get('early_buy', False) else '❌ NO'}")
-    st.markdown(f"**Strict Buy Signal:** {'✅ READY' if signals.get('strict_buy', False) else '❌ NO'}")
-
-with col4:
-    mode_text = st.session_state.signal_mode
-    if "EARLY" in mode_text and "STRICT" not in mode_text:
-        st.markdown("**Active Mode:** 🟢 EARLY")
-    elif "STRICT" in mode_text:
-        st.markdown("**Active Mode:** 🔴 STRICT")
-    else:
-        st.markdown("**Active Mode:** 🟣 BOTH")
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("Stop Loss", f"{tp_sl['sl']}")
+col2.metric("TP1", f"{tp_sl['tp1']} ({TP_BOOKING['tp1_percent']}%)")
+col3.metric("TP2", f"{tp_sl['tp2']} ({TP_BOOKING['tp2_percent']}%)")
+col4.metric("TP3", f"{tp_sl['tp3']} ({TP_BOOKING['tp3_percent']}%)")
+col5.metric("ITM", f"{ITM_SETTINGS[asset]['itm_points']} pts")
 
 st.markdown("---")
 
@@ -419,11 +451,13 @@ with col1:
     if st.button("🟢 BUY", use_container_width=True):
         st.success(f"BUY {st.session_state.quantity} qty")
         st.session_state.pnl += 500
+        st.session_state.daily_loss += 500
         send_telegram(f"🔵 MANUAL BUY {st.session_state.asset} | Qty: {st.session_state.quantity}")
 with col2:
     if st.button("🔴 SELL", use_container_width=True):
         st.error(f"SELL {st.session_state.quantity} qty")
         st.session_state.pnl -= 500
+        st.session_state.daily_loss -= 500
         send_telegram(f"🔴 MANUAL SELL {st.session_state.asset} | Qty: {st.session_state.quantity}")
 with col3:
     if st.button("🔲 SQ OFF", use_container_width=True):
@@ -433,79 +467,106 @@ with col3:
 
 st.markdown("---")
 
-# ================= Auto Trade Execution (IST Market Hours) =================
+# ================= Trading Hours Check =================
 market_hours = False
 now = get_ist_now()
 
 if st.session_state.asset == "NIFTY":
-    # IST Market Hours: 9:15 AM to 3:30 PM
-    if 9 <= now.hour <= 15:
+    # NIFTY: 9:30 AM to 2:30 PM IST
+    if 9 <= now.hour <= 14:
         market_hours = True
     max_trades = 2
+    buy_done = st.session_state.nifty_buy_done
+    sell_done = st.session_state.nifty_sell_done
     trades_today = st.session_state.nifty_trades
 else:
-    # CRUDE/NG IST Hours: 6:00 PM to 11:00 PM
-    if 18 <= now.hour <= 23:
+    # CRUDE/NG: 6:00 PM to 10:30 PM IST
+    if 18 <= now.hour <= 22:
         market_hours = True
     max_trades = 2
+    buy_done = st.session_state.crude_buy_done if st.session_state.asset == "CRUDEOIL" else st.session_state.ng_buy_done
+    sell_done = st.session_state.crude_sell_done if st.session_state.asset == "CRUDEOIL" else st.session_state.ng_sell_done
     trades_today = st.session_state.crude_trades if st.session_state.asset == "CRUDEOIL" else st.session_state.ng_trades
 
-if st.session_state.running and market_hours and trades_today < max_trades:
-    if signals['buy']:
+# ================= Auto Trade Execution =================
+if st.session_state.running and market_hours and not loss_limit_hit and trades_today < max_trades:
+    
+    # BUY Signal - only if buy not done yet
+    if signals['buy'] and not buy_done and st.session_state.last_trade_side != "BUY":
         st.success(f"🚀 BUY SIGNAL at ₹{signals['price']:.2f}")
-        send_telegram(f"🔵 AUTO BUY {st.session_state.asset} | Qty: {st.session_state.quantity} | Price: ₹{signals['price']:.2f}")
+        send_telegram(f"🔵 AUTO BUY {st.session_state.asset} | Qty: {st.session_state.quantity} | Price: ₹{signals['price']:.2f} | ITM Strike: {itm_strike}")
         
         if st.session_state.asset == "NIFTY":
             st.session_state.nifty_trades += 1
+            st.session_state.nifty_buy_done = True
         elif st.session_state.asset == "CRUDEOIL":
             st.session_state.crude_trades += 1
+            st.session_state.crude_buy_done = True
         else:
             st.session_state.ng_trades += 1
+            st.session_state.ng_buy_done = True
         
         st.session_state.last_trade_side = "BUY"
         st.session_state.last_trade_time = get_ist_now()
         st.balloons()
     
-    elif signals['sell']:
+    # SELL Signal - only if sell not done yet
+    elif signals['sell'] and not sell_done and st.session_state.last_trade_side != "SELL":
         st.error(f"🔻 SELL SIGNAL at ₹{signals['price']:.2f}")
-        send_telegram(f"🔴 AUTO SELL {st.session_state.asset} | Qty: {st.session_state.quantity} | Price: ₹{signals['price']:.2f}")
+        send_telegram(f"🔴 AUTO SELL {st.session_state.asset} | Qty: {st.session_state.quantity} | Price: ₹{signals['price']:.2f} | ITM Strike: {itm_strike}")
         
         if st.session_state.asset == "NIFTY":
             st.session_state.nifty_trades += 1
+            st.session_state.nifty_sell_done = True
         elif st.session_state.asset == "CRUDEOIL":
             st.session_state.crude_trades += 1
+            st.session_state.crude_sell_done = True
         else:
             st.session_state.ng_trades += 1
+            st.session_state.ng_sell_done = True
         
         st.session_state.last_trade_side = "SELL"
         st.session_state.last_trade_time = get_ist_now()
 
 # ================= Status =================
 st.markdown("---")
-if st.session_state.running and market_hours:
+if loss_limit_hit:
+    st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
+elif st.session_state.running and market_hours:
     st.success(f"🟢 ALGO RUNNING | {st.session_state.signal_mode} | IST: {now.strftime('%H:%M:%S')}")
 elif not market_hours:
-    st.info("⏰ Market closed (IST). Algo will run during trading hours (9:15 AM - 3:30 PM for NIFTY, 6:00 PM - 11:00 PM for Commodities)")
+    if st.session_state.asset == "NIFTY":
+        st.info("⏰ NIFTY Market closed (IST: 9:30 AM - 2:30 PM)")
+    else:
+        st.info("⏰ Commodity Market closed (IST: 6:00 PM - 10:30 PM)")
 else:
     st.warning("🔴 ALGO STOPPED")
 
-# ================= TP/SL Info =================
+# ================= Daily Trades Status =================
 st.markdown("---")
-st.markdown("### 🎯 TP/SL Settings")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Stop Loss", f"{tp_sl['sl']}")
-col2.metric("Target 1", f"{tp_sl['tp1']}")
-col3.metric("Target 2", f"{tp_sl['tp2']}")
-col4.metric("Target 3", f"{tp_sl['tp3']}")
+st.markdown("### 📊 Daily Trades Status")
 
-# ================= Daily Trades =================
-st.markdown("---")
-st.markdown("### 📊 Daily Trades")
 col1, col2, col3 = st.columns(3)
-col1.metric("NIFTY", f"{st.session_state.nifty_trades}/2")
-col2.metric("CRUDE", f"{st.session_state.crude_trades}/2")
-col3.metric("NG", f"{st.session_state.ng_trades}/2")
+
+with col1:
+    st.markdown("**NIFTY**")
+    st.markdown(f"- Total Trades: {st.session_state.nifty_trades}/2")
+    st.markdown(f"- Buy Done: {'✅' if st.session_state.nifty_buy_done else '❌'}")
+    st.markdown(f"- Sell Done: {'✅' if st.session_state.nifty_sell_done else '❌'}")
+
+with col2:
+    st.markdown("**CRUDE OIL**")
+    st.markdown(f"- Total Trades: {st.session_state.crude_trades}/2")
+    st.markdown(f"- Buy Done: {'✅' if st.session_state.crude_buy_done else '❌'}")
+    st.markdown(f"- Sell Done: {'✅' if st.session_state.crude_sell_done else '❌'}")
+
+with col3:
+    st.markdown("**NATURAL GAS**")
+    st.markdown(f"- Total Trades: {st.session_state.ng_trades}/2")
+    st.markdown(f"- Buy Done: {'✅' if st.session_state.ng_buy_done else '❌'}")
+    st.markdown(f"- Sell Done: {'✅' if st.session_state.ng_sell_done else '❌'}")
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Auto Refresh every 60 seconds")
+st.markdown("---")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Auto Refresh every 60 seconds | Max Daily Loss: ₹{MAX_DAILY_LOSS:,.0f}")
 st_autorefresh(interval=60000, key="auto_refresh")
