@@ -12,21 +12,21 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_ist_now():
     return datetime.now(IST)
 
-# ================= MAX QUANTITY LIMIT FOR STOCKS =================
-MAX_QTY_LIMIT = 1500
+# ================= MAX QUANTITY LIMIT FOR STOCKS (Dropdown) =================
+MAX_QTY_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500]
 
-def calculate_trade_quantity(lot_size):
-    max_lots = MAX_QTY_LIMIT // lot_size
+def calculate_trade_quantity(lot_size, max_qty_limit):
+    max_lots = max_qty_limit // lot_size
     if max_lots < 1:
         max_lots = 1
     quantity = max_lots * lot_size
     return quantity, max_lots
 
-# ================= CORRECT SYMBOLS FOR INDIAN MARKET =================
+# ================= SYMBOLS (USD based for CRUDE/NG) =================
 SYMBOLS = {
     "NIFTY": "^NSEI",
-    "CRUDEOIL": "MCX:CRUDEOIL",
-    "NATURALGAS": "MCX:NATURALGAS"
+    "CRUDEOIL": "CL=F",
+    "NATURALGAS": "NG=F"
 }
 
 # ================= ASSET SPECIFIC LOT SIZES =================
@@ -42,6 +42,43 @@ FIXED_TP_SL = {
     "CRUDEOIL": {"sl": 30, "tp1": 15, "tp2": 20, "tp3": 25, "itm": 100},
     "NATURALGAS": {"sl": 1.50, "tp1": 1.00, "tp2": 1.50, "tp3": 2.00, "itm": 10}
 }
+
+# ================= USD/INR LIVE RATE =================
+def get_usd_inr_rate():
+    """Live USD/INR exchange rate fetch करते"""
+    try:
+        df = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
+        if df.empty:
+            df = yf.download("INR=X", period="1d", interval="5m", progress=False)
+        if not df.empty and 'Close' in df.columns:
+            rate = df['Close'].iloc[-1]
+            if isinstance(rate, pd.Series):
+                rate = float(rate.iloc[-1])
+            return rate
+    except:
+        pass
+    return 87.5  # Default fallback
+
+# ================= LIVE PRICE FUNCTIONS =================
+def get_live_price(symbol):
+    try:
+        df = yf.download(symbol, period="1d", interval="5m", progress=False)
+        if not df.empty and 'Close' in df.columns:
+            val = df['Close'].iloc[-1]
+            if isinstance(val, pd.Series):
+                val = float(val.iloc[-1]) if not val.empty else 0.0
+            return float(val)
+    except:
+        pass
+    return 0.0
+
+def get_live_price_inr(symbol):
+    """USD price ला live INR rate ने convert करते"""
+    price_usd = get_live_price(symbol)
+    if price_usd > 0:
+        usd_inr = get_usd_inr_rate()
+        return price_usd * usd_inr
+    return 0.0
 
 # ================= OPTION TP/SL BASED ON PREMIUM =================
 def get_option_tp_sl(entry_premium):
@@ -159,10 +196,12 @@ if "running" not in st.session_state:
     st.session_state.running = False
 if "lots" not in st.session_state:
     st.session_state.lots = 1
+if "max_qty_limit" not in st.session_state:
+    st.session_state.max_qty_limit = 1500
 if "stock_trades" not in st.session_state:
     st.session_state.stock_trades = {}
     for stock in FO_STOCKS:
-        qty, lots = calculate_trade_quantity(stock["lot"])
+        qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
         st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots}
 if "last_trade_date" not in st.session_state:
     st.session_state.last_trade_date = get_ist_now().date()
@@ -174,7 +213,7 @@ if "max_stocks_per_day" not in st.session_state:
 # Reset daily trades
 if get_ist_now().date() != st.session_state.last_trade_date:
     for stock in FO_STOCKS:
-        qty, lots = calculate_trade_quantity(stock["lot"])
+        qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
         st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots}
     st.session_state.daily_loss = 0
     st.session_state.last_trade_date = get_ist_now().date()
@@ -182,18 +221,6 @@ if get_ist_now().date() != st.session_state.last_trade_date:
 MAX_DAILY_LOSS = 100000
 
 # ================= Helper Functions =================
-def get_live_price(symbol):
-    try:
-        df = yf.download(symbol, period="1d", interval="5m", progress=False)
-        if not df.empty and 'Close' in df.columns:
-            val = df['Close'].iloc[-1]
-            if isinstance(val, pd.Series):
-                val = float(val.iloc[-1]) if not val.empty else 0.0
-            return float(val)
-    except:
-        pass
-    return 0.0
-
 def get_nifty_trend():
     try:
         df = yf.download("^NSEI", period="7d", interval="15m", progress=False)
@@ -335,6 +362,13 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("## 📊 POSITION SIZE")
     
+    # Max Quantity Limit Dropdown
+    st.session_state.max_qty_limit = st.selectbox(
+        "Max Quantity per Trade",
+        MAX_QTY_OPTIONS,
+        index=MAX_QTY_OPTIONS.index(st.session_state.max_qty_limit) if st.session_state.max_qty_limit in MAX_QTY_OPTIONS else 14
+    )
+    
     if "NIFTY" in asset_type:
         st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
         total_qty = st.session_state.lots * ASSET_LOT_SIZES["NIFTY"]
@@ -355,7 +389,7 @@ with st.sidebar:
         st.markdown(f"<div style='background:#1e293b; padding:10px; border-radius:10px;'><small>🎯 Fixed TP/SL: SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br><small>🎯 ITM Strike: {tp_sl['itm']} points</small></div>", unsafe_allow_html=True)
     else:
         st.session_state.max_stocks_per_day = st.number_input("Max Stocks per Day", min_value=1, max_value=len(FO_STOCKS), value=10)
-        st.markdown(f"**📦 Max Qty per Trade:** {MAX_QTY_LIMIT}")
+        st.markdown(f"**📦 Max Qty per Trade:** {st.session_state.max_qty_limit}")
         st.caption("Lot size नुसार auto quantity calculate होईल")
     
     st.markdown("---")
@@ -386,6 +420,8 @@ if "NIFTY" in asset_type:
     total_qty = st.session_state.lots * lot_size
     trading_hours = (9, 14)
     itm_points = 100
+    current_price = get_live_price(symbol)
+    
 elif "CRUDE" in asset_type:
     symbol = SYMBOLS["CRUDEOIL"]
     display_name = "CRUDE OIL"
@@ -394,6 +430,8 @@ elif "CRUDE" in asset_type:
     total_qty = st.session_state.lots * lot_size
     trading_hours = (18, 22)
     itm_points = 100
+    current_price = get_live_price_inr(symbol)
+    
 elif "NATURAL" in asset_type:
     symbol = SYMBOLS["NATURALGAS"]
     display_name = "NATURAL GAS"
@@ -402,12 +440,13 @@ elif "NATURAL" in asset_type:
     total_qty = st.session_state.lots * lot_size
     trading_hours = (18, 22)
     itm_points = 10
+    current_price = get_live_price_inr(symbol)
+    
 else:
     symbol = None
+    current_price = 0
 
 if "NIFTY" in asset_type or "CRUDE" in asset_type or "NATURAL" in asset_type:
-    current_price = get_live_price(symbol)
-    
     if current_price > 0:
         itm_strike = current_price - itm_points
         if display_name == "NATURAL GAS":
@@ -451,6 +490,12 @@ if "F&O" in asset_type:
     trades_done = sum([v["trades"] for v in st.session_state.stock_trades.values()])
     loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
     
+    # Update quantities based on new max_qty_limit
+    for stock in FO_STOCKS:
+        qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
+        st.session_state.stock_trades[stock["name"]]["quantity"] = qty
+        st.session_state.stock_trades[stock["name"]]["lots"] = lots
+    
     if loss_limit_hit:
         st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
     
@@ -485,7 +530,7 @@ if "F&O" in asset_type:
                     st.session_state.stock_trades[stock["name"]]["trades"] += 1
                     st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                     trades_done += 1
-                    send_telegram(f"🔵 AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
+                    send_telegram(f"🔵 PAPER BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
             elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
                 itm_strike = get_itm_strike(current_price, stock, "PE")
                 estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
@@ -495,7 +540,7 @@ if "F&O" in asset_type:
                     st.session_state.stock_trades[stock["name"]]["trades"] += 1
                     st.session_state.stock_trades[stock["name"]]["sell_done"] = True
                     trades_done += 1
-                    send_telegram(f"🔴 AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
+                    send_telegram(f"🔴 PAPER SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
         except:
             continue
     
@@ -528,7 +573,7 @@ loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 if loss_limit_hit:
     st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
 elif st.session_state.running:
-    st.success(f"🟢 ALGO RUNNING | {asset_type}")
+    st.success(f"🟢 ALGO RUNNING | {asset_type} (Paper Trading Mode)")
 else:
     st.warning("🔴 ALGO STOPPED")
 
@@ -546,4 +591,4 @@ if "F&O" in asset_type:
     st.dataframe(premium_table, use_container_width=True)
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Refresh manually for latest data")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Refresh manually for latest data | Paper Trading Mode")
