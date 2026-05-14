@@ -4,7 +4,7 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 
-st.set_page_config(page_title="Rudransh Pro-Algo - Real Trading System", layout="wide")
+st.set_page_config(page_title="Rudransh Pro-Algo - Complete Trading System", layout="wide")
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -38,9 +38,9 @@ ASSET_LOT_SIZES = {
 
 # ================= FIXED TP/SL SETTINGS =================
 FIXED_TP_SL = {
-    "NIFTY": {"sl": 30, "tp1": 15, "tp2": 22, "tp3": 30, "itm": 100},
-    "CRUDEOIL": {"sl": 30, "tp1": 15, "tp2": 20, "tp3": 25, "itm": 100},
-    "NATURALGAS": {"sl": 1.50, "tp1": 1.00, "tp2": 1.50, "tp3": 2.00, "itm": 10}
+    "NIFTY": {"sl": 30, "tp1": 15, "tp2": 22, "tp3": 30, "itm": 100, "strike_interval": 50},
+    "CRUDEOIL": {"sl": 30, "tp1": 15, "tp2": 20, "tp3": 25, "itm": 100, "strike_interval": 50},
+    "NATURALGAS": {"sl": 1.50, "tp1": 1.00, "tp2": 1.50, "tp3": 2.00, "itm": 10, "strike_interval": 5}
 }
 
 # ================= USD/INR LIVE RATE =================
@@ -78,7 +78,34 @@ def get_live_price_inr(symbol):
         return price_usd * usd_inr
     return 0.0
 
-# ================= OPTION TP/SL BASED ON PREMIUM =================
+# ================= ITM STRIKE CALCULATION =================
+def get_itm_strike(price, asset_type):
+    """Proper ITM strike calculation for NIFTY, CRUDE, NG"""
+    if price <= 0:
+        return 0
+    
+    settings = FIXED_TP_SL[asset_type]
+    itm_points = settings["itm"]
+    strike_interval = settings["strike_interval"]
+    
+    # Calculate target strike
+    target_strike = price - itm_points
+    
+    # Round to nearest strike interval
+    rounded_strike = round(target_strike / strike_interval) * strike_interval
+    
+    # For NG, strike interval is 5
+    if asset_type == "NATURALGAS":
+        rounded_strike = round(target_strike / strike_interval) * strike_interval
+    
+    if rounded_strike < 50:
+        rounded_strike = 50
+    
+    actual_itm = price - rounded_strike
+    
+    return int(rounded_strike), actual_itm
+
+# ================= OPTION TP/SL BASED ON PREMIUM (FOR STOCKS) =================
 def get_option_tp_sl(entry_premium):
     if entry_premium <= 50:
         return {"sl_percent": 30, "tp1_percent": 20, "tp2_percent": 40, "tp3_percent": 60}
@@ -291,7 +318,7 @@ def get_stock_trend(symbol):
         pass
     return "NEUTRAL"
 
-def get_itm_strike(price, stock, option_type="CE"):
+def get_stock_itm_strike(price, stock, option_type="CE"):
     if price <= 0:
         return 0
     itm_points = stock["itm"]
@@ -338,18 +365,61 @@ def send_telegram(msg):
 # ================= Trading Hours Check Functions =================
 def is_nifty_market_open():
     now = get_ist_now()
-    return 9 <= now.hour < 14  # 9:30 AM to 2:30 PM
+    return 9 <= now.hour < 14
 
 def is_commodity_market_open():
     now = get_ist_now()
-    return 18 <= now.hour < 22  # 6:00 PM to 10:30 PM
+    return 18 <= now.hour < 22
 
 def is_stock_market_open():
     now = get_ist_now()
-    return 9 <= now.hour < 14  # 9:30 AM to 2:30 PM
+    return 9 <= now.hour < 14
+
+# ================= Display Asset Section =================
+def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, total_qty, is_commodity=False):
+    if is_commodity:
+        current_price = get_live_price_inr(symbol)
+    else:
+        current_price = get_live_price(symbol)
+    
+    if current_price > 0:
+        strike, actual_itm = get_itm_strike(current_price, asset_type)
+    else:
+        strike = 0
+        actual_itm = 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric(f"📊 {display_name} Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
+    col2.metric(f"🎯 ITM Strike ({tp_sl['itm']} pts)", f"{strike} ({actual_itm:.1f} pts ITM)" if strike > 0 else "N/A")
+    col3.metric("📦 Quantity", total_qty)
+    col4.metric("🎯 TP/SL", f"SL: {tp_sl['sl']} | T1:{tp_sl['tp1']} T2:{tp_sl['tp2']} T3:{tp_sl['tp3']}")
+    
+    st.markdown("---")
+    
+    # Market hours info
+    if asset_type == "NIFTY":
+        market_open = is_nifty_market_open()
+        hours_text = "9:30 AM - 2:30 PM IST"
+    elif asset_type == "CRUDEOIL" or asset_type == "NATURALGAS":
+        market_open = is_commodity_market_open()
+        hours_text = "6:00 PM - 10:30 PM IST"
+    else:
+        market_open = False
+        hours_text = ""
+    
+    if market_open:
+        st.info(f"🟢 {display_name} Market OPEN | {hours_text}")
+        if st.session_state.running:
+            st.success(f"🟢 {display_name} ALGO ACTIVE")
+        else:
+            st.warning(f"🔴 {display_name} ALGO STOPPED (Press START ALL)")
+    else:
+        st.info(f"⏸️ {display_name} Market CLOSED | {hours_text}")
+    
+    st.markdown("---")
 
 # ================= UI =================
-st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Real Trading System</h1>", unsafe_allow_html=True)
+st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Trading System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | F&O STOCKS</p>", unsafe_allow_html=True)
 st.markdown("---")
 
@@ -418,95 +488,20 @@ st.markdown("---")
 # ================= NIFTY SECTION =================
 if st.session_state.enable_nifty:
     st.markdown("## 📊 NIFTY 50")
-    
-    symbol = SYMBOLS["NIFTY"]
-    tp_sl = FIXED_TP_SL["NIFTY"]
     total_qty = st.session_state.nifty_lots * ASSET_LOT_SIZES["NIFTY"]
-    current_price = get_live_price(symbol)
-    
-    if current_price > 0:
-        itm_strike = int(current_price - tp_sl["itm"])
-    else:
-        itm_strike = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("NIFTY Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
-    col3.metric("Quantity", total_qty)
-    col4.metric("SL", f"{tp_sl['sl']} | TP: {tp_sl['tp1']}/{tp_sl['tp2']}/{tp_sl['tp3']}")
-    
-    nifty_market_open = is_nifty_market_open()
-    if nifty_market_open:
-        st.info("🟢 NIFTY Market OPEN | 9:30 AM - 2:30 PM IST")
-        if st.session_state.running:
-            st.success("🟢 NIFTY ALGO ACTIVE")
-        else:
-            st.warning("🔴 NIFTY ALGO STOPPED (Press START ALL)")
-    else:
-        st.info("⏸️ NIFTY Market CLOSED | Trading Hours: 9:30 AM - 2:30 PM IST")
-    st.markdown("---")
+    display_asset_section("NIFTY", "NIFTY", SYMBOLS["NIFTY"], FIXED_TP_SL["NIFTY"], ASSET_LOT_SIZES["NIFTY"], total_qty, is_commodity=False)
 
 # ================= CRUDE OIL SECTION =================
 if st.session_state.enable_crude:
     st.markdown("## 🛢️ CRUDE OIL")
-    
-    symbol = SYMBOLS["CRUDEOIL"]
-    tp_sl = FIXED_TP_SL["CRUDEOIL"]
     total_qty = st.session_state.crude_lots * ASSET_LOT_SIZES["CRUDEOIL"]
-    current_price = get_live_price_inr(symbol)
-    
-    if current_price > 0:
-        itm_strike = int(current_price - tp_sl["itm"])
-    else:
-        itm_strike = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("CRUDE Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
-    col3.metric("Quantity", total_qty)
-    col4.metric("SL", f"{tp_sl['sl']} | TP: {tp_sl['tp1']}/{tp_sl['tp2']}/{tp_sl['tp3']}")
-    
-    crude_market_open = is_commodity_market_open()
-    if crude_market_open:
-        st.info("🟢 CRUDE Market OPEN | 6:00 PM - 10:30 PM IST")
-        if st.session_state.running:
-            st.success("🟢 CRUDE ALGO ACTIVE")
-        else:
-            st.warning("🔴 CRUDE ALGO STOPPED (Press START ALL)")
-    else:
-        st.info("⏸️ CRUDE Market CLOSED | Trading Hours: 6:00 PM - 10:30 PM IST")
-    st.markdown("---")
+    display_asset_section("CRUDEOIL", "CRUDE OIL", SYMBOLS["CRUDEOIL"], FIXED_TP_SL["CRUDEOIL"], ASSET_LOT_SIZES["CRUDEOIL"], total_qty, is_commodity=True)
 
 # ================= NATURAL GAS SECTION =================
 if st.session_state.enable_ng:
     st.markdown("## 🌿 NATURAL GAS")
-    
-    symbol = SYMBOLS["NATURALGAS"]
-    tp_sl = FIXED_TP_SL["NATURALGAS"]
     total_qty = st.session_state.ng_lots * ASSET_LOT_SIZES["NATURALGAS"]
-    current_price = get_live_price_inr(symbol)
-    
-    if current_price > 0:
-        itm_strike = round(current_price - tp_sl["itm"], 1)
-    else:
-        itm_strike = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("NG Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
-    col3.metric("Quantity", total_qty)
-    col4.metric("SL", f"{tp_sl['sl']} | TP: {tp_sl['tp1']}/{tp_sl['tp2']}/{tp_sl['tp3']}")
-    
-    ng_market_open = is_commodity_market_open()
-    if ng_market_open:
-        st.info("🟢 NG Market OPEN | 6:00 PM - 10:30 PM IST")
-        if st.session_state.running:
-            st.success("🟢 NG ALGO ACTIVE")
-        else:
-            st.warning("🔴 NG ALGO STOPPED (Press START ALL)")
-    else:
-        st.info("⏸️ NG Market CLOSED | Trading Hours: 6:00 PM - 10:30 PM IST")
-    st.markdown("---")
+    display_asset_section("NATURALGAS", "NATURAL GAS", SYMBOLS["NATURALGAS"], FIXED_TP_SL["NATURALGAS"], ASSET_LOT_SIZES["NATURALGAS"], total_qty, is_commodity=True)
 
 # ================= F&O STOCKS SECTION =================
 if st.session_state.enable_stocks and st.session_state.running:
@@ -551,7 +546,7 @@ if st.session_state.enable_stocks and st.session_state.running:
                 trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
                 
                 if nifty_trend == "BULLISH" and sector_bullish and stock_bullish and not trade_done:
-                    itm_strike = get_itm_strike(current_price, stock, "CE")
+                    itm_strike = get_stock_itm_strike(current_price, stock, "CE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "CE")
                     tp_sl_calc = calculate_option_targets(estimated_premium, trade_qty)
                     signals_found.append({"type": "BUY CE", "stock": stock["name"], "price": current_price, "itm_strike": itm_strike, "lots": trade_lots, "quantity": trade_qty, "itm_points": stock["itm"], "estimated_premium": estimated_premium, "tp_sl": tp_sl_calc})
@@ -561,7 +556,7 @@ if st.session_state.enable_stocks and st.session_state.running:
                         trades_done += 1
                         send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
                 elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
-                    itm_strike = get_itm_strike(current_price, stock, "PE")
+                    itm_strike = get_stock_itm_strike(current_price, stock, "PE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
                     tp_sl_calc = calculate_option_targets(estimated_premium, trade_qty)
                     signals_found.append({"type": "SELL PE", "stock": stock["name"], "price": current_price, "itm_strike": itm_strike, "lots": trade_lots, "quantity": trade_qty, "itm_points": stock["itm"], "estimated_premium": estimated_premium, "tp_sl": tp_sl_calc})
@@ -624,6 +619,20 @@ with col2:
 with col3:
     st.markdown("**NATURAL GAS**")
     st.markdown(f"SL: {FIXED_TP_SL['NATURALGAS']['sl']} | TP1: {FIXED_TP_SL['NATURALGAS']['tp1']} | TP2: {FIXED_TP_SL['NATURALGAS']['tp2']} | TP3: {FIXED_TP_SL['NATURALGAS']['tp3']}")
+
+# ================= ITM Strike Info =================
+st.markdown("---")
+st.markdown("### 🎯 ITM Strike Calculation")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("**NIFTY**")
+    st.markdown(f"ITM Points: {FIXED_TP_SL['NIFTY']['itm']} | Strike Interval: {FIXED_TP_SL['NIFTY']['strike_interval']}")
+with col2:
+    st.markdown("**CRUDE OIL**")
+    st.markdown(f"ITM Points: {FIXED_TP_SL['CRUDEOIL']['itm']} | Strike Interval: {FIXED_TP_SL['CRUDEOIL']['strike_interval']}")
+with col3:
+    st.markdown("**NATURAL GAS**")
+    st.markdown(f"ITM Points: {FIXED_TP_SL['NATURALGAS']['itm']} | Strike Interval: {FIXED_TP_SL['NATURALGAS']['strike_interval']}")
 
 # ================= Clock =================
 st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | REAL TRADING MODE | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30")
