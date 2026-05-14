@@ -3,7 +3,6 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
-from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Rudransh Pro-Algo - Complete Trading System", layout="wide")
 
@@ -691,5 +690,4 @@ if "F&O" in asset_type:
     st.dataframe(premium_table, use_container_width=True)
 
 # Clock
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Auto Refresh every 60 seconds")
-st_autorefresh(interval=60000, key="auto_refresh")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Refresh manually for latest data")
