@@ -12,7 +12,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_ist_now():
     return datetime.now(IST)
 
-# ================= MAX QUANTITY LIMIT FOR STOCKS (Dropdown) =================
+# ================= MAX QUANTITY LIMIT FOR STOCKS =================
 MAX_QTY_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500]
 
 def calculate_trade_quantity(lot_size, max_qty_limit):
@@ -22,7 +22,7 @@ def calculate_trade_quantity(lot_size, max_qty_limit):
     quantity = max_lots * lot_size
     return quantity, max_lots
 
-# ================= SYMBOLS (USD based for CRUDE/NG) =================
+# ================= SYMBOLS =================
 SYMBOLS = {
     "NIFTY": "^NSEI",
     "CRUDEOIL": "CL=F",
@@ -129,49 +129,34 @@ def calculate_option_targets(entry_premium, quantity):
 
 # ================= F&O Stocks List =================
 FO_STOCKS = [
-    {"symbol": "ADANIENT.NS", "lot": 250, "itm": 50, "name": "ADANI ENTERPRISES", "sector": "ENERGY"},
-    {"symbol": "SOLAR.NS", "lot": 200, "itm": 50, "name": "SOLAR INDUSTRIES", "sector": "CHEMICALS"},
-    {"symbol": "MCX.NS", "lot": 150, "itm": 50, "name": "MCX INDIA", "sector": "FINANCE"},
-    {"symbol": "HAL.NS", "lot": 150, "itm": 20, "name": "HAL", "sector": "DEFENCE"},
-    {"symbol": "M&M.NS", "lot": 500, "itm": 25, "name": "MAHINDRA", "sector": "AUTO"},
-    {"symbol": "BAJFINANCE.NS", "lot": 250, "itm": 100, "name": "BAJAJ FINANCE", "sector": "FINANCE"},
-    {"symbol": "BHARTIARTL.NS", "lot": 700, "itm": 10, "name": "BHARTI AIRTEL", "sector": "TELECOM"},
-    {"symbol": "PERSISTENT.NS", "lot": 200, "itm": 100, "name": "PERSISTENT", "sector": "IT"},
-    {"symbol": "BSE.NS", "lot": 200, "itm": 50, "name": "BSE INDIA", "sector": "FINANCE"},
-    {"symbol": "DIXON.NS", "lot": 150, "itm": 100, "name": "DIXON", "sector": "CONSUMER"},
-    {"symbol": "CIPLA.NS", "lot": 400, "itm": 20, "name": "CIPLA", "sector": "PHARMA"},
-    {"symbol": "ASIANPAINT.NS", "lot": 300, "itm": 100, "name": "ASIAN PAINTS", "sector": "CONSUMER"},
-    {"symbol": "INDIGO.NS", "lot": 200, "itm": 50, "name": "INDIGO", "sector": "AUTO"},
-    {"symbol": "ADANIPORTS.NS", "lot": 350, "itm": 25, "name": "ADANI PORTS", "sector": "ENERGY"},
-    {"symbol": "HINDUNILVR.NS", "lot": 400, "itm": 100, "name": "HUL", "sector": "FMCG"},
-    {"symbol": "ICICIBANK.NS", "lot": 550, "itm": 25, "name": "ICICI BANK", "sector": "BANK"},
-    {"symbol": "JSWSTEEL.NS", "lot": 600, "itm": 10, "name": "JSW STEEL", "sector": "METAL"},
-    {"symbol": "ULTRACEMCO.NS", "lot": 200, "itm": 100, "name": "ULTRATECH", "sector": "INFRA"},
-    {"symbol": "COFORGE.NS", "lot": 150, "itm": 100, "name": "COFORGE", "sector": "IT"},
-    {"symbol": "APOLLOHOSP.NS", "lot": 200, "itm": 50, "name": "APOLLO HOSPITAL", "sector": "HEALTHCARE"},
-    {"symbol": "POLYCAB.NS", "lot": 150, "itm": 50, "name": "POLYCAB", "sector": "INFRA"},
-    {"symbol": "KEI.NS", "lot": 200, "itm": 50, "name": "KEI", "sector": "INFRA"},
-    {"symbol": "MAZDOCK.NS", "lot": 150, "itm": 20, "name": "MAZAGON DOCK", "sector": "DEFENCE"},
     {"symbol": "RELIANCE.NS", "lot": 250, "itm": 50, "name": "RELIANCE", "sector": "ENERGY"},
     {"symbol": "TCS.NS", "lot": 150, "itm": 100, "name": "TCS", "sector": "IT"},
     {"symbol": "HDFCBANK.NS", "lot": 500, "itm": 50, "name": "HDFC BANK", "sector": "BANK"},
     {"symbol": "INFY.NS", "lot": 200, "itm": 100, "name": "INFOSYS", "sector": "IT"},
+    {"symbol": "ICICIBANK.NS", "lot": 550, "itm": 25, "name": "ICICI BANK", "sector": "BANK"},
     {"symbol": "SBIN.NS", "lot": 450, "itm": 25, "name": "SBI", "sector": "BANK"},
+    {"symbol": "BHARTIARTL.NS", "lot": 700, "itm": 10, "name": "BHARTI AIRTEL", "sector": "TELECOM"},
     {"symbol": "KOTAKBANK.NS", "lot": 450, "itm": 50, "name": "KOTAK BANK", "sector": "BANK"},
+    {"symbol": "BAJFINANCE.NS", "lot": 250, "itm": 100, "name": "BAJAJ FINANCE", "sector": "FINANCE"},
     {"symbol": "ITC.NS", "lot": 800, "itm": 10, "name": "ITC", "sector": "FMCG"},
-    {"symbol": "AXISBANK.NS", "lot": 500, "itm": 25, "name": "AXIS BANK", "sector": "BANK"},
-    {"symbol": "WIPRO.NS", "lot": 600, "itm": 40, "name": "WIPRO", "sector": "IT"},
-    {"symbol": "HCLTECH.NS", "lot": 300, "itm": 100, "name": "HCL TECH", "sector": "IT"},
-    {"symbol": "SUNPHARMA.NS", "lot": 400, "itm": 20, "name": "SUN PHARMA", "sector": "PHARMA"},
-    {"symbol": "MARUTI.NS", "lot": 150, "itm": 100, "name": "MARUTI", "sector": "AUTO"},
+    {"symbol": "HINDUNILVR.NS", "lot": 400, "itm": 100, "name": "HUL", "sector": "FMCG"},
     {"symbol": "TATAMOTORS.NS", "lot": 350, "itm": 10, "name": "TATA MOTORS", "sector": "AUTO"},
     {"symbol": "TATASTEEL.NS", "lot": 600, "itm": 10, "name": "TATA STEEL", "sector": "METAL"},
-    {"symbol": "POWERGRID.NS", "lot": 1200, "itm": 10, "name": "POWER GRID", "sector": "ENERGY"},
+    {"symbol": "AXISBANK.NS", "lot": 500, "itm": 25, "name": "AXIS BANK", "sector": "BANK"},
+    {"symbol": "MARUTI.NS", "lot": 150, "itm": 100, "name": "MARUTI", "sector": "AUTO"},
+    {"symbol": "SUNPHARMA.NS", "lot": 400, "itm": 20, "name": "SUN PHARMA", "sector": "PHARMA"},
+    {"symbol": "WIPRO.NS", "lot": 600, "itm": 40, "name": "WIPRO", "sector": "IT"},
+    {"symbol": "HCLTECH.NS", "lot": 300, "itm": 100, "name": "HCL TECH", "sector": "IT"},
     {"symbol": "NTPC.NS", "lot": 1500, "itm": 10, "name": "NTPC", "sector": "ENERGY"},
+    {"symbol": "POWERGRID.NS", "lot": 1200, "itm": 10, "name": "POWER GRID", "sector": "ENERGY"},
     {"symbol": "ONGC.NS", "lot": 1500, "itm": 10, "name": "ONGC", "sector": "ENERGY"},
+    {"symbol": "M&M.NS", "lot": 500, "itm": 25, "name": "M&M", "sector": "AUTO"},
+    {"symbol": "ULTRACEMCO.NS", "lot": 200, "itm": 100, "name": "ULTRATECH", "sector": "INFRA"},
     {"symbol": "NESTLEIND.NS", "lot": 100, "itm": 200, "name": "NESTLE", "sector": "FMCG"},
+    {"symbol": "JSWSTEEL.NS", "lot": 600, "itm": 10, "name": "JSW STEEL", "sector": "METAL"},
     {"symbol": "TECHM.NS", "lot": 400, "itm": 50, "name": "TECH MAHINDRA", "sector": "IT"},
     {"symbol": "BAJAJFINSV.NS", "lot": 250, "itm": 100, "name": "BAJAJ FINSERV", "sector": "FINANCE"},
+    {"symbol": "ASIANPAINT.NS", "lot": 300, "itm": 100, "name": "ASIAN PAINTS", "sector": "CONSUMER"},
     {"symbol": "GRASIM.NS", "lot": 200, "itm": 50, "name": "GRASIM", "sector": "INFRA"},
     {"symbol": "INDUSINDBK.NS", "lot": 350, "itm": 50, "name": "INDUSIND BANK", "sector": "BANK"},
     {"symbol": "BRITANNIA.NS", "lot": 300, "itm": 50, "name": "BRITANNIA", "sector": "FMCG"},
@@ -179,6 +164,9 @@ FO_STOCKS = [
     {"symbol": "SBILIFE.NS", "lot": 300, "itm": 50, "name": "SBI LIFE", "sector": "FINANCE"},
     {"symbol": "DRREDDY.NS", "lot": 200, "itm": 100, "name": "DR REDDY", "sector": "PHARMA"},
     {"symbol": "DIVISLAB.NS", "lot": 200, "itm": 100, "name": "DIVIS LAB", "sector": "PHARMA"},
+    {"symbol": "HAL.NS", "lot": 150, "itm": 20, "name": "HAL", "sector": "DEFENCE"},
+    {"symbol": "ADANIENT.NS", "lot": 250, "itm": 50, "name": "ADANI ENTERPRISES", "sector": "ENERGY"},
+    {"symbol": "ADANIPORTS.NS", "lot": 350, "itm": 25, "name": "ADANI PORTS", "sector": "ENERGY"},
 ]
 
 # ================= Sector Mapping =================
@@ -186,14 +174,26 @@ SECTOR_INDEX = {
     "BANK": "^NSEBANK", "IT": "^CNXIT", "AUTO": "^CNXAUTO", "PHARMA": "^CNXPHARMA",
     "METAL": "^CNXMETAL", "FMCG": "^CNXFMCG", "FINANCE": "^CNXFINANCE", "ENERGY": "^CNXENERGY",
     "INFRA": "^CNXINFRA", "DEFENCE": "^CNXINFRA", "HEALTHCARE": "^NIFTY_HEALTHCARE",
-    "CONSUMER": "^NIFTY_CONSR_DURBL", "TELECOM": "^CNXIT", "CHEMICALS": "^CNXINFRA",
+    "CONSUMER": "^NIFTY_CONSR_DURBL", "TELECOM": "^CNXIT",
 }
 
 # ================= Session State =================
 if "running" not in st.session_state:
     st.session_state.running = False
-if "lots" not in st.session_state:
-    st.session_state.lots = 1
+if "enable_nifty" not in st.session_state:
+    st.session_state.enable_nifty = True
+if "enable_crude" not in st.session_state:
+    st.session_state.enable_crude = True
+if "enable_ng" not in st.session_state:
+    st.session_state.enable_ng = True
+if "enable_stocks" not in st.session_state:
+    st.session_state.enable_stocks = True
+if "nifty_lots" not in st.session_state:
+    st.session_state.nifty_lots = 1
+if "crude_lots" not in st.session_state:
+    st.session_state.crude_lots = 1
+if "ng_lots" not in st.session_state:
+    st.session_state.ng_lots = 1
 if "max_qty_limit" not in st.session_state:
     st.session_state.max_qty_limit = 1500
 if "stock_trades" not in st.session_state:
@@ -337,70 +337,61 @@ def send_telegram(msg):
 
 # ================= UI =================
 st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Real Trading System</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | 50+ F&O Stocks</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | F&O STOCKS</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Sidebar
 with st.sidebar:
     st.markdown("## 🎮 CONTROLS")
+    
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("▶️ START", use_container_width=True):
+        if st.button("▶️ START ALL", use_container_width=True):
             st.session_state.running = True
-            send_telegram("🤖 REAL TRADING ALGO STARTED")
-            st.success("Real Trading Started!")
+            send_telegram("🤖 ALL ALGOS STARTED")
+            st.success("All Algos Started!")
     with col2:
-        if st.button("⏹️ STOP", use_container_width=True):
+        if st.button("⏹️ STOP ALL", use_container_width=True):
             st.session_state.running = False
-            send_telegram("🛑 REAL TRADING ALGO STOPPED")
-            st.warning("Trading Stopped!")
+            send_telegram("🛑 ALL ALGOS STOPPED")
+            st.warning("All Algos Stopped!")
     
     st.markdown("---")
-    st.markdown("## 📌 ASSET SELECTION")
-    asset_type = st.radio("Select Asset Type", ["📊 NIFTY", "🛢️ CRUDE OIL", "🌿 NATURAL GAS", "📈 F&O STOCKS (50+)"], index=0)
+    st.markdown("## 📌 ASSET SELECTION (ON/OFF)")
     
-    st.markdown("---")
-    st.markdown("## 📊 POSITION SIZE")
+    st.session_state.enable_nifty = st.checkbox("📊 NIFTY", value=st.session_state.enable_nifty)
+    if st.session_state.enable_nifty:
+        st.session_state.nifty_lots = st.number_input("NIFTY Lots", min_value=1, max_value=50, value=st.session_state.nifty_lots)
     
-    # Max Quantity Limit Dropdown
-    st.session_state.max_qty_limit = st.selectbox(
-        "Max Quantity per Trade",
-        MAX_QTY_OPTIONS,
-        index=MAX_QTY_OPTIONS.index(st.session_state.max_qty_limit) if st.session_state.max_qty_limit in MAX_QTY_OPTIONS else 14
-    )
+    st.session_state.enable_crude = st.checkbox("🛢️ CRUDE OIL", value=st.session_state.enable_crude)
+    if st.session_state.enable_crude:
+        st.session_state.crude_lots = st.number_input("CRUDE Lots", min_value=1, max_value=50, value=st.session_state.crude_lots)
     
-    if "NIFTY" in asset_type:
-        st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
-        total_qty = st.session_state.lots * ASSET_LOT_SIZES["NIFTY"]
-        st.markdown(f"**📦 Total Quantity:** {total_qty}")
-        tp_sl = FIXED_TP_SL["NIFTY"]
-        st.markdown(f"<div style='background:#1e293b; padding:10px; border-radius:10px;'><small>🎯 Fixed TP/SL: SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br><small>🎯 ITM Strike: {tp_sl['itm']} points</small></div>", unsafe_allow_html=True)
-    elif "CRUDE" in asset_type:
-        st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
-        total_qty = st.session_state.lots * ASSET_LOT_SIZES["CRUDEOIL"]
-        st.markdown(f"**📦 Total Quantity:** {total_qty}")
-        tp_sl = FIXED_TP_SL["CRUDEOIL"]
-        st.markdown(f"<div style='background:#1e293b; padding:10px; border-radius:10px;'><small>🎯 Fixed TP/SL: SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br><small>🎯 ITM Strike: {tp_sl['itm']} points</small></div>", unsafe_allow_html=True)
-    elif "NATURAL" in asset_type:
-        st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
-        total_qty = st.session_state.lots * ASSET_LOT_SIZES["NATURALGAS"]
-        st.markdown(f"**📦 Total Quantity:** {total_qty}")
-        tp_sl = FIXED_TP_SL["NATURALGAS"]
-        st.markdown(f"<div style='background:#1e293b; padding:10px; border-radius:10px;'><small>🎯 Fixed TP/SL: SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br><small>🎯 ITM Strike: {tp_sl['itm']} points</small></div>", unsafe_allow_html=True)
-    else:
-        st.session_state.max_stocks_per_day = st.number_input("Max Stocks per Day", min_value=1, max_value=len(FO_STOCKS), value=10)
-        st.markdown(f"**📦 Max Qty per Trade:** {st.session_state.max_qty_limit}")
-        st.caption("Lot size नुसार auto quantity calculate होईल")
+    st.session_state.enable_ng = st.checkbox("🌿 NATURAL GAS", value=st.session_state.enable_ng)
+    if st.session_state.enable_ng:
+        st.session_state.ng_lots = st.number_input("NG Lots", min_value=1, max_value=50, value=st.session_state.ng_lots)
+    
+    st.session_state.enable_stocks = st.checkbox("📈 F&O STOCKS (50+)", value=st.session_state.enable_stocks)
+    if st.session_state.enable_stocks:
+        st.session_state.max_stocks_per_day = st.number_input("Max Stocks per Day", min_value=1, max_value=50, value=st.session_state.max_stocks_per_day)
+        st.session_state.max_qty_limit = st.selectbox("Max Quantity per Trade", MAX_QTY_OPTIONS, index=MAX_QTY_OPTIONS.index(st.session_state.max_qty_limit) if st.session_state.max_qty_limit in MAX_QTY_OPTIONS else 14)
     
     st.markdown("---")
     st.markdown("### 📊 Daily Status")
-    if "F&O" in asset_type:
-        total_trades = sum([v["trades"] for v in st.session_state.stock_trades.values()])
-        st.metric("Stocks Traded", f"{total_trades}/{st.session_state.max_stocks_per_day}")
+    
+    # Update stock quantities
+    if st.session_state.enable_stocks:
+        for stock in FO_STOCKS:
+            qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
+            st.session_state.stock_trades[stock["name"]]["quantity"] = qty
+            st.session_state.stock_trades[stock["name"]]["lots"] = lots
+        total_stocks_traded = sum([v["trades"] for v in st.session_state.stock_trades.values()])
+        st.metric("Stocks Traded", f"{total_stocks_traded}/{st.session_state.max_stocks_per_day}")
+    
     loss_color = "red" if st.session_state.daily_loss <= -MAX_DAILY_LOSS else "white"
     st.markdown(f"**Daily Loss:** <span style='color:{loss_color};'>₹{abs(st.session_state.daily_loss):,.0f}</span>", unsafe_allow_html=True)
 
-# NIFTY Trend
+# NIFTY Trend (Common for all)
 nifty_trend = get_nifty_trend()
 if nifty_trend == "BULLISH":
     st.success(f"🇮🇳 NIFTY TREND: BULLISH 🟢")
@@ -411,77 +402,100 @@ else:
 
 st.markdown("---")
 
-# ================= NIFTY, CRUDE, NG SECTION =================
-if "NIFTY" in asset_type:
+# ================= NIFTY SECTION =================
+if st.session_state.enable_nifty and st.session_state.running:
+    st.markdown("## 📊 NIFTY 50")
+    
     symbol = SYMBOLS["NIFTY"]
-    display_name = "NIFTY"
     tp_sl = FIXED_TP_SL["NIFTY"]
-    lot_size = ASSET_LOT_SIZES["NIFTY"]
-    total_qty = st.session_state.lots * lot_size
-    trading_hours = (9, 14)
-    itm_points = 100
+    total_qty = st.session_state.nifty_lots * ASSET_LOT_SIZES["NIFTY"]
     current_price = get_live_price(symbol)
     
-elif "CRUDE" in asset_type:
-    symbol = SYMBOLS["CRUDEOIL"]
-    display_name = "CRUDE OIL"
-    tp_sl = FIXED_TP_SL["CRUDEOIL"]
-    lot_size = ASSET_LOT_SIZES["CRUDEOIL"]
-    total_qty = st.session_state.lots * lot_size
-    trading_hours = (18, 22)
-    itm_points = 100
-    current_price = get_live_price_inr(symbol)
-    
-elif "NATURAL" in asset_type:
-    symbol = SYMBOLS["NATURALGAS"]
-    display_name = "NATURAL GAS"
-    tp_sl = FIXED_TP_SL["NATURALGAS"]
-    lot_size = ASSET_LOT_SIZES["NATURALGAS"]
-    total_qty = st.session_state.lots * lot_size
-    trading_hours = (18, 22)
-    itm_points = 10
-    current_price = get_live_price_inr(symbol)
-    
-else:
-    symbol = None
-    current_price = 0
-
-if "NIFTY" in asset_type or "CRUDE" in asset_type or "NATURAL" in asset_type:
     if current_price > 0:
-        itm_strike = current_price - itm_points
-        if display_name == "NATURAL GAS":
-            itm_strike = round(itm_strike, 1)
-        else:
-            itm_strike = int(itm_strike)
+        itm_strike = int(current_price - tp_sl["itm"])
     else:
         itm_strike = 0
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric(f"📊 {display_name} Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"🎯 ITM Strike ({itm_points} pts)", f"{itm_strike}")
-    col3.metric("📦 Quantity", total_qty)
-    col4.metric("🎯 Signal", "WAIT")
+    col1.metric("NIFTY Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
+    col2.metric(f"ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
+    col3.metric("Quantity", total_qty)
+    col4.metric("SL", f"{tp_sl['sl']} | TP: {tp_sl['tp1']}/{tp_sl['tp2']}/{tp_sl['tp3']}")
     
-    st.markdown("---")
-    st.markdown("### 🎯 Fixed TP/SL Settings")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Stop Loss", f"{tp_sl['sl']}")
-    col2.metric("Target 1", f"{tp_sl['tp1']} (50%)")
-    col3.metric("Target 2", f"{tp_sl['tp2']} (25%)")
-    col4.metric("Target 3", f"{tp_sl['tp3']} (25%)")
-    col5.metric("ITM", f"{tp_sl['itm']} pts")
-    
-    st.markdown("---")
     now = get_ist_now()
-    market_open = trading_hours[0] <= now.hour < trading_hours[1]
+    market_open = 9 <= now.hour < 14
     if market_open:
-        st.info(f"🟢 Market OPEN | Trading Hours: {trading_hours[0]}:30 - {trading_hours[1]}:30 IST")
+        st.info("🟢 NIFTY Market OPEN | 9:30 AM - 2:30 PM")
+        st.success("🟢 NIFTY ALGO ACTIVE")
     else:
-        st.info(f"⏸️ Market CLOSED | Trading Hours: {trading_hours[0]}:30 - {trading_hours[1]}:30 IST")
+        st.info("⏸️ NIFTY Market CLOSED")
+        st.warning("🔴 NIFTY ALGO WAITING")
+    st.markdown("---")
+
+# ================= CRUDE OIL SECTION =================
+if st.session_state.enable_crude and st.session_state.running:
+    st.markdown("## 🛢️ CRUDE OIL")
+    
+    symbol = SYMBOLS["CRUDEOIL"]
+    tp_sl = FIXED_TP_SL["CRUDEOIL"]
+    total_qty = st.session_state.crude_lots * ASSET_LOT_SIZES["CRUDEOIL"]
+    current_price = get_live_price_inr(symbol)
+    
+    if current_price > 0:
+        itm_strike = int(current_price - tp_sl["itm"])
+    else:
+        itm_strike = 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("CRUDE Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
+    col2.metric(f"ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
+    col3.metric("Quantity", total_qty)
+    col4.metric("SL", f"{tp_sl['sl']} | TP: {tp_sl['tp1']}/{tp_sl['tp2']}/{tp_sl['tp3']}")
+    
+    now = get_ist_now()
+    market_open = 18 <= now.hour < 22
+    if market_open:
+        st.info("🟢 CRUDE Market OPEN | 6:00 PM - 10:30 PM")
+        st.success("🟢 CRUDE ALGO ACTIVE")
+    else:
+        st.info("⏸️ CRUDE Market CLOSED")
+        st.warning("🔴 CRUDE ALGO WAITING")
+    st.markdown("---")
+
+# ================= NATURAL GAS SECTION =================
+if st.session_state.enable_ng and st.session_state.running:
+    st.markdown("## 🌿 NATURAL GAS")
+    
+    symbol = SYMBOLS["NATURALGAS"]
+    tp_sl = FIXED_TP_SL["NATURALGAS"]
+    total_qty = st.session_state.ng_lots * ASSET_LOT_SIZES["NATURALGAS"]
+    current_price = get_live_price_inr(symbol)
+    
+    if current_price > 0:
+        itm_strike = round(current_price - tp_sl["itm"], 1)
+    else:
+        itm_strike = 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("NG Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
+    col2.metric(f"ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
+    col3.metric("Quantity", total_qty)
+    col4.metric("SL", f"{tp_sl['sl']} | TP: {tp_sl['tp1']}/{tp_sl['tp2']}/{tp_sl['tp3']}")
+    
+    now = get_ist_now()
+    market_open = 18 <= now.hour < 22
+    if market_open:
+        st.info("🟢 NG Market OPEN | 6:00 PM - 10:30 PM")
+        st.success("🟢 NG ALGO ACTIVE")
+    else:
+        st.info("⏸️ NG Market CLOSED")
+        st.warning("🔴 NG ALGO WAITING")
+    st.markdown("---")
 
 # ================= F&O STOCKS SECTION =================
-if "F&O" in asset_type:
-    st.markdown("## 🔍 SCANNING 50+ F&O STOCKS...")
+if st.session_state.enable_stocks and st.session_state.running:
+    st.markdown("## 🔍 SCANNING F&O STOCKS...")
+    
     progress_bar = st.progress(0)
     status_text = st.empty()
     results_container = st.container()
@@ -489,12 +503,6 @@ if "F&O" in asset_type:
     signals_found = []
     trades_done = sum([v["trades"] for v in st.session_state.stock_trades.values()])
     loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
-    
-    # Update quantities based on new max_qty_limit
-    for stock in FO_STOCKS:
-        qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
-        st.session_state.stock_trades[stock["name"]]["quantity"] = qty
-        st.session_state.stock_trades[stock["name"]]["lots"] = lots
     
     if loss_limit_hit:
         st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
@@ -573,22 +581,24 @@ loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 if loss_limit_hit:
     st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
 elif st.session_state.running:
-    st.success(f"🟢 REAL ALGO RUNNING | {asset_type}")
+    active_count = sum([st.session_state.enable_nifty, st.session_state.enable_crude, st.session_state.enable_ng, st.session_state.enable_stocks])
+    st.success(f"🟢 ALGO RUNNING | {active_count} Assets Active")
 else:
     st.warning("🔴 ALGO STOPPED")
 
-if "F&O" in asset_type:
-    st.markdown("---")
-    st.markdown("### 🎯 Premium Based TP/SL Table")
-    premium_table = pd.DataFrame([
-        {"Premium Range": "₹10 - ₹50", "SL %": "30%", "TP1 %": "20%", "TP2 %": "40%", "TP3 %": "60%"},
-        {"Premium Range": "₹51 - ₹150", "SL %": "25%", "TP1 %": "15%", "TP2 %": "30%", "TP3 %": "50%"},
-        {"Premium Range": "₹151 - ₹300", "SL %": "20%", "TP1 %": "12%", "TP2 %": "25%", "TP3 %": "40%"},
-        {"Premium Range": "₹301 - ₹500", "SL %": "15%", "TP1 %": "10%", "TP2 %": "20%", "TP3 %": "30%"},
-        {"Premium Range": "₹501 - ₹1000", "SL %": "12%", "TP1 %": "8%", "TP2 %": "15%", "TP3 %": "25%"},
-        {"Premium Range": "₹1000+", "SL %": "10%", "TP1 %": "6%", "TP2 %": "12%", "TP3 %": "20%"},
-    ])
-    st.dataframe(premium_table, use_container_width=True)
+# ================= TP/SL Info =================
+st.markdown("---")
+st.markdown("### 🎯 TP/SL Settings Summary")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("**NIFTY**")
+    st.markdown(f"SL: {FIXED_TP_SL['NIFTY']['sl']} | TP1: {FIXED_TP_SL['NIFTY']['tp1']} | TP2: {FIXED_TP_SL['NIFTY']['tp2']} | TP3: {FIXED_TP_SL['NIFTY']['tp3']}")
+with col2:
+    st.markdown("**CRUDE OIL**")
+    st.markdown(f"SL: {FIXED_TP_SL['CRUDEOIL']['sl']} | TP1: {FIXED_TP_SL['CRUDEOIL']['tp1']} | TP2: {FIXED_TP_SL['CRUDEOIL']['tp2']} | TP3: {FIXED_TP_SL['CRUDEOIL']['tp3']}")
+with col3:
+    st.markdown("**NATURAL GAS**")
+    st.markdown(f"SL: {FIXED_TP_SL['NATURALGAS']['sl']} | TP1: {FIXED_TP_SL['NATURALGAS']['tp1']} | TP2: {FIXED_TP_SL['NATURALGAS']['tp2']} | TP3: {FIXED_TP_SL['NATURALGAS']['tp3']}")
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Refresh manually for latest data | REAL TRADING MODE")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | REAL TRADING MODE | Refresh manually for latest data")
