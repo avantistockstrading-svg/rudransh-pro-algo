@@ -18,6 +18,7 @@ div[data-testid="column"]:nth-child(2) button { background: linear-gradient(90de
 .pnl-positive { color: #00ff88; font-size: 24px; font-weight: bold; text-align: center; }
 .pnl-negative { color: #ff4b4b; font-size: 24px; font-weight: bold; text-align: center; }
 .price { font-size: 32px; font-weight: bold; text-align: center; background: linear-gradient(90deg, #00ff88, #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.highlight { background-color: #1e293b; padding: 10px; border-radius: 10px; margin: 5px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,6 +53,8 @@ if "ng_trades" not in st.session_state:
     st.session_state.ng_trades = 0
 if "last_trade_date" not in st.session_state:
     st.session_state.last_trade_date = datetime.now().date()
+if "signal_mode" not in st.session_state:
+    st.session_state.signal_mode = "EARLY"
 
 # Reset daily trades
 if datetime.now().date() != st.session_state.last_trade_date:
@@ -88,6 +91,26 @@ with st.sidebar:
         if st.button("⏹️ STOP", use_container_width=True):
             st.session_state.running = False
             send_telegram("🛑 ALGO STOPPED")
+    
+    st.markdown("---")
+    
+    st.markdown("## 🎯 SIGNAL MODE")
+    
+    signal_mode = st.radio(
+        "Select Trading Mode",
+        ["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"],
+        index=["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"].index(st.session_state.signal_mode) if st.session_state.signal_mode in ["🟢 EARLY Mode (Fast Signals)", "🔴 STRICT Mode (Safe Signals)", "🟣 BOTH Mode (Combined)"] else 0,
+        help="EARLY: Less conditions, More signals | STRICT: All conditions, Safe signals | BOTH: Combined"
+    )
+    st.session_state.signal_mode = signal_mode
+    
+    # Mode Status Display
+    if "EARLY" in signal_mode and "STRICT" not in signal_mode and "BOTH" not in signal_mode:
+        st.info("🟢 EARLY MODE - Fast signals (Less conditions)")
+    elif "STRICT" in signal_mode and "EARLY" not in signal_mode:
+        st.info("🔴 STRICT MODE - Safe signals (All conditions)")
+    elif "BOTH" in signal_mode:
+        st.info("🟣 BOTH MODE - Mixed signals (Early + Strict)")
     
     st.markdown("---")
     
@@ -128,61 +151,47 @@ except:
 st.markdown(f"<div class='price'>₹{price:,.2f}</div>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ================= सर्व Sector ची List (Pine Script प्रमाणे) =================
+# ================= Sector Detection =================
 def get_sector_symbol(ticker):
     ticker_upper = ticker.upper()
     
-    # BANK
     if any(x in ticker_upper for x in ["HDFCBANK", "ICICIBANK", "SBIN", "AXISBANK", "KOTAKBANK", "PNB"]):
         return "^NSEBANK"
-    # IT
     elif any(x in ticker_upper for x in ["TCS", "INFY", "WIPRO", "TECHM", "HCLTECH"]):
         return "^CNXIT"
-    # AUTO
     elif any(x in ticker_upper for x in ["TATAMOTORS", "MARUTI", "M&M", "BAJAJ-AUTO", "EICHERMOT"]):
         return "^CNXAUTO"
-    # PHARMA
     elif any(x in ticker_upper for x in ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN"]):
         return "^CNXPHARMA"
-    # METAL
     elif any(x in ticker_upper for x in ["TATASTEEL", "HINDALCO", "JSWSTEEL", "SAIL"]):
         return "^CNXMETAL"
-    # FMCG
     elif any(x in ticker_upper for x in ["HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA"]):
         return "^CNXFMCG"
-    # REALTY
     elif any(x in ticker_upper for x in ["DLF", "GODREJPROP", "OBEROIRLTY"]):
         return "^CNXREALTY"
-    # ENERGY
     elif any(x in ticker_upper for x in ["RELIANCE", "ONGC", "POWERGRID"]):
         return "^CNXENERGY"
-    # PSU BANK
     elif any(x in ticker_upper for x in ["BANKBARODA", "CANBK", "UNIONBANK"]):
         return "^CNXPSUBANK"
-    # FINANCE
     elif any(x in ticker_upper for x in ["BAJFINANCE", "CHOLAFIN", "SHRIRAMFIN"]):
         return "^CNXFINANCE"
-    # INFRA
     elif any(x in ticker_upper for x in ["LT", "NBCC", "IRB"]):
         return "^CNXINFRA"
-    # DEFENCE
     elif any(x in ticker_upper for x in ["HAL", "BEL", "BDL"]):
         return "^NIFTY_IND_DEFENCE"
-    # HEALTHCARE
     elif any(x in ticker_upper for x in ["APOLLOHOSP", "MAXHEALTH", "FORTIS"]):
         return "^NIFTY_HEALTHCARE"
-    # CONSUMER
     elif any(x in ticker_upper for x in ["DIXON", "VOLTAS", "WHIRLPOOL"]):
         return "^NIFTY_CONSR_DURBL"
     else:
         return "^NSEI"
 
-# ================= BUY/SELL Signal Function (Pine Script Match) =================
+# ================= Signal Calculation =================
 def calculate_signals():
     symbol = symbols[asset]
     tp_sl = get_tp_sl(asset)
     
-    # NIFTY data for trend filter
+    # NIFTY data
     nifty_df = yf.download("^NSEI", period="7d", interval="5m", progress=False)
     nifty_df.columns = [str(c).lower() for c in nifty_df.columns]
     
@@ -191,21 +200,18 @@ def calculate_signals():
     sector_df = yf.download(sector_symbol, period="7d", interval="5m", progress=False)
     sector_df.columns = [str(c).lower() for c in sector_df.columns]
     
-    # Stock/commodity data
+    # Stock data
     stock_df = yf.download(symbol, period="7d", interval="5m", progress=False)
     
-    if stock_df.empty or len(stock_df) < 50:
+    if stock_df.empty or len(stock_df) < 30:
         return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0}
     
-    # Clean column names
     stock_df.columns = [str(c).lower() for c in stock_df.columns]
-    nifty_df.columns = [str(c).lower() for c in nifty_df.columns]
-    sector_df.columns = [str(c).lower() for c in sector_df.columns]
     
     if 'close' not in stock_df.columns:
         return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0}
     
-    # ================= NIFTY Trend (Pine Script प्रमाणे) =================
+    # ================= NIFTY Trend =================
     nifty_positive = False
     nifty_negative = False
     
@@ -215,7 +221,7 @@ def calculate_signals():
         nifty_positive = nifty_current > nifty_ema20
         nifty_negative = nifty_current < nifty_ema20
     
-    # ================= Sector Trend (Pine Script प्रमाणे) =================
+    # ================= Sector Trend =================
     sector_bullish = False
     sector_bearish = False
     
@@ -232,12 +238,11 @@ def calculate_signals():
     low = stock_df['low'] if 'low' in stock_df.columns else close
     volume = stock_df['volume'] if 'volume' in stock_df.columns else pd.Series([1000000] * len(stock_df))
     
-    # Calculate EMAs
     ema9 = close.ewm(span=9, adjust=False).mean()
     ema20 = close.ewm(span=20, adjust=False).mean()
     ema200 = close.ewm(span=200, adjust=False).mean()
     
-    # Calculate RSI (Pine Script सारखे)
+    # RSI
     delta = close.diff()
     gain = delta.where(delta > 0, 0).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -248,7 +253,7 @@ def calculate_signals():
     volume_sma = volume.rolling(20).mean()
     volume_filter = volume.iloc[-1] > volume_sma.iloc[-1] if not volume_sma.isna().iloc[-1] else True
     
-    # ADX Calculation (Pine Script च्या ta.dmi सारखे)
+    # ADX
     plus_dm = high.diff()
     minus_dm = low.diff()
     plus_dm = plus_dm.where(plus_dm > 0, 0)
@@ -265,25 +270,23 @@ def calculate_signals():
     dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
     adx = dx.rolling(14).mean().iloc[-1] if len(dx) > 14 else 25
     
-    # ================= Sideways (Pine Script प्रमाणे - RSI 45-55 AND ADX < 20) =================
+    # Sideways (Pine Script: rsi >45 and rsi<55 and adx<20)
     current_rsi = rsi.iloc[-1]
     sideways = (45 < current_rsi < 55) and adx < 20
     
-    # ================= Strong Bull/Bear Conditions =================
+    # Strong Bull/Bear
     c1 = stock_df.iloc[-2]
     c2 = stock_df.iloc[-1]
     
     strong_bull = c2['close'] > c2['open'] and c2['close'] > c1['high']
     strong_bear = c2['close'] < c2['open'] and c2['close'] < c1['low']
     
-    # Current values
     current_price = close.iloc[-1]
     current_ema9 = ema9.iloc[-1]
     current_ema20 = ema20.iloc[-1]
     current_ema200 = ema200.iloc[-1] if not ema200.isna().all() else current_price
     
-    # ================= MTF Trends (5m, 15m, 1h - Pine Script प्रमाणे) =================
-    # 5m Trend
+    # MTF Trends
     tf5_df = yf.download(symbol, period="2d", interval="5m", progress=False)
     if not tf5_df.empty and 'Close' in tf5_df.columns:
         tf5_close = tf5_df['Close'].iloc[-1]
@@ -292,7 +295,6 @@ def calculate_signals():
     else:
         trend5_up = current_price > current_ema20
     
-    # 15m Trend
     tf15_df = yf.download(symbol, period="3d", interval="15m", progress=False)
     if not tf15_df.empty and 'Close' in tf15_df.columns:
         tf15_close = tf15_df['Close'].iloc[-1]
@@ -301,7 +303,6 @@ def calculate_signals():
     else:
         trend15_up = current_price > current_ema20
     
-    # 1h Trend
     tf1h_df = yf.download(symbol, period="5d", interval="60m", progress=False)
     if not tf1h_df.empty and 'Close' in tf1h_df.columns:
         tf1h_close = tf1h_df['Close'].iloc[-1]
@@ -310,54 +311,32 @@ def calculate_signals():
     else:
         trend1h_up = current_price > current_ema20
     
-    # ================= Strong Bull Stock (Pine Script प्रमाणे) =================
-    strong_bull_stock = (
-        current_ema9 > current_ema20 and
-        current_price > current_ema200 and
-        current_rsi >= 60 and
-        adx >= 25 and
-        volume_filter and
-        strong_bull and
-        current_price > c1['high']
-    )
+    # Strict Strong Bull/Bear Stock
+    strong_bull_stock = (current_ema9 > current_ema20 and current_price > current_ema200 and current_rsi >= 60 and adx >= 25 and volume_filter and strong_bull and current_price > c1['high'])
+    strong_bear_stock = (current_ema9 < current_ema20 and current_price < current_ema200 and current_rsi <= 40 and adx >= 25 and volume_filter and strong_bear and current_price < c1['low'])
     
-    # ================= Strong Bear Stock (Pine Script प्रमाणे) =================
-    strong_bear_stock = (
-        current_ema9 < current_ema20 and
-        current_price < current_ema200 and
-        current_rsi <= 40 and
-        adx >= 25 and
-        volume_filter and
-        strong_bear and
-        current_price < c1['low']
-    )
+    # ================= EARLY CONDITIONS (Pine Script earlyBuy/earlySell) =================
+    early_buy = (current_ema9 > current_ema20 and current_price > current_ema20 and strong_bull and current_rsi > 55 and nifty_positive)
+    early_sell = (current_ema9 < current_ema20 and current_price < current_ema20 and strong_bear and current_rsi < 45 and nifty_negative)
     
-    # ================= FINAL BUY/SELL CONDITIONS (Pine Script प्रमाणे) =================
-    buy_condition = (
-        nifty_positive and
-        not nifty_negative and
-        not sideways and
-        sector_bullish and
-        strong_bull_stock and
-        trend5_up and
-        trend15_up and
-        trend1h_up and
-        current_price > current_ema20
-    )
+    # ================= STRICT CONDITIONS (Pine Script emaBuy/emaSell) =================
+    strict_buy = (nifty_positive and not nifty_negative and not sideways and sector_bullish and strong_bull_stock and trend5_up and trend15_up and trend1h_up and current_price > current_ema20)
+    strict_sell = (nifty_negative and not nifty_positive and not sideways and sector_bearish and strong_bear_stock and not trend5_up and not trend15_up and not trend1h_up and current_price < current_ema20)
     
-    sell_condition = (
-        nifty_negative and
-        not nifty_positive and
-        not sideways and
-        sector_bearish and
-        strong_bear_stock and
-        not trend5_up and
-        not trend15_up and
-        not trend1h_up and
-        current_price < current_ema20
-    )
+    # ================= MODE BASED SIGNAL =================
+    mode = st.session_state.signal_mode
     
-    # Cooldown check (5 minutes)
+    if "EARLY" in mode and "STRICT" not in mode and "BOTH" not in mode:
+        buy_condition = early_buy
+        sell_condition = early_sell
+    elif "STRICT" in mode and "EARLY" not in mode:
+        buy_condition = strict_buy
+        sell_condition = strict_sell
+    else:  # BOTH Mode
+        buy_condition = early_buy or strict_buy
+        sell_condition = early_sell or strict_sell
+    
+    # Cooldown
     cooldown_ok = (datetime.now() - st.session_state.last_trade_time).seconds > 300
     
     if buy_condition and cooldown_ok and st.session_state.last_trade_side != "BUY":
@@ -383,7 +362,10 @@ def calculate_signals():
         "adx": adx,
         "ema20": current_ema20,
         "sideways": sideways,
-        "sector_bullish": sector_bullish
+        "sector_bullish": sector_bullish,
+        "nifty_positive": nifty_positive,
+        "early_buy": early_buy,
+        "strict_buy": strict_buy
     }
 
 # ================= Calculate Signals =================
@@ -399,9 +381,32 @@ col4.metric("Trend", signals['trend'])
 
 # Additional Info
 st.markdown("---")
-st.markdown(f"**Sector Trend:** {'🟢 BULLISH' if signals.get('sector_bullish', False) else '🔴 BEARISH'}")
-st.markdown(f"**Sideways:** {'⚠️ YES' if signals.get('sideways', False) else '✅ NO'}")
-st.markdown(f"**ADX:** {signals['adx']:.1f} (Need >=25 for signal)")
+st.markdown("### 📊 Signal Conditions Status")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown(f"**NIFTY Trend:** {'🟢 BULLISH' if signals.get('nifty_positive', False) else '🔴 BEARISH'}")
+    st.markdown(f"**Sector Trend:** {'🟢 BULLISH' if signals.get('sector_bullish', False) else '🔴 BEARISH'}")
+    st.markdown(f"**Sideways:** {'⚠️ YES' if signals.get('sideways', False) else '✅ NO'}")
+
+with col2:
+    st.markdown(f"**ADX:** {signals['adx']:.1f} {'✅' if signals['adx'] >= 25 else '❌'}")
+    st.markdown(f"**RSI:** {signals['rsi']:.1f}")
+    st.markdown(f"**Price vs EMA20:** {'🟢 ABOVE' if signals['price'] > signals['ema20'] else '🔴 BELOW'}")
+
+with col3:
+    st.markdown(f"**Early Buy Signal:** {'✅ READY' if signals.get('early_buy', False) else '❌ NO'}")
+    st.markdown(f"**Strict Buy Signal:** {'✅ READY' if signals.get('strict_buy', False) else '❌ NO'}")
+
+with col4:
+    mode_text = st.session_state.signal_mode
+    if "EARLY" in mode_text and "STRICT" not in mode_text:
+        st.markdown("**Active Mode:** 🟢 EARLY")
+    elif "STRICT" in mode_text:
+        st.markdown("**Active Mode:** 🔴 STRICT")
+    else:
+        st.markdown("**Active Mode:** 🟣 BOTH")
 
 st.markdown("---")
 
@@ -473,7 +478,7 @@ if st.session_state.running and market_hours and trades_today < max_trades:
 # ================= Status =================
 st.markdown("---")
 if st.session_state.running and market_hours:
-    st.success("🟢 ALGO RUNNING (Pine Match Mode)")
+    st.success(f"🟢 ALGO RUNNING | {st.session_state.signal_mode}")
 elif not market_hours:
     st.info("⏰ Market closed. Algo will run during trading hours.")
 else:
@@ -481,7 +486,7 @@ else:
 
 # ================= TP/SL Info =================
 st.markdown("---")
-st.markdown("### 🎯 TP/SL Settings (Pine Script Match)")
+st.markdown("### 🎯 TP/SL Settings")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Stop Loss", f"{tp_sl['sl']}")
 col2.metric("Target 1", f"{tp_sl['tp1']}")
