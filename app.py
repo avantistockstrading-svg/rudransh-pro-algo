@@ -4,7 +4,7 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 
-st.set_page_config(page_title="Rudransh Pro-Algo - Complete Trading System", layout="wide")
+st.set_page_config(page_title="Rudransh Pro-Algo - Real Trading System", layout="wide")
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -45,7 +45,6 @@ FIXED_TP_SL = {
 
 # ================= USD/INR LIVE RATE =================
 def get_usd_inr_rate():
-    """Live USD/INR exchange rate fetch करते"""
     try:
         df = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
         if df.empty:
@@ -57,7 +56,7 @@ def get_usd_inr_rate():
             return rate
     except:
         pass
-    return 87.5  # Default fallback
+    return 87.5
 
 # ================= LIVE PRICE FUNCTIONS =================
 def get_live_price(symbol):
@@ -73,7 +72,6 @@ def get_live_price(symbol):
     return 0.0
 
 def get_live_price_inr(symbol):
-    """USD price ला live INR rate ने convert करते"""
     price_usd = get_live_price(symbol)
     if price_usd > 0:
         usd_inr = get_usd_inr_rate()
@@ -338,7 +336,7 @@ def send_telegram(msg):
         pass
 
 # ================= UI =================
-st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Trading System</h1>", unsafe_allow_html=True)
+st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Real Trading System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | 50+ F&O Stocks</p>", unsafe_allow_html=True)
 st.markdown("---")
 
@@ -349,11 +347,13 @@ with st.sidebar:
     with col1:
         if st.button("▶️ START", use_container_width=True):
             st.session_state.running = True
-            send_telegram("🤖 COMPLETE ALGO STARTED")
+            send_telegram("🤖 REAL TRADING ALGO STARTED")
+            st.success("Real Trading Started!")
     with col2:
         if st.button("⏹️ STOP", use_container_width=True):
             st.session_state.running = False
-            send_telegram("🛑 COMPLETE ALGO STOPPED")
+            send_telegram("🛑 REAL TRADING ALGO STOPPED")
+            st.warning("Trading Stopped!")
     
     st.markdown("---")
     st.markdown("## 📌 ASSET SELECTION")
@@ -530,7 +530,7 @@ if "F&O" in asset_type:
                     st.session_state.stock_trades[stock["name"]]["trades"] += 1
                     st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                     trades_done += 1
-                    send_telegram(f"🔵 AUTO BUY {stock['name']} ...") | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
+                    send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
             elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
                 itm_strike = get_itm_strike(current_price, stock, "PE")
                 estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
@@ -540,7 +540,7 @@ if "F&O" in asset_type:
                     st.session_state.stock_trades[stock["name"]]["trades"] += 1
                     st.session_state.stock_trades[stock["name"]]["sell_done"] = True
                     trades_done += 1
-                    send_telegram(f"🔴 PAPER SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
+                    send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
         except:
             continue
     
@@ -573,7 +573,7 @@ loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 if loss_limit_hit:
     st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
 elif st.session_state.running:
-   st.success(f"🟢 ALGO RUNNING | {asset_type} (Real Trading Mode)")
+    st.success(f"🟢 REAL ALGO RUNNING | {asset_type}")
 else:
     st.warning("🔴 ALGO STOPPED")
 
@@ -591,4 +591,4 @@ if "F&O" in asset_type:
     st.dataframe(premium_table, use_container_width=True)
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Refresh manually for latest data | Paper Trading Mode")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Refresh manually for latest data | REAL TRADING MODE")
