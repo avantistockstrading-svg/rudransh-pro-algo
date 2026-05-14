@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Rudransh Pro-Algo - Multi Stock F&O", layout="wide")
+st.set_page_config(page_title="Rudransh Pro-Algo - Complete Trading System", layout="wide")
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -13,7 +13,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_ist_now():
     return datetime.now(IST)
 
-# ================= MAX QUANTITY LIMIT =================
+# ================= MAX QUANTITY LIMIT FOR STOCKS =================
 MAX_QTY_LIMIT = 1500  # एकूण कमाल quantity 1500
 
 def calculate_trade_quantity(lot_size):
@@ -24,7 +24,21 @@ def calculate_trade_quantity(lot_size):
     quantity = max_lots * lot_size
     return quantity, max_lots
 
-# ================= OPTION TP/SL BASED ON PREMIUM =================
+# ================= ASSET SPECIFIC LOT SIZES =================
+ASSET_LOT_SIZES = {
+    "NIFTY": 65,
+    "CRUDEOIL": 100,
+    "NATURALGAS": 1250
+}
+
+# ================= FIXED TP/SL SETTINGS (NIFTY, CRUDE, NG) =================
+FIXED_TP_SL = {
+    "NIFTY": {"sl": 30, "tp1": 15, "tp2": 22, "tp3": 30, "itm": 100},
+    "CRUDEOIL": {"sl": 30, "tp1": 15, "tp2": 20, "tp3": 25, "itm": 100},
+    "NATURALGAS": {"sl": 1.50, "tp1": 1.00, "tp2": 1.50, "tp3": 2.00, "itm": 10}
+}
+
+# ================= OPTION TP/SL BASED ON PREMIUM (FOR STOCKS) =================
 def get_option_tp_sl(entry_premium):
     """Premium नुसार SL आणि TP percentages return करते"""
     
@@ -154,6 +168,10 @@ SECTOR_INDEX = {
 # ================= Session State =================
 if "running" not in st.session_state:
     st.session_state.running = False
+if "selected_asset_type" not in st.session_state:
+    st.session_state.selected_asset_type = "NIFTY"
+if "lots" not in st.session_state:
+    st.session_state.lots = 1
 if "stock_trades" not in st.session_state:
     st.session_state.stock_trades = {}
     for stock in FO_STOCKS:
@@ -224,7 +242,6 @@ def get_stock_trend(symbol):
             ema9 = close.ewm(span=9).mean().iloc[-1]
             ema20 = close.ewm(span=20).mean().iloc[-1]
             
-            # Calculate RSI for confirmation
             delta = close.diff()
             gain = delta.where(delta > 0, 0).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -232,7 +249,6 @@ def get_stock_trend(symbol):
             rsi = 100 - (100 / (1 + rs))
             current_rsi = rsi.iloc[-1] if not rsi.isna().all() else 50
             
-            # Volume filter
             volume = df['Volume'] if 'Volume' in df.columns else pd.Series([1000000])
             volume_sma = volume.rolling(20).mean().iloc[-1] if len(volume) > 20 else 1
             volume_filter = volume.iloc[-1] > volume_sma
@@ -266,7 +282,6 @@ def get_itm_strike(price, stock, option_type="CE"):
     else:
         itm_strike = price + itm_points
     
-    # Round to nearest strike based on price
     if itm_strike > 1000:
         itm_strike = round(itm_strike / 50) * 50
     elif itm_strike > 100:
@@ -277,7 +292,6 @@ def get_itm_strike(price, stock, option_type="CE"):
     return int(itm_strike)
 
 def get_option_premium(symbol, strike_price, option_type):
-    """Option ची current premium मिळवते (approx using stock price)"""
     try:
         df = yf.download(symbol, period="1d", interval="5m", progress=False)
         if not df.empty and 'Close' in df.columns:
@@ -286,12 +300,11 @@ def get_option_premium(symbol, strike_price, option_type):
                 intrinsic_value = max(0, stock_price - strike_price)
             else:
                 intrinsic_value = max(0, strike_price - stock_price)
-            # Time value approx 10% of intrinsic value
             premium = intrinsic_value + (intrinsic_value * 0.1)
-            return max(premium, 5)  # Minimum ₹5 premium
+            return max(premium, 5)
     except:
         pass
-    return 50  # Default premium if can't fetch
+    return 50
 
 def send_telegram(msg):
     token = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
@@ -302,9 +315,18 @@ def send_telegram(msg):
     except:
         pass
 
+def get_live_price(symbol):
+    try:
+        df = yf.download(symbol, period="1d", interval="5m", progress=False)
+        if not df.empty and 'Close' in df.columns:
+            return df['Close'].iloc[-1]
+    except:
+        pass
+    return 0
+
 # ================= UI =================
-st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Multi Stock F&O</h1>", unsafe_allow_html=True)
-st.markdown(f"<p style='text-align:center; color:#94a3b8;'>Scanning {len(FO_STOCKS)} F&O Stocks | Max Qty per Trade: {MAX_QTY_LIMIT} | Max Loss: ₹{MAX_DAILY_LOSS:,.0f}</p>", unsafe_allow_html=True)
+st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Trading System</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | 50+ F&O Stocks</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Sidebar
@@ -315,34 +337,86 @@ with st.sidebar:
     with col1:
         if st.button("▶️ START", use_container_width=True):
             st.session_state.running = True
-            send_telegram("🤖 MULTI-STOCK F&O ALGO STARTED")
-            st.success("Algo Started!")
+            send_telegram("🤖 COMPLETE ALGO STARTED")
+            st.success("Started!")
     with col2:
         if st.button("⏹️ STOP", use_container_width=True):
             st.session_state.running = False
-            send_telegram("🛑 MULTI-STOCK F&O ALGO STOPPED")
-            st.warning("Algo Stopped!")
+            send_telegram("🛑 COMPLETE ALGO STOPPED")
+            st.warning("Stopped!")
     
     st.markdown("---")
-    st.markdown("## ⚙️ SETTINGS")
+    st.markdown("## 📌 ASSET SELECTION")
     
-    st.session_state.max_stocks_per_day = st.number_input("Max Stocks per Day", min_value=1, max_value=len(FO_STOCKS), value=10)
+    asset_type = st.radio(
+        "Select Asset Type",
+        ["📊 NIFTY", "🛢️ CRUDE OIL", "🌿 NATURAL GAS", "📈 F&O STOCKS (50+)"],
+        index=0
+    )
+    st.session_state.selected_asset_type = asset_type.split()[1] if len(asset_type.split()) > 1 else asset_type.split()[0]
+    
+    st.markdown("---")
+    st.markdown("## 📊 POSITION SIZE")
+    
+    if "NIFTY" in asset_type:
+        st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
+        lot_size = ASSET_LOT_SIZES["NIFTY"]
+        total_qty = st.session_state.lots * lot_size
+        st.markdown(f"**📦 Total Quantity:** {total_qty}")
+        
+        tp_sl = FIXED_TP_SL["NIFTY"]
+        st.markdown(f"""
+        <div style='background:#1e293b; padding:10px; border-radius:10px; margin-top:10px;'>
+            <small>🎯 Fixed TP/SL:</small><br>
+            <small>SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br>
+            <small>🎯 ITM Strike: {tp_sl['itm']} points</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    elif "CRUDE" in asset_type:
+        st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
+        lot_size = ASSET_LOT_SIZES["CRUDEOIL"]
+        total_qty = st.session_state.lots * lot_size
+        st.markdown(f"**📦 Total Quantity:** {total_qty}")
+        
+        tp_sl = FIXED_TP_SL["CRUDEOIL"]
+        st.markdown(f"""
+        <div style='background:#1e293b; padding:10px; border-radius:10px; margin-top:10px;'>
+            <small>🎯 Fixed TP/SL:</small><br>
+            <small>SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br>
+            <small>🎯 ITM Strike: {tp_sl['itm']} points</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    elif "NATURAL" in asset_type:
+        st.session_state.lots = st.number_input("Number of Lots", min_value=1, max_value=50, value=1)
+        lot_size = ASSET_LOT_SIZES["NATURALGAS"]
+        total_qty = st.session_state.lots * lot_size
+        st.markdown(f"**📦 Total Quantity:** {total_qty}")
+        
+        tp_sl = FIXED_TP_SL["NATURALGAS"]
+        st.markdown(f"""
+        <div style='background:#1e293b; padding:10px; border-radius:10px; margin-top:10px;'>
+            <small>🎯 Fixed TP/SL:</small><br>
+            <small>SL: {tp_sl['sl']} | TP1: {tp_sl['tp1']} | TP2: {tp_sl['tp2']} | TP3: {tp_sl['tp3']}</small><br>
+            <small>🎯 ITM Strike: {tp_sl['itm']} points</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    else:  # F&O STOCKS
+        st.session_state.max_stocks_per_day = st.number_input("Max Stocks per Day", min_value=1, max_value=len(FO_STOCKS), value=10)
+        st.markdown(f"**📦 Max Qty per Trade:** {MAX_QTY_LIMIT}")
+        st.caption("Lot size नुसार auto quantity calculate होईल")
     
     st.markdown("---")
     st.markdown("### 📊 Daily Status")
     
-    total_trades = sum([v["trades"] for v in st.session_state.stock_trades.values()])
-    st.metric("Stocks Traded", f"{total_trades}/{st.session_state.max_stocks_per_day}")
+    if "F&O" in asset_type:
+        total_trades = sum([v["trades"] for v in st.session_state.stock_trades.values()])
+        st.metric("Stocks Traded", f"{total_trades}/{st.session_state.max_stocks_per_day}")
     
     loss_color = "red" if st.session_state.daily_loss <= -MAX_DAILY_LOSS else "white"
     st.markdown(f"**Daily Loss:** <span style='color:{loss_color};'>₹{abs(st.session_state.daily_loss):,.0f}</span>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### 📦 Auto Quantity (Max 1500)")
-    st.caption("Lot size नुसार auto quantity calculate होईल")
-    
-    st.markdown("### 🎯 Premium Based TP/SL")
-    st.caption("Premium नुसार SL/TP percentages auto adjust होतील")
 
 # NIFTY Trend
 nifty_trend = get_nifty_trend()
@@ -355,205 +429,240 @@ else:
 
 st.markdown("---")
 
-# Scan Stocks
-st.markdown("## 🔍 SCANNING STOCKS...")
+# ================= NIFTY, CRUDE, NG SECTION =================
+if "NIFTY" in asset_type or "CRUDE" in asset_type or "NATURAL" in asset_type:
+    
+    if "NIFTY" in asset_type:
+        symbol = "^NSEI"
+        display_name = "NIFTY"
+        tp_sl = FIXED_TP_SL["NIFTY"]
+        lot_size = ASSET_LOT_SIZES["NIFTY"]
+        total_qty = st.session_state.lots * lot_size
+        trading_hours = (9, 14)  # 9:30 AM to 2:30 PM
+        
+    elif "CRUDE" in asset_type:
+        symbol = "CL=F"
+        display_name = "CRUDE OIL"
+        tp_sl = FIXED_TP_SL["CRUDEOIL"]
+        lot_size = ASSET_LOT_SIZES["CRUDEOIL"]
+        total_qty = st.session_state.lots * lot_size
+        trading_hours = (18, 22)  # 6:00 PM to 10:30 PM
+        
+    else:
+        symbol = "NG=F"
+        display_name = "NATURAL GAS"
+        tp_sl = FIXED_TP_SL["NATURALGAS"]
+        lot_size = ASSET_LOT_SIZES["NATURALGAS"]
+        total_qty = st.session_state.lots * lot_size
+        trading_hours = (18, 22)
+    
+    # Get live price
+    current_price = get_live_price(symbol)
+    itm_strike = current_price - tp_sl["itm"] if current_price > 0 else 0
+    if display_name == "NATURAL GAS":
+        itm_strike = round(itm_strike, 1)
+    else:
+        itm_strike = int(itm_strike)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric(f"📊 {display_name} Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
+    col2.metric(f"🎯 ITM Strike ({tp_sl['itm']} pts)", f"{itm_strike}")
+    col3.metric("📦 Quantity", total_qty)
+    col4.metric("🎯 Signal", "WAIT")
+    
+    st.markdown("---")
+    st.markdown("### 🎯 Fixed TP/SL Settings")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Stop Loss", f"{tp_sl['sl']}")
+    col2.metric("Target 1", f"{tp_sl['tp1']} (50%)")
+    col3.metric("Target 2", f"{tp_sl['tp2']} (25%)")
+    col4.metric("Target 3", f"{tp_sl['tp3']} (25%)")
+    col5.metric("ITM", f"{tp_sl['itm']} pts")
+    
+    st.markdown("---")
+    
+    # Market hours check
+    now = get_ist_now()
+    market_open = trading_hours[0] <= now.hour < trading_hours[1]
+    
+    if market_open:
+        st.info(f"🟢 Market OPEN | Trading Hours: {trading_hours[0]}:30 - {trading_hours[1]}:30 IST")
+    else:
+        st.info(f"⏸️ Market CLOSED | Trading Hours: {trading_hours[0]}:30 - {trading_hours[1]}:30 IST")
 
-# Progress
-progress_bar = st.progress(0)
-status_text = st.empty()
-results_container = st.container()
-
-signals_found = []
-total_scanned = len(FO_STOCKS)
-trades_done = sum([v["trades"] for v in st.session_state.stock_trades.values()])
-loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
-
-if loss_limit_hit:
-    st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
-
-for idx, stock in enumerate(FO_STOCKS):
-    progress_bar.progress((idx + 1) / total_scanned)
-    status_text.text(f"Scanning {stock['name']}...")
+# ================= F&O STOCKS SECTION =================
+else:
+    st.markdown("## 🔍 SCANNING 50+ F&O STOCKS...")
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    results_container = st.container()
+    
+    signals_found = []
+    total_scanned = len(FO_STOCKS)
+    trades_done = sum([v["trades"] for v in st.session_state.stock_trades.values()])
+    loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
     
     if loss_limit_hit:
-        break
+        st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
     
-    try:
-        # Check if limit reached
+    for idx, stock in enumerate(FO_STOCKS):
+        progress_bar.progress((idx + 1) / total_scanned)
+        status_text.text(f"Scanning {stock['name']}...")
+        
+        if loss_limit_hit:
+            break
+        
         if trades_done >= st.session_state.max_stocks_per_day:
             status_text.text(f"Daily limit reached ({st.session_state.max_stocks_per_day} stocks)")
             break
         
-        # Get stock price
-        df = yf.download(stock["symbol"], period="1d", interval="5m", progress=False)
-        if df.empty:
-            continue
-        
-        current_price = df['Close'].iloc[-1]
-        
-        # Get trends
-        sector_bullish = get_sector_bullish(stock["sector"])
-        sector_bearish = get_sector_bearish(stock["sector"])
-        stock_trend = get_stock_trend(stock["symbol"])
-        
-        stock_bullish = (stock_trend == "BULLISH")
-        stock_bearish = (stock_trend == "BEARISH")
-        
-        trade_done = st.session_state.stock_trades[stock["name"]]["trades"] >= 1
-        trade_qty = st.session_state.stock_trades[stock["name"]]["quantity"]
-        trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
-        
-        # BUY Condition: NIFTY Bullish + Sector Bullish + Stock Bullish
-        if nifty_trend == "BULLISH" and sector_bullish and stock_bullish and not trade_done:
-            itm_strike = get_itm_strike(current_price, stock, "CE")
+        try:
+            current_price = get_live_price(stock["symbol"])
+            if current_price == 0:
+                continue
             
-            # Get estimated premium and calculate TP/SL
-            estimated_premium = get_option_premium(stock["symbol"], itm_strike, "CE")
-            tp_sl = calculate_option_targets(estimated_premium, trade_qty)
+            sector_bullish = get_sector_bullish(stock["sector"])
+            sector_bearish = get_sector_bearish(stock["sector"])
+            stock_trend = get_stock_trend(stock["symbol"])
             
-            signals_found.append({
-                "type": "BUY CE",
-                "stock": stock["name"],
-                "symbol": stock["symbol"],
-                "price": current_price,
-                "itm_strike": itm_strike,
-                "lot": stock["lot"],
-                "lots": trade_lots,
-                "quantity": trade_qty,
-                "itm_points": stock["itm"],
-                "estimated_premium": estimated_premium,
-                "tp_sl": tp_sl
-            })
+            stock_bullish = (stock_trend == "BULLISH")
+            stock_bearish = (stock_trend == "BEARISH")
             
-            if st.session_state.running:
-                st.session_state.stock_trades[stock["name"]]["trades"] += 1
-                st.session_state.stock_trades[stock["name"]]["buy_done"] = True
-                trades_done += 1
-                send_telegram(f"🔵 AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE | Premium: ₹{estimated_premium:.2f} | SL: {tp_sl['sl_percent']}% | TP1: {tp_sl['tp1_percent']}%")
-        
-        # SELL Condition: NIFTY Bearish + Sector Bearish + Stock Bearish
-        elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
-            itm_strike = get_itm_strike(current_price, stock, "PE")
+            trade_done = st.session_state.stock_trades[stock["name"]]["trades"] >= 1
+            trade_qty = st.session_state.stock_trades[stock["name"]]["quantity"]
+            trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
             
-            # Get estimated premium and calculate TP/SL
-            estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
-            tp_sl = calculate_option_targets(estimated_premium, trade_qty)
-            
-            signals_found.append({
-                "type": "SELL PE",
-                "stock": stock["name"],
-                "symbol": stock["symbol"],
-                "price": current_price,
-                "itm_strike": itm_strike,
-                "lot": stock["lot"],
-                "lots": trade_lots,
-                "quantity": trade_qty,
-                "itm_points": stock["itm"],
-                "estimated_premium": estimated_premium,
-                "tp_sl": tp_sl
-            })
-            
-            if st.session_state.running:
-                st.session_state.stock_trades[stock["name"]]["trades"] += 1
-                st.session_state.stock_trades[stock["name"]]["sell_done"] = True
-                trades_done += 1
-                send_telegram(f"🔴 AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE | Premium: ₹{estimated_premium:.2f} | SL: {tp_sl['sl_percent']}% | TP1: {tp_sl['tp1_percent']}%")
+            if nifty_trend == "BULLISH" and sector_bullish and stock_bullish and not trade_done:
+                itm_strike = get_itm_strike(current_price, stock, "CE")
+                estimated_premium = get_option_premium(stock["symbol"], itm_strike, "CE")
+                tp_sl = calculate_option_targets(estimated_premium, trade_qty)
                 
-    except Exception as e:
-        continue
+                signals_found.append({
+                    "type": "BUY CE",
+                    "stock": stock["name"],
+                    "price": current_price,
+                    "itm_strike": itm_strike,
+                    "lots": trade_lots,
+                    "quantity": trade_qty,
+                    "itm_points": stock["itm"],
+                    "estimated_premium": estimated_premium,
+                    "tp_sl": tp_sl
+                })
+                
+                if st.session_state.running:
+                    st.session_state.stock_trades[stock["name"]]["trades"] += 1
+                    st.session_state.stock_trades[stock["name"]]["buy_done"] = True
+                    trades_done += 1
+                    send_telegram(f"🔵 AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
+            
+            elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
+                itm_strike = get_itm_strike(current_price, stock, "PE")
+                estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
+                tp_sl = calculate_option_targets(estimated_premium, trade_qty)
+                
+                signals_found.append({
+                    "type": "SELL PE",
+                    "stock": stock["name"],
+                    "price": current_price,
+                    "itm_strike": itm_strike,
+                    "lots": trade_lots,
+                    "quantity": trade_qty,
+                    "itm_points": stock["itm"],
+                    "estimated_premium": estimated_premium,
+                    "tp_sl": tp_sl
+                })
+                
+                if st.session_state.running:
+                    st.session_state.stock_trades[stock["name"]]["trades"] += 1
+                    st.session_state.stock_trades[stock["name"]]["sell_done"] = True
+                    trades_done += 1
+                    send_telegram(f"🔴 AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
+                    
+        except Exception as e:
+            continue
+    
+    progress_bar.empty()
+    status_text.empty()
+    
+    with results_container:
+        if signals_found:
+            st.success(f"✅ Found {len(signals_found)} Trading Opportunities!")
+            
+            for signal in signals_found:
+                tp_sl = signal["tp_sl"]
+                if signal["type"] == "BUY CE":
+                    st.markdown(f"""
+                    <div style='background:#1e293b; padding:15px; border-radius:10px; margin:10px 0; border-left:5px solid #00ff88;'>
+                        <b>🟢 {signal['stock']}</b><br>
+                        Action: <span style='color:#00ff88;'>BUY CE</span><br>
+                        ITM Strike: {signal['itm_strike']} CE ({signal['itm_points']} pts ITM)<br>
+                        Est. Premium: ₹{signal['estimated_premium']:.2f}<br>
+                        <span style='color:#ffaa00;'>🎯 TP/SL:</span> SL: {tp_sl['sl_percent']}% | TP1: {tp_sl['tp1_percent']}% | TP2: {tp_sl['tp2_percent']}% | TP3: {tp_sl['tp3_percent']}%<br>
+                        Lots: {signal['lots']} | Qty: {signal['quantity']}<br>
+                        <span style='color:#00ff88;'>✅ NIFTY Bullish + {signal['stock'].split()[0]} Sector Bullish + Stock Bullish</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style='background:#1e293b; padding:15px; border-radius:10px; margin:10px 0; border-left:5px solid #ff4b4b;'>
+                        <b>🔴 {signal['stock']}</b><br>
+                        Action: <span style='color:#ff4b4b;'>SELL PE</span><br>
+                        ITM Strike: {signal['itm_strike']} PE ({signal['itm_points']} pts ITM)<br>
+                        Est. Premium: ₹{signal['estimated_premium']:.2f}<br>
+                        <span style='color:#ffaa00;'>🎯 TP/SL:</span> SL: {tp_sl['sl_percent']}% | TP1: {tp_sl['tp1_percent']}% | TP2: {tp_sl['tp2_percent']}% | TP3: {tp_sl['tp3_percent']}%<br>
+                        Lots: {signal['lots']} | Qty: {signal['quantity']}<br>
+                        <span style='color:#ff4b4b;'>✅ NIFTY Bearish + {signal['stock'].split()[0]} Sector Bearish + Stock Bearish</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.info("📭 No trading opportunities found at this moment.")
+    
+    # Daily Trades Summary
+    st.markdown("---")
+    st.markdown("### 📊 Today's Executed Trades")
+    
+    trade_data = []
+    for stock in FO_STOCKS:
+        status = st.session_state.stock_trades[stock["name"]]
+        if status["trades"] > 0:
+            trade_data.append({
+                "Stock": stock["name"],
+                "Lots": status["lots"],
+                "Quantity": status["quantity"],
+                "Buy CE": "✅" if status["buy_done"] else "❌",
+                "Sell PE": "✅" if status["sell_done"] else "❌"
+            })
+    
+    if trade_data:
+        st.dataframe(pd.DataFrame(trade_data), use_container_width=True)
 
-progress_bar.empty()
-status_text.empty()
-
-# Display Results
-with results_container:
-    if signals_found:
-        st.success(f"✅ Found {len(signals_found)} Trading Opportunities!")
-        
-        for signal in signals_found:
-            tp_sl = signal["tp_sl"]
-            if signal["type"] == "BUY CE":
-                st.markdown(f"""
-                <div style='background:#1e293b; padding:15px; border-radius:10px; margin:10px 0; border-left:5px solid #00ff88;'>
-                    <b>🟢 {signal['stock']}</b><br>
-                    Action: <span style='color:#00ff88;'>{signal['type']}</span><br>
-                    Stock Price: ₹{signal['price']:.2f} | ITM Strike: {signal['itm_strike']} CE ({signal['itm_points']} points ITM)<br>
-                    Estimated Premium: ₹{signal['estimated_premium']:.2f}<br>
-                    <span style='color:#ffaa00;'>🎯 Premium Based TP/SL:</span><br>
-                    &nbsp;&nbsp;• SL: {tp_sl['sl_percent']}% = ₹{tp_sl['sl']:.2f} (Loss: ₹{tp_sl['sl_loss']:.0f})<br>
-                    &nbsp;&nbsp;• TP1: {tp_sl['tp1_percent']}% = ₹{tp_sl['tp1']:.2f} (Profit: ₹{tp_sl['tp1_profit']:.0f}) - 50% qty<br>
-                    &nbsp;&nbsp;• TP2: {tp_sl['tp2_percent']}% = ₹{tp_sl['tp2']:.2f} (Profit: ₹{tp_sl['tp2_profit']:.0f}) - 25% qty<br>
-                    &nbsp;&nbsp;• TP3: {tp_sl['tp3_percent']}% = ₹{tp_sl['tp3']:.2f} (Profit: ₹{tp_sl['tp3_profit']:.0f}) - 25% qty<br>
-                    &nbsp;&nbsp;💰 Total Potential Profit: ₹{tp_sl['total_profit']:.0f}<br>
-                    Lot Size: {signal['lot']} | <span style='color:#ffaa00;'>Lots: {signal['lots']} | Quantity: {signal['quantity']} (Max {MAX_QTY_LIMIT})</span><br>
-                    <span style='color:#00ff88;'>✅ Condition: NIFTY Bullish + {signal['stock'].split()[0]} Sector Bullish + Stock Bullish</span>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div style='background:#1e293b; padding:15px; border-radius:10px; margin:10px 0; border-left:5px solid #ff4b4b;'>
-                    <b>🔴 {signal['stock']}</b><br>
-                    Action: <span style='color:#ff4b4b;'>{signal['type']}</span><br>
-                    Stock Price: ₹{signal['price']:.2f} | ITM Strike: {signal['itm_strike']} PE ({signal['itm_points']} points ITM)<br>
-                    Estimated Premium: ₹{signal['estimated_premium']:.2f}<br>
-                    <span style='color:#ffaa00;'>🎯 Premium Based TP/SL:</span><br>
-                    &nbsp;&nbsp;• SL: {tp_sl['sl_percent']}% = ₹{tp_sl['sl']:.2f} (Loss: ₹{tp_sl['sl_loss']:.0f})<br>
-                    &nbsp;&nbsp;• TP1: {tp_sl['tp1_percent']}% = ₹{tp_sl['tp1']:.2f} (Profit: ₹{tp_sl['tp1_profit']:.0f}) - 50% qty<br>
-                    &nbsp;&nbsp;• TP2: {tp_sl['tp2_percent']}% = ₹{tp_sl['tp2']:.2f} (Profit: ₹{tp_sl['tp2_profit']:.0f}) - 25% qty<br>
-                    &nbsp;&nbsp;• TP3: {tp_sl['tp3_percent']}% = ₹{tp_sl['tp3']:.2f} (Profit: ₹{tp_sl['tp3_profit']:.0f}) - 25% qty<br>
-                    &nbsp;&nbsp;💰 Total Potential Profit: ₹{tp_sl['total_profit']:.0f}<br>
-                    Lot Size: {signal['lot']} | <span style='color:#ffaa00;'>Lots: {signal['lots']} | Quantity: {signal['quantity']} (Max {MAX_QTY_LIMIT})</span><br>
-                    <span style='color:#ff4b4b;'>✅ Condition: NIFTY Bearish + {signal['stock'].split()[0]} Sector Bearish + Stock Bearish</span>
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.info("📭 No trading opportunities found at this moment.")
-
-# Daily Trades Summary
+# ================= Common Status =================
 st.markdown("---")
-st.markdown("### 📊 Today's Executed Trades")
+loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 
-trade_data = []
-for stock in FO_STOCKS:
-    status = st.session_state.stock_trades[stock["name"]]
-    if status["trades"] > 0:
-        trade_data.append({
-            "Stock": stock["name"],
-            "Lots": status["lots"],
-            "Quantity": status["quantity"],
-            "Buy CE": "✅" if status["buy_done"] else "❌",
-            "Sell PE": "✅" if status["sell_done"] else "❌"
-        })
-
-if trade_data:
-    st.dataframe(pd.DataFrame(trade_data), use_container_width=True)
-    st.caption(f"📌 Max Quantity Limit: {MAX_QTY_LIMIT} per trade | Lot size नुसार auto quantity calculate केली जाते | SL/TP Premium नुसार auto adjust होते")
-else:
-    st.info("No trades executed today.")
-
-# Status
-st.markdown("---")
 if loss_limit_hit:
     st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
 elif st.session_state.running:
-    st.success(f"🟢 ALGO RUNNING | Max Stocks: {st.session_state.max_stocks_per_day}/day | Max Qty: {MAX_QTY_LIMIT}")
+    st.success(f"🟢 ALGO RUNNING | {asset_type}")
 else:
     st.warning("🔴 ALGO STOPPED")
 
-# Premium Based TP/SL Info
-st.markdown("---")
-st.markdown("### 🎯 Premium Based TP/SL Table")
-
-premium_table = pd.DataFrame([
-    {"Premium Range": "₹10 - ₹50", "SL %": "30%", "TP1 %": "20%", "TP2 %": "40%", "TP3 %": "60%"},
-    {"Premium Range": "₹51 - ₹150", "SL %": "25%", "TP1 %": "15%", "TP2 %": "30%", "TP3 %": "50%"},
-    {"Premium Range": "₹151 - ₹300", "SL %": "20%", "TP1 %": "12%", "TP2 %": "25%", "TP3 %": "40%"},
-    {"Premium Range": "₹301 - ₹500", "SL %": "15%", "TP1 %": "10%", "TP2 %": "20%", "TP3 %": "30%"},
-    {"Premium Range": "₹501 - ₹1000", "SL %": "12%", "TP1 %": "8%", "TP2 %": "15%", "TP3 %": "25%"},
-    {"Premium Range": "₹1000+", "SL %": "10%", "TP1 %": "6%", "TP2 %": "12%", "TP3 %": "20%"},
-])
-st.dataframe(premium_table, use_container_width=True)
-st.caption("📌 Entry Premium नुसार SL आणि TP percentages auto adjust होतील | Quantity Booking: TP1: 50%, TP2: 25%, TP3: 25%")
+# Premium Based TP/SL Info (for stocks section)
+if "F&O" in asset_type:
+    st.markdown("---")
+    st.markdown("### 🎯 Premium Based TP/SL Table")
+    
+    premium_table = pd.DataFrame([
+        {"Premium Range": "₹10 - ₹50", "SL %": "30%", "TP1 %": "20%", "TP2 %": "40%", "TP3 %": "60%"},
+        {"Premium Range": "₹51 - ₹150", "SL %": "25%", "TP1 %": "15%", "TP2 %": "30%", "TP3 %": "50%"},
+        {"Premium Range": "₹151 - ₹300", "SL %": "20%", "TP1 %": "12%", "TP2 %": "25%", "TP3 %": "40%"},
+        {"Premium Range": "₹301 - ₹500", "SL %": "15%", "TP1 %": "10%", "TP2 %": "20%", "TP3 %": "30%"},
+        {"Premium Range": "₹501 - ₹1000", "SL %": "12%", "TP1 %": "8%", "TP2 %": "15%", "TP3 %": "25%"},
+        {"Premium Range": "₹1000+", "SL %": "10%", "TP1 %": "6%", "TP2 %": "12%", "TP3 %": "20%"},
+    ])
+    st.dataframe(premium_table, use_container_width=True)
 
 # Clock
 st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Auto Refresh every 60 seconds")
