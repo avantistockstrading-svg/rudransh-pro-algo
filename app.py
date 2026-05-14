@@ -530,7 +530,7 @@ if "F&O" in asset_type:
                     st.session_state.stock_trades[stock["name"]]["trades"] += 1
                     st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                     trades_done += 1
-                    send_telegram(f"🔵 PAPER BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
+                    send_telegram(f"🔵 AUTO BUY {stock['name']} ...") | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
             elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
                 itm_strike = get_itm_strike(current_price, stock, "PE")
                 estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
@@ -573,7 +573,7 @@ loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 if loss_limit_hit:
     st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
 elif st.session_state.running:
-    st.success(f"🟢 ALGO RUNNING | {asset_type} (Paper Trading Mode)")
+   st.success(f"🟢 ALGO RUNNING | {asset_type} (Real Trading Mode)")
 else:
     st.warning("🔴 ALGO STOPPED")
 
