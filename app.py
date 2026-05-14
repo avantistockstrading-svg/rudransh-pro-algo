@@ -221,7 +221,7 @@ if "stock_trades" not in st.session_state:
     st.session_state.stock_trades = {}
     for stock in FO_STOCKS:
         qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
-        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots, "sl_shifted": False, "tp2_hit": False, "tp3_hit": False}
+        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots, "sl_shifted": False}
 if "last_trade_date" not in st.session_state:
     st.session_state.last_trade_date = get_ist_now().date()
 if "daily_loss" not in st.session_state:
@@ -233,7 +233,7 @@ if "max_stocks_per_day" not in st.session_state:
 if get_ist_now().date() != st.session_state.last_trade_date:
     for stock in FO_STOCKS:
         qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
-        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots, "sl_shifted": False, "tp2_hit": False, "tp3_hit": False}
+        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots, "sl_shifted": False}
     st.session_state.daily_loss = 0
     st.session_state.last_trade_date = get_ist_now().date()
 
@@ -429,7 +429,7 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
 # ================= UI =================
 st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Auto Trading System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | F&O STOCKS</p>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#ffaa00;'>🎯 TP2 Hit = SL Shift to Entry | TP3 Hit = Auto Exit</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#ffaa00;'>🎯 TP2 Hit = SL Shift to TP1 | TP3 Hit = Auto Exit</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Sidebar
@@ -486,7 +486,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🎯 Auto SL/TP Rules")
     st.caption("• TP1 Hit: 50% Profit Book")
-    st.caption("• TP2 Hit: 25% Profit Book + SL Shift to Entry")
+    st.caption("• TP2 Hit: 25% Profit Book + **SL Shift to TP1 Level**")
     st.caption("• TP3 Hit: 25% Auto Exit")
 
 # NIFTY Trend (For NIFTY only, NOT for CRUDE/NG)
@@ -528,6 +528,9 @@ if st.session_state.enable_nifty:
             st.warning("🔴 NIFTY ALGO STOPPED")
     else:
         st.info("⏸️ NIFTY Market CLOSED | 9:30 AM - 2:30 PM IST")
+    
+    # SL Shift Logic Display
+    st.markdown("🛡️ **SL Shift Rule:** TP2 Hit → SL will shift to TP1 (15 points)")
     st.markdown("---")
 
 # ================= CRUDE OIL SECTION =================
@@ -561,6 +564,9 @@ if st.session_state.enable_crude:
             st.warning("🔴 CRUDE ALGO STOPPED")
     else:
         st.info("⏸️ CRUDE Market CLOSED | 6:00 PM - 10:30 PM IST")
+    
+    # SL Shift Logic Display
+    st.markdown(f"🛡️ **SL Shift Rule:** TP2 Hit ({settings['tp1'] + settings['tp2']} pts) → SL will shift to TP1 ({settings['tp1']} pts)")
     st.markdown("---")
 
 # ================= NATURAL GAS SECTION =================
@@ -594,6 +600,9 @@ if st.session_state.enable_ng:
             st.warning("🔴 NG ALGO STOPPED")
     else:
         st.info("⏸️ NG Market CLOSED | 6:00 PM - 10:30 PM IST")
+    
+    # SL Shift Logic Display
+    st.markdown(f"🛡️ **SL Shift Rule:** TP2 Hit ({settings['tp1'] + settings['tp2']} pts) → SL will shift to TP1 ({settings['tp1']} pts)")
     st.markdown("---")
 
 # ================= F&O STOCKS SECTION =================
@@ -648,7 +657,7 @@ if st.session_state.enable_stocks and st.session_state.running:
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE | TP2: {tp_sl_calc['tp2_points']} pts (SL Shift) | TP3: {tp_sl_calc['tp3_points']} pts (Auto Exit)")
+                        send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE | TP2: {tp_sl_calc['tp2_points']} pts (SL will shift to TP1: {tp_sl_calc['tp1_points']} pts) | TP3: {tp_sl_calc['tp3_points']} pts (Auto Exit)")
                 elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
                     itm_strike = get_stock_itm_strike(current_price, stock, "PE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
@@ -658,7 +667,7 @@ if st.session_state.enable_stocks and st.session_state.running:
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["sell_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE | TP2: {tp_sl_calc['tp2_points']} pts (SL Shift) | TP3: {tp_sl_calc['tp3_points']} pts (Auto Exit)")
+                        send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE | TP2: {tp_sl_calc['tp2_points']} pts (SL will shift to TP1: {tp_sl_calc['tp1_points']} pts) | TP3: {tp_sl_calc['tp3_points']} pts (Auto Exit)")
             except:
                 continue
         
@@ -678,7 +687,8 @@ if st.session_state.enable_stocks and st.session_state.running:
                         ITM Strike: {signal['itm_strike']} ({signal['itm_points']} pts ITM)<br>
                         Est. Premium: ₹{signal['estimated_premium']:.2f}<br>
                         🎯 TP/SL: SL: {tp_sl_calc['sl_points']} pts | TP1: {tp_sl_calc['tp1_points']} pts | TP2: {tp_sl_calc['tp2_points']} pts | TP3: {tp_sl_calc['tp3_points']} pts<br>
-                        🛡️ TP2 Hit → SL Shift to Entry | 🚪 TP3 Hit → Auto Exit<br>
+                        🛡️ **TP2 Hit → SL will shift to TP1 ({tp_sl_calc['tp1_points']} pts)**<br>
+                        🚪 **TP3 Hit → Auto Exit**<br>
                         Lots: {signal['lots']} | Qty: {signal['quantity']}<br>
                         ✅ Condition: {'NIFTY Bullish + Sector Bullish + Stock Bullish' if signal['type'] == 'BUY CE' else 'NIFTY Bearish + Sector Bearish + Stock Bearish'}
                     </div>
@@ -718,7 +728,7 @@ st.markdown("""
 | Rule | Action |
 |------|--------|
 | **TP1 Hit** | 50% Quantity Booked (Profit Locked) |
-| **TP2 Hit** | 25% Quantity Booked + **SL Shifted to Entry Price** (No Loss on remaining) |
+| **TP2 Hit** | 25% Quantity Booked + **SL Shifted to TP1 Level** (Remaining trade secured) |
 | **TP3 Hit** | 25% Quantity **Auto Exit** (Complete Trade Closed) |
 """)
 
@@ -728,12 +738,15 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("**NIFTY**")
     st.markdown(f"SL: {FIXED_TP_SL['NIFTY']['sl']} | TP1: {FIXED_TP_SL['NIFTY']['tp1']} | TP2: {FIXED_TP_SL['NIFTY']['tp2']} | TP3: {FIXED_TP_SL['NIFTY']['tp3']}")
+    st.markdown(f"🛡️ TP2 Hit → SL Shift to {FIXED_TP_SL['NIFTY']['tp1']} pts")
 with col2:
     st.markdown("**CRUDE OIL**")
     st.markdown(f"SL: {FIXED_TP_SL['CRUDEOIL']['sl']} | TP1: {FIXED_TP_SL['CRUDEOIL']['tp1']} | TP2: {FIXED_TP_SL['CRUDEOIL']['tp2']} | TP3: {FIXED_TP_SL['CRUDEOIL']['tp3']}")
+    st.markdown(f"🛡️ TP2 Hit → SL Shift to {FIXED_TP_SL['CRUDEOIL']['tp1']} pts")
 with col3:
     st.markdown("**NATURAL GAS**")
     st.markdown(f"SL: {FIXED_TP_SL['NATURALGAS']['sl']} | TP1: {FIXED_TP_SL['NATURALGAS']['tp1']} | TP2: {FIXED_TP_SL['NATURALGAS']['tp2']} | TP3: {FIXED_TP_SL['NATURALGAS']['tp3']}")
+    st.markdown(f"🛡️ TP2 Hit → SL Shift to {FIXED_TP_SL['NATURALGAS']['tp1']} pts")
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | REAL TRADING MODE | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30 | TP2=SL Shift | TP3=Auto Exit")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | REAL TRADING MODE | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30 | TP2=SL Shift to TP1 | TP3=Auto Exit")
