@@ -201,6 +201,10 @@ SECTOR_INDEX = {
 # ================= Session State =================
 if "running" not in st.session_state:
     st.session_state.running = False
+if "control_mode" not in st.session_state:
+    st.session_state.control_mode = "AUTO"  # AUTO or MANUAL
+if "force_start" not in st.session_state:
+    st.session_state.force_start = False
 if "enable_nifty" not in st.session_state:
     st.session_state.enable_nifty = True
 if "enable_crude" not in st.session_state:
@@ -221,7 +225,7 @@ if "stock_trades" not in st.session_state:
     st.session_state.stock_trades = {}
     for stock in FO_STOCKS:
         qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
-        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots, "sl_shifted": False}
+        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots}
 if "last_trade_date" not in st.session_state:
     st.session_state.last_trade_date = get_ist_now().date()
 if "daily_loss" not in st.session_state:
@@ -233,7 +237,7 @@ if "max_stocks_per_day" not in st.session_state:
 if get_ist_now().date() != st.session_state.last_trade_date:
     for stock in FO_STOCKS:
         qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit)
-        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots, "sl_shifted": False}
+        st.session_state.stock_trades[stock["name"]] = {"buy_done": False, "sell_done": False, "trades": 0, "quantity": qty, "lots": lots}
     st.session_state.daily_loss = 0
     st.session_state.last_trade_date = get_ist_now().date()
 
@@ -289,24 +293,6 @@ def get_sector_bearish(sector_name):
     except:
         pass
     return False
-
-def get_commodity_trend(symbol):
-    try:
-        df = yf.download(symbol, period="7d", interval="15m", progress=False)
-        if not df.empty and 'Close' in df.columns:
-            ema20 = df['Close'].ewm(span=20).mean().iloc[-1]
-            current = df['Close'].iloc[-1]
-            if isinstance(current, pd.Series):
-                current = float(current.iloc[-1])
-            if isinstance(ema20, pd.Series):
-                ema20 = float(ema20.iloc[-1])
-            if current > ema20:
-                return "BULLISH"
-            elif current < ema20:
-                return "BEARISH"
-    except:
-        pass
-    return "NEUTRAL"
 
 def get_stock_trend(symbol):
     try:
@@ -387,6 +373,23 @@ def is_stock_market_open():
     now = get_ist_now()
     return 9 <= now.hour < 14
 
+def should_algo_run(asset_type):
+    """Check if algo should run based on mode and trading hours"""
+    if st.session_state.control_mode == "MANUAL":
+        return st.session_state.running
+    
+    # AUTO MODE
+    if st.session_state.force_start:
+        return True
+    
+    if asset_type == "NIFTY":
+        return is_nifty_market_open()
+    elif asset_type in ["CRUDEOIL", "NATURALGAS"]:
+        return is_commodity_market_open()
+    elif asset_type == "STOCKS":
+        return is_stock_market_open()
+    return False
+
 # ================= Display Asset Section =================
 def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, total_qty, is_commodity=False):
     if is_commodity:
@@ -415,14 +418,21 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
         market_open = is_commodity_market_open()
         hours_text = "6:00 PM - 10:30 PM IST"
     
+    algo_active = should_algo_run(asset_type) and st.session_state.enable_nifty if asset_type == "NIFTY" else should_algo_run(asset_type) and (st.session_state.enable_crude if asset_type == "CRUDEOIL" else st.session_state.enable_ng if asset_type == "NATURALGAS" else True)
+    
     if market_open:
         st.info(f"🟢 {display_name} Market OPEN | {hours_text}")
-        if st.session_state.running:
+        if algo_active:
             st.success(f"🟢 {display_name} ALGO ACTIVE")
         else:
-            st.warning(f"🔴 {display_name} ALGO STOPPED (Press START ALL)")
+            if st.session_state.control_mode == "AUTO":
+                st.warning(f"🔴 {display_name} ALGO WAITING (Auto Mode - Market Hours)")
+            else:
+                st.warning(f"🔴 {display_name} ALGO STOPPED (Manual Mode - Press START ALL)")
     else:
         st.info(f"⏸️ {display_name} Market CLOSED | {hours_text}")
+        if st.session_state.force_start and st.session_state.control_mode == "AUTO":
+            st.warning(f"⚠️ {display_name} FORCE START ACTIVE (Testing Mode)")
     
     st.markdown("---")
 
@@ -434,19 +444,48 @@ st.markdown("---")
 
 # Sidebar
 with st.sidebar:
-    st.markdown("## 🎮 CONTROLS")
+    st.markdown("## 🎮 CONTROL MODE")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("▶️ START ALL", use_container_width=True):
-            st.session_state.running = True
-            send_telegram("🤖 ALL ALGOS STARTED")
-            st.success("All Algos Started!")
-    with col2:
-        if st.button("⏹️ STOP ALL", use_container_width=True):
-            st.session_state.running = False
-            send_telegram("🛑 ALL ALGOS STOPPED")
-            st.warning("All Algos Stopped!")
+    control_mode = st.radio(
+        "Select Control Mode",
+        ["🤖 AUTO MODE (Trading Hours)", "👆 MANUAL MODE"],
+        index=0 if st.session_state.control_mode == "AUTO" else 1
+    )
+    st.session_state.control_mode = "AUTO" if "AUTO" in control_mode else "MANUAL"
+    
+    if st.session_state.control_mode == "AUTO":
+        st.info("🕐 AUTO MODE: Trading Hours नुसार Auto Start/Stop")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⚠️ FORCE START", use_container_width=True):
+                st.session_state.force_start = True
+                send_telegram("⚠️ FORCE START ACTIVATED (Testing Mode)")
+                st.success("Force Start ON!")
+        with col2:
+            if st.button("🔴 FORCE STOP", use_container_width=True):
+                st.session_state.force_start = False
+                st.session_state.running = False
+                send_telegram("🔴 FORCE STOP ACTIVATED")
+                st.warning("Force Start OFF!")
+        
+        st.caption("Force Start = Market बंद असताना पण Algo सुरू करण्यासाठी (Testing)")
+    
+    else:  # MANUAL MODE
+        st.info("👆 MANUAL MODE: तुम्ही स्वतः START/STOP करा")
+        st.session_state.force_start = False
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("▶️ START", use_container_width=True):
+                st.session_state.running = True
+                send_telegram("🤖 ALGO STARTED (Manual Mode)")
+                st.success("Started!")
+        with col2:
+            if st.button("⏹️ STOP", use_container_width=True):
+                st.session_state.running = False
+                send_telegram("🛑 ALGO STOPPED (Manual Mode)")
+                st.warning("Stopped!")
     
     st.markdown("---")
     st.markdown("## 📌 ASSET SELECTION (ON/OFF)")
@@ -484,9 +523,24 @@ with st.sidebar:
     st.markdown(f"**Daily Loss:** <span style='color:{loss_color};'>₹{abs(st.session_state.daily_loss):,.0f}</span>", unsafe_allow_html=True)
     
     st.markdown("---")
+    st.markdown("### 🎯 Current Mode")
+    if st.session_state.control_mode == "AUTO":
+        st.markdown(f"**Mode:** 🤖 AUTO")
+        if st.session_state.force_start:
+            st.markdown("**Force Start:** ⚠️ ACTIVE")
+        else:
+            st.markdown("**Force Start:** ❌ OFF")
+    else:
+        st.markdown("**Mode:** 👆 MANUAL")
+        if st.session_state.running:
+            st.markdown("**Status:** 🟢 RUNNING")
+        else:
+            st.markdown("**Status:** 🔴 STOPPED")
+    
+    st.markdown("---")
     st.markdown("### 🎯 Auto SL/TP Rules")
     st.caption("• TP1 Hit: 50% Profit Book")
-    st.caption("• TP2 Hit: 25% Profit Book + **SL Shift to TP1 Level**")
+    st.caption("• TP2 Hit: 25% Profit Book + SL Shift to TP1")
     st.caption("• TP3 Hit: 25% Auto Exit")
 
 # NIFTY Trend (For NIFTY only, NOT for CRUDE/NG)
@@ -504,116 +558,32 @@ st.markdown("---")
 if st.session_state.enable_nifty:
     st.markdown("## 📊 NIFTY 50")
     total_qty = st.session_state.nifty_lots * ASSET_LOT_SIZES["NIFTY"]
-    current_price = get_live_price(SYMBOLS["NIFTY"])
-    
-    if current_price > 0:
-        strike, actual_itm = get_itm_strike(current_price, "NIFTY")
-    else:
-        strike = 0
-        actual_itm = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("NIFTY Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"ITM Strike (100 pts)", f"{strike} ({actual_itm:.1f} pts ITM)" if strike > 0 else "N/A")
-    col3.metric("Quantity", total_qty)
-    col4.metric("TP/SL", f"SL:30 | T1:15 T2:22 T3:30")
-    
-    st.markdown("---")
-    nifty_market_open = is_nifty_market_open()
-    if nifty_market_open:
-        st.info("🟢 NIFTY Market OPEN | 9:30 AM - 2:30 PM IST")
-        if st.session_state.running:
-            st.success("🟢 NIFTY ALGO ACTIVE")
-        else:
-            st.warning("🔴 NIFTY ALGO STOPPED")
-    else:
-        st.info("⏸️ NIFTY Market CLOSED | 9:30 AM - 2:30 PM IST")
-    
-    # SL Shift Logic Display
-    st.markdown("🛡️ **SL Shift Rule:** TP2 Hit → SL will shift to TP1 (15 points)")
-    st.markdown("---")
+    display_asset_section("NIFTY", "NIFTY", SYMBOLS["NIFTY"], FIXED_TP_SL["NIFTY"], ASSET_LOT_SIZES["NIFTY"], total_qty, is_commodity=False)
 
 # ================= CRUDE OIL SECTION =================
 if st.session_state.enable_crude:
     st.markdown("## 🛢️ CRUDE OIL")
     total_qty = st.session_state.crude_lots * ASSET_LOT_SIZES["CRUDEOIL"]
-    current_price = get_live_price_inr(SYMBOLS["CRUDEOIL"])
-    settings = FIXED_TP_SL["CRUDEOIL"]
-    
-    if current_price > 0:
-        strike, actual_itm = get_itm_strike(current_price, "CRUDEOIL")
-    else:
-        strike = 0
-        actual_itm = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("CRUDE Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"ITM Strike ({settings['itm']} pts)", f"{strike} ({actual_itm:.1f} pts ITM)" if strike > 0 else "N/A")
-    col3.metric("Quantity", total_qty)
-    col4.metric("TP/SL", f"SL:{settings['sl']} | T1:{settings['tp1']} T2:{settings['tp2']} T3:{settings['tp3']}")
-    
-    st.markdown("---")
-    st.info("ℹ️ CRUDE OIL - NIFTY Trend NOT Used (Only Commodity Trend)")
-    
-    crude_market_open = is_commodity_market_open()
-    if crude_market_open:
-        st.info("🟢 CRUDE Market OPEN | 6:00 PM - 10:30 PM IST")
-        if st.session_state.running:
-            st.success("🟢 CRUDE ALGO ACTIVE")
-        else:
-            st.warning("🔴 CRUDE ALGO STOPPED")
-    else:
-        st.info("⏸️ CRUDE Market CLOSED | 6:00 PM - 10:30 PM IST")
-    
-    # SL Shift Logic Display
-    st.markdown(f"🛡️ **SL Shift Rule:** TP2 Hit ({settings['tp1'] + settings['tp2']} pts) → SL will shift to TP1 ({settings['tp1']} pts)")
-    st.markdown("---")
+    display_asset_section("CRUDEOIL", "CRUDE OIL", SYMBOLS["CRUDEOIL"], FIXED_TP_SL["CRUDEOIL"], ASSET_LOT_SIZES["CRUDEOIL"], total_qty, is_commodity=True)
 
 # ================= NATURAL GAS SECTION =================
 if st.session_state.enable_ng:
     st.markdown("## 🌿 NATURAL GAS")
     total_qty = st.session_state.ng_lots * ASSET_LOT_SIZES["NATURALGAS"]
-    current_price = get_live_price_inr(SYMBOLS["NATURALGAS"])
-    settings = FIXED_TP_SL["NATURALGAS"]
-    
-    if current_price > 0:
-        strike, actual_itm = get_itm_strike(current_price, "NATURALGAS")
-    else:
-        strike = 0
-        actual_itm = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("NG Price", f"₹{current_price:,.2f}" if current_price > 0 else "Loading...")
-    col2.metric(f"ITM Strike ({settings['itm']} pts)", f"{strike} ({actual_itm:.1f} pts ITM)" if strike > 0 else "N/A")
-    col3.metric("Quantity", total_qty)
-    col4.metric("TP/SL", f"SL:{settings['sl']} | T1:{settings['tp1']} T2:{settings['tp2']} T3:{settings['tp3']}")
-    
-    st.markdown("---")
-    st.info("ℹ️ NATURAL GAS - NIFTY Trend NOT Used (Only Commodity Trend)")
-    
-    ng_market_open = is_commodity_market_open()
-    if ng_market_open:
-        st.info("🟢 NG Market OPEN | 6:00 PM - 10:30 PM IST")
-        if st.session_state.running:
-            st.success("🟢 NG ALGO ACTIVE")
-        else:
-            st.warning("🔴 NG ALGO STOPPED")
-    else:
-        st.info("⏸️ NG Market CLOSED | 6:00 PM - 10:30 PM IST")
-    
-    # SL Shift Logic Display
-    st.markdown(f"🛡️ **SL Shift Rule:** TP2 Hit ({settings['tp1'] + settings['tp2']} pts) → SL will shift to TP1 ({settings['tp1']} pts)")
-    st.markdown("---")
+    display_asset_section("NATURALGAS", "NATURAL GAS", SYMBOLS["NATURALGAS"], FIXED_TP_SL["NATURALGAS"], ASSET_LOT_SIZES["NATURALGAS"], total_qty, is_commodity=True)
 
 # ================= F&O STOCKS SECTION =================
-if st.session_state.enable_stocks and st.session_state.running:
+if st.session_state.enable_stocks and (st.session_state.running if st.session_state.control_mode == "MANUAL" else should_algo_run("STOCKS")):
     st.markdown("## 🔍 SCANNING F&O STOCKS...")
     
     stock_market_open = is_stock_market_open()
     
-    if not stock_market_open:
+    if not stock_market_open and not st.session_state.force_start:
         st.info("⏸️ Stock Options Market CLOSED | Trading Hours: 9:30 AM - 2:30 PM IST")
     else:
+        if st.session_state.force_start:
+            st.warning("⚠️ FORCE START ACTIVE - Scanning stocks outside market hours (Testing Only)")
+        
         progress_bar = st.progress(0)
         status_text = st.empty()
         results_container = st.container()
@@ -647,27 +617,26 @@ if st.session_state.enable_stocks and st.session_state.running:
                 trade_qty = st.session_state.stock_trades[stock["name"]]["quantity"]
                 trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
                 
-                # Stocks use NIFTY trend
                 if nifty_trend == "BULLISH" and sector_bullish and stock_bullish and not trade_done:
                     itm_strike = get_stock_itm_strike(current_price, stock, "CE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "CE")
                     tp_sl_calc = calculate_option_targets(estimated_premium, trade_qty)
                     signals_found.append({"type": "BUY CE", "stock": stock["name"], "price": current_price, "itm_strike": itm_strike, "lots": trade_lots, "quantity": trade_qty, "itm_points": stock["itm"], "estimated_premium": estimated_premium, "tp_sl": tp_sl_calc})
-                    if st.session_state.running:
+                    if st.session_state.running or st.session_state.force_start:
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE | TP2: {tp_sl_calc['tp2_points']} pts (SL will shift to TP1: {tp_sl_calc['tp1_points']} pts) | TP3: {tp_sl_calc['tp3_points']} pts (Auto Exit)")
+                        send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
                 elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
                     itm_strike = get_stock_itm_strike(current_price, stock, "PE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
                     tp_sl_calc = calculate_option_targets(estimated_premium, trade_qty)
                     signals_found.append({"type": "SELL PE", "stock": stock["name"], "price": current_price, "itm_strike": itm_strike, "lots": trade_lots, "quantity": trade_qty, "itm_points": stock["itm"], "estimated_premium": estimated_premium, "tp_sl": tp_sl_calc})
-                    if st.session_state.running:
+                    if st.session_state.running or st.session_state.force_start:
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["sell_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE | TP2: {tp_sl_calc['tp2_points']} pts (SL will shift to TP1: {tp_sl_calc['tp1_points']} pts) | TP3: {tp_sl_calc['tp3_points']} pts (Auto Exit)")
+                        send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
             except:
                 continue
         
@@ -687,8 +656,8 @@ if st.session_state.enable_stocks and st.session_state.running:
                         ITM Strike: {signal['itm_strike']} ({signal['itm_points']} pts ITM)<br>
                         Est. Premium: ₹{signal['estimated_premium']:.2f}<br>
                         🎯 TP/SL: SL: {tp_sl_calc['sl_points']} pts | TP1: {tp_sl_calc['tp1_points']} pts | TP2: {tp_sl_calc['tp2_points']} pts | TP3: {tp_sl_calc['tp3_points']} pts<br>
-                        🛡️ **TP2 Hit → SL will shift to TP1 ({tp_sl_calc['tp1_points']} pts)**<br>
-                        🚪 **TP3 Hit → Auto Exit**<br>
+                        🛡️ TP2 Hit → SL Shift to TP1 ({tp_sl_calc['tp1_points']} pts)<br>
+                        🚪 TP3 Hit → Auto Exit<br>
                         Lots: {signal['lots']} | Qty: {signal['quantity']}<br>
                         ✅ Condition: {'NIFTY Bullish + Sector Bullish + Stock Bullish' if signal['type'] == 'BUY CE' else 'NIFTY Bearish + Sector Bearish + Stock Bearish'}
                     </div>
@@ -705,8 +674,11 @@ if st.session_state.enable_stocks and st.session_state.running:
                 trade_data.append({"Stock": stock["name"], "Lots": status["lots"], "Quantity": status["quantity"], "Buy CE": "✅" if status["buy_done"] else "❌", "Sell PE": "✅" if status["sell_done"] else "❌"})
         if trade_data:
             st.dataframe(pd.DataFrame(trade_data), use_container_width=True)
-elif st.session_state.enable_stocks and not st.session_state.running:
-    st.info("📈 F&O STOCKS ALGO STOPPED | Press START ALL to begin scanning")
+elif st.session_state.enable_stocks and not (st.session_state.running if st.session_state.control_mode == "MANUAL" else should_algo_run("STOCKS")):
+    if st.session_state.control_mode == "MANUAL" and not st.session_state.running:
+        st.info("📈 F&O STOCKS ALGO STOPPED | Press START to begin scanning")
+    else:
+        st.info("📈 F&O STOCKS ALGO WAITING | Trading Hours: 9:30 AM - 2:30 PM IST")
 elif not st.session_state.enable_stocks:
     pass
 
@@ -715,11 +687,17 @@ st.markdown("---")
 loss_limit_hit = abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 if loss_limit_hit:
     st.error(f"⚠️ DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. ⚠️")
-elif st.session_state.running:
-    active_count = sum([st.session_state.enable_nifty, st.session_state.enable_crude, st.session_state.enable_ng, st.session_state.enable_stocks])
-    st.success(f"🟢 ALGO RUNNING | {active_count} Assets Active")
 else:
-    st.warning("🔴 ALGO STOPPED")
+    if st.session_state.control_mode == "AUTO":
+        if st.session_state.force_start:
+            st.warning("⚠️ FORCE START MODE ACTIVE - Trading outside market hours (Testing Only)")
+        else:
+            st.success("🟢 AUTO MODE ACTIVE - Trading will start/stop automatically as per market hours")
+    else:
+        if st.session_state.running:
+            st.success("🟢 MANUAL MODE ACTIVE - Algo is RUNNING (Press STOP to stop)")
+        else:
+            st.warning("🔴 MANUAL MODE ACTIVE - Algo is STOPPED (Press START to begin)")
 
 # ================= TP/SL Info =================
 st.markdown("---")
@@ -738,15 +716,12 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("**NIFTY**")
     st.markdown(f"SL: {FIXED_TP_SL['NIFTY']['sl']} | TP1: {FIXED_TP_SL['NIFTY']['tp1']} | TP2: {FIXED_TP_SL['NIFTY']['tp2']} | TP3: {FIXED_TP_SL['NIFTY']['tp3']}")
-    st.markdown(f"🛡️ TP2 Hit → SL Shift to {FIXED_TP_SL['NIFTY']['tp1']} pts")
 with col2:
     st.markdown("**CRUDE OIL**")
     st.markdown(f"SL: {FIXED_TP_SL['CRUDEOIL']['sl']} | TP1: {FIXED_TP_SL['CRUDEOIL']['tp1']} | TP2: {FIXED_TP_SL['CRUDEOIL']['tp2']} | TP3: {FIXED_TP_SL['CRUDEOIL']['tp3']}")
-    st.markdown(f"🛡️ TP2 Hit → SL Shift to {FIXED_TP_SL['CRUDEOIL']['tp1']} pts")
 with col3:
     st.markdown("**NATURAL GAS**")
     st.markdown(f"SL: {FIXED_TP_SL['NATURALGAS']['sl']} | TP1: {FIXED_TP_SL['NATURALGAS']['tp1']} | TP2: {FIXED_TP_SL['NATURALGAS']['tp2']} | TP3: {FIXED_TP_SL['NATURALGAS']['tp3']}")
-    st.markdown(f"🛡️ TP2 Hit → SL Shift to {FIXED_TP_SL['NATURALGAS']['tp1']} pts")
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | REAL TRADING MODE | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30 | TP2=SL Shift to TP1 | TP3=Auto Exit")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Mode: {st.session_state.control_mode} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30 | TP2=SL Shift to TP1 | TP3=Auto Exit")
