@@ -1,11 +1,17 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Rudransh Pro-Algo", layout="wide")
+
+# ================= IST Timezone =================
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_now():
+    return datetime.now(IST)
 
 # ================= CSS =================
 st.markdown("""
@@ -44,7 +50,7 @@ if "asset" not in st.session_state:
 if "last_trade_side" not in st.session_state:
     st.session_state.last_trade_side = ""
 if "last_trade_time" not in st.session_state:
-    st.session_state.last_trade_time = datetime.now() - timedelta(minutes=10)
+    st.session_state.last_trade_time = get_ist_now() - timedelta(minutes=10)
 if "nifty_trades" not in st.session_state:
     st.session_state.nifty_trades = 0
 if "crude_trades" not in st.session_state:
@@ -52,16 +58,16 @@ if "crude_trades" not in st.session_state:
 if "ng_trades" not in st.session_state:
     st.session_state.ng_trades = 0
 if "last_trade_date" not in st.session_state:
-    st.session_state.last_trade_date = datetime.now().date()
+    st.session_state.last_trade_date = get_ist_now().date()
 if "signal_mode" not in st.session_state:
     st.session_state.signal_mode = "EARLY"
 
-# Reset daily trades
-if datetime.now().date() != st.session_state.last_trade_date:
+# Reset daily trades (IST मध्ये)
+if get_ist_now().date() != st.session_state.last_trade_date:
     st.session_state.nifty_trades = 0
     st.session_state.crude_trades = 0
     st.session_state.ng_trades = 0
-    st.session_state.last_trade_date = datetime.now().date()
+    st.session_state.last_trade_date = get_ist_now().date()
 
 # ================= Pine Script सारखी TP/SL Settings =================
 def get_tp_sl(asset):
@@ -334,7 +340,7 @@ def calculate_signals():
         sell_condition = early_sell or strict_sell
     
     # Cooldown
-    cooldown_ok = (datetime.now() - st.session_state.last_trade_time).seconds > 300
+    cooldown_ok = (get_ist_now() - st.session_state.last_trade_time).seconds > 300
     
     if buy_condition and cooldown_ok and st.session_state.last_trade_side != "BUY":
         signal = "BUY"
@@ -427,16 +433,18 @@ with col3:
 
 st.markdown("---")
 
-# ================= Auto Trade Execution =================
+# ================= Auto Trade Execution (IST Market Hours) =================
 market_hours = False
-now = datetime.now()
+now = get_ist_now()
 
 if st.session_state.asset == "NIFTY":
+    # IST Market Hours: 9:15 AM to 3:30 PM
     if 9 <= now.hour <= 15:
         market_hours = True
     max_trades = 2
     trades_today = st.session_state.nifty_trades
 else:
+    # CRUDE/NG IST Hours: 6:00 PM to 11:00 PM
     if 18 <= now.hour <= 23:
         market_hours = True
     max_trades = 2
@@ -455,7 +463,7 @@ if st.session_state.running and market_hours and trades_today < max_trades:
             st.session_state.ng_trades += 1
         
         st.session_state.last_trade_side = "BUY"
-        st.session_state.last_trade_time = datetime.now()
+        st.session_state.last_trade_time = get_ist_now()
         st.balloons()
     
     elif signals['sell']:
@@ -470,14 +478,14 @@ if st.session_state.running and market_hours and trades_today < max_trades:
             st.session_state.ng_trades += 1
         
         st.session_state.last_trade_side = "SELL"
-        st.session_state.last_trade_time = datetime.now()
+        st.session_state.last_trade_time = get_ist_now()
 
 # ================= Status =================
 st.markdown("---")
 if st.session_state.running and market_hours:
-    st.success(f"🟢 ALGO RUNNING | {st.session_state.signal_mode}")
+    st.success(f"🟢 ALGO RUNNING | {st.session_state.signal_mode} | IST: {now.strftime('%H:%M:%S')}")
 elif not market_hours:
-    st.info("⏰ Market closed. Algo will run during trading hours.")
+    st.info("⏰ Market closed (IST). Algo will run during trading hours (9:15 AM - 3:30 PM for NIFTY, 6:00 PM - 11:00 PM for Commodities)")
 else:
     st.warning("🔴 ALGO STOPPED")
 
@@ -499,5 +507,5 @@ col2.metric("CRUDE", f"{st.session_state.crude_trades}/2")
 col3.metric("NG", f"{st.session_state.ng_trades}/2")
 
 # ================= Clock =================
-st.caption(f"🕐 {datetime.now().strftime('%H:%M:%S')} | Auto Refresh every 60 seconds")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Auto Refresh every 60 seconds")
 st_autorefresh(interval=60000, key="auto_refresh")
