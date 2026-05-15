@@ -640,8 +640,12 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
     st.markdown("---")
 
 # ================= HERO IMAGE =================
-# Image file should be in the same folder as this script
-st.image("WhatsApp Image 2026-05-15 at 11.31.32.jpeg", use_container_width=True)
+import os
+image_path = "WhatsApp Image 2026-05-15 at 11.31.32.jpeg"
+if os.path.exists(image_path):
+    st.image(image_path, use_container_width=True)
+else:
+    st.warning("📷 Image not found. Please add the image file to the app directory.")
 
 # ================= UI =================
 st.markdown("<h1>📱 RUDRANSH PRO ALGO Trading </h1>", unsafe_allow_html=True)
