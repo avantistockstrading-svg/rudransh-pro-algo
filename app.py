@@ -294,15 +294,7 @@ def get_technical_indicators(df):
     c2 = df.iloc[-1]
     strong_bull = c2['Close'] > c2['Open'] and c2['Close'] > c1['High']
     strong_bear = c2['Close'] < c2['Open'] and c2['Close'] < c1['Low']
-    
-    # Resistance/Support (100 period)
-    lookback = 100
-    resistance = high.rolling(lookback).max().shift(1).iloc[-1]
-    support = low.rolling(lookback).min().shift(1).iloc[-1]
-    
-    confirmed_breakout = close.iloc[-1] > resistance
-    confirmed_breakdown = close.iloc[-1] < support
-    
+            
     # Sideways Filter (RSI 45-55 and ADX < 20)
     current_rsi = rsi.iloc[-1]
     sideways = (45 < current_rsi < 55) and adx < 20
