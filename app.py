@@ -202,7 +202,7 @@ SECTOR_INDEX = {
 if "running" not in st.session_state:
     st.session_state.running = False
 if "control_mode" not in st.session_state:
-    st.session_state.control_mode = "AUTO"  # AUTO or MANUAL
+    st.session_state.control_mode = "AUTO"
 if "force_start" not in st.session_state:
     st.session_state.force_start = False
 if "enable_nifty" not in st.session_state:
@@ -374,14 +374,10 @@ def is_stock_market_open():
     return 9 <= now.hour < 14
 
 def should_algo_run(asset_type):
-    """Check if algo should run based on mode and trading hours"""
     if st.session_state.control_mode == "MANUAL":
         return st.session_state.running
-    
-    # AUTO MODE
     if st.session_state.force_start:
         return True
-    
     if asset_type == "NIFTY":
         return is_nifty_market_open()
     elif asset_type in ["CRUDEOIL", "NATURALGAS"]:
@@ -472,29 +468,28 @@ with st.sidebar:
         st.caption("Force Start = Market बंद असताना पण Algo सुरू करण्यासाठी (Testing)")
     
     else:  # MANUAL MODE
-    st.info("👆 MANUAL MODE: तुम्ही स्वतः START/STOP करा")
-    st.session_state.force_start = False
-    
-    # TOTP Code Input
-    totp_code = st.text_input("🔐 TOTP Code (Google Authenticator)", type="password", placeholder="Enter 6 digit code", key="totp_input")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("▶️ START", use_container_width=True):
-            if totp_code and len(totp_code) == 6:
-                st.session_state.running = True
-                send_telegram(f"🤖 ALGO STARTED (Manual Mode) | TOTP: {totp_code}")
-                st.success(f"Started! TOTP Code: {totp_code}")
-            else:
-                st.error("❌ Please enter valid 6-digit TOTP code from Google Authenticator!")
-    with col2:
-        if st.button("⏹️ STOP", use_container_width=True):
-            st.session_state.running = False
-            send_telegram("🛑 ALGO STOPPED (Manual Mode)")
-            st.warning("Stopped!")
-    
-    # TOTP Info
-    st.caption("📱 TOTP Code: Google Authenticator app मध्ये Angel One साठी दिसणारा 6 अंकी कोड")
+        st.info("👆 MANUAL MODE: तुम्ही स्वतः START/STOP करा")
+        st.session_state.force_start = False
+        
+        # TOTP Code Input
+        totp_code = st.text_input("🔐 TOTP Code (Google Authenticator)", type="password", placeholder="Enter 6 digit code", key="totp_input")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("▶️ START", use_container_width=True):
+                if totp_code and len(totp_code) == 6:
+                    st.session_state.running = True
+                    send_telegram(f"🤖 ALGO STARTED (Manual Mode)")
+                    st.success("Started! Algo is now RUNNING")
+                else:
+                    st.error("❌ Please enter valid 6-digit TOTP code from Google Authenticator!")
+        with col2:
+            if st.button("⏹️ STOP", use_container_width=True):
+                st.session_state.running = False
+                send_telegram("🛑 ALGO STOPPED (Manual Mode)")
+                st.warning("Stopped!")
+        
+        st.caption("📱 TOTP Code: Google Authenticator app मध्ये Angel One साठी दिसणारा 6 अंकी कोड")
     
     st.markdown("---")
     st.markdown("## 📌 ASSET SELECTION (ON/OFF)")
@@ -552,7 +547,7 @@ with st.sidebar:
     st.caption("• TP2 Hit: 25% Profit Book + SL Shift to TP1")
     st.caption("• TP3 Hit: 25% Auto Exit")
 
-# NIFTY Trend (For NIFTY only, NOT for CRUDE/NG)
+# NIFTY Trend
 nifty_trend = get_nifty_trend()
 st.markdown("### 🇮🇳 NIFTY TREND (For NIFTY & Stocks Only)")
 if nifty_trend == "BULLISH":
