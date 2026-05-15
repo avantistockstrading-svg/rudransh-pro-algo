@@ -19,7 +19,7 @@ FIXED_TARGETS = {
     "NIFTY": 10,
     "CRUDEOIL": 10,
     "NATURALGAS": 1,
-    "STOCKS": 5  # Default, but actual TP1/TP2 are in FO_STOCKS
+    "STOCKS": 5
 }
 
 # ================= MAX QUANTITY LIMIT =================
@@ -105,7 +105,6 @@ def get_option_tp_sl(entry_premium):
         return {"sl_points": 20.00, "tp1_points": 10.00, "tp2_points": 20.00, "tp3_points": 30.00}
 
 # ================= 45 F&O STOCKS with BIG LOT MODE (Even Lot Size) =================
-# TP1 = 50% Book, TP2 = 50% Book (As per your TP1/TP2 amounts)
 FO_STOCKS = [
     {"symbol": "RELIANCE.NS", "lot": 500, "itm": 50, "name": "RELIANCE", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
     {"symbol": "TCS.NS", "lot": 174, "itm": 100, "name": "TCS", "sector": "IT", "tp1": 4, "tp2": 4, "big_lot_qty": 5220, "big_lot_lots": 30},
@@ -500,32 +499,6 @@ st.markdown("""
     .stApp {
         background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     }
-    .status-running {
-        background: linear-gradient(90deg, #00c853, #69f0ae);
-        padding: 15px;
-        border-radius: 50px;
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: black;
-        box-shadow: 0 0 20px #00ff88;
-        animation: pulse 1.5s infinite;
-    }
-    .status-stopped {
-        background: linear-gradient(90deg, #d50000, #ff5252);
-        padding: 15px;
-        border-radius: 50px;
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: white;
-        box-shadow: 0 0 20px #ff0000;
-    }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 #00ff88; }
-        70% { box-shadow: 0 0 0 20px rgba(0,255,136,0); }
-        100% { box-shadow: 0 0 0 0 rgba(0,255,136,0); }
-    }
     .stButton > button {
         background: linear-gradient(90deg, #00ff88, #00bcd4);
         color: black;
@@ -552,28 +525,6 @@ st.markdown("""
 # ================= UI HEADER =================
 st.markdown("<h1 style='text-align:center;'>📱 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
-
-# ================= ONE LINE CONTROL (TOTP + START + STOP) =================
-col_a, col_b, col_c = st.columns([2, 1, 1])
-
-with col_a:
-    totp = st.text_input("🔐 TOTP Code", type="password", placeholder="6-digit code", key="totp_main", label_visibility="collapsed")
-
-with col_b:
-    if st.button("🟢 START", use_container_width=True):
-        if totp and len(totp) == 6:
-            st.session_state.algo_running = True
-            st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED")
-            st.rerun()
-        else:
-            st.error("❌ Valid TOTP required!")
-
-with col_c:
-    if st.button("🔴 STOP", use_container_width=True):
-        st.session_state.algo_running = False
-        send_telegram("🛑 ALGO STOPPED")
-        st.rerun()
 
 # ================= ONE LINE CONTROL WITH LIVE STATUS =================
 col_a, col_b, col_c, col_d = st.columns([2.2, 1, 1, 1.2])
