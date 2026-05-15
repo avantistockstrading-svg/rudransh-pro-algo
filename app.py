@@ -18,7 +18,7 @@ def get_ist_now():
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
-    st.session_state.app_password = "2025"  # तुमचा Number Password इथे set करा (फक्त अंक)
+    st.session_state.app_password = "8055"  # तुमचा Number Password इथे set करा (फक्त अंक)
 
 # ================= APP LOCK SCREEN =================
 if not st.session_state.app_unlocked:
