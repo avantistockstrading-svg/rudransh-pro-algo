@@ -48,14 +48,6 @@ ASSET_LOT_SIZES = {
     "NATURALGAS": 1250
 }
 
-# ================= FIXED SL SETTINGS =================
-FIXED_SL = {
-    "NIFTY": 15,
-    "CRUDEOIL": 30,
-    "NATURALGAS": 1.5,
-    "STOCKS": "auto"
-}
-
 # ================= USD/INR RATE =================
 def get_usd_inr_rate():
     try:
@@ -111,30 +103,6 @@ def get_option_tp_sl(entry_premium):
         return {"sl_points": 10.00, "tp1_points": 5.00, "tp2_points": 10.00, "tp3_points": 15.00}
     else:
         return {"sl_points": 20.00, "tp1_points": 10.00, "tp2_points": 20.00, "tp3_points": 30.00}
-
-def calculate_option_targets(entry_premium, quantity, target_points=5):
-    tp_sl = get_option_tp_sl(entry_premium)
-    
-    sl_price = entry_premium - tp_sl["sl_points"]
-    tp1_price = entry_premium + target_points
-    tp2_price = entry_premium + (target_points * 2)
-    tp3_price = entry_premium + (target_points * 3)
-    
-    qty_tp1 = quantity // 2
-    qty_tp2 = quantity // 4
-    qty_tp3 = quantity - qty_tp1 - qty_tp2
-    
-    return {
-        "entry": entry_premium,
-        "sl": sl_price,
-        "tp1": tp1_price,
-        "tp2": tp2_price,
-        "tp3": tp3_price,
-        "qty_tp1": qty_tp1,
-        "qty_tp2": qty_tp2,
-        "qty_tp3": qty_tp3,
-        "target": target_points
-    }
 
 # ================= 50 F&O STOCKS =================
 FO_STOCKS = [
@@ -220,6 +188,8 @@ if "max_qty_limit" not in st.session_state:
     st.session_state.max_qty_limit = 1500
 if "enable_big_lot_mode" not in st.session_state:
     st.session_state.enable_big_lot_mode = False
+if "trade_journal" not in st.session_state:
+    st.session_state.trade_journal = []  # List of trade records
 if "stock_trades" not in st.session_state:
     st.session_state.stock_trades = {}
     for stock in FO_STOCKS:
@@ -531,35 +501,9 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
 # ================= CUSTOM CSS FOR 3D UI =================
 st.markdown("""
 <style>
-    /* Main Background */
     .stApp {
         background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     }
-    
-    /* Glassmorphism Cards */
-    .glass-card {
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 20px;
-        border: 1px solid rgba(255,255,255,0.2);
-        box-shadow: 0 8px 32px 0 rgba(31,38,135,0.37);
-        transition: transform 0.3s ease;
-    }
-    .glass-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    /* Glow Text */
-    .glow-text {
-        text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
-        color: #00ff88;
-        font-size: 2rem;
-        font-weight: bold;
-        text-align: center;
-    }
-    
-    /* Running Status */
     .status-running {
         background: linear-gradient(90deg, #00c853, #69f0ae);
         padding: 15px;
@@ -581,23 +525,11 @@ st.markdown("""
         color: white;
         box-shadow: 0 0 20px #ff0000;
     }
-    
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 #00ff88; }
         70% { box-shadow: 0 0 0 20px rgba(0,255,136,0); }
         100% { box-shadow: 0 0 0 0 rgba(0,255,136,0); }
     }
-    
-    /* Metric Cards */
-    .metric-card {
-        background: rgba(0,0,0,0.5);
-        border-radius: 15px;
-        padding: 15px;
-        text-align: center;
-        border-left: 4px solid #00ff88;
-    }
-    
-    /* Buttons */
     .stButton > button {
         background: linear-gradient(90deg, #00ff88, #00bcd4);
         color: black;
@@ -612,12 +544,18 @@ st.markdown("""
         transform: scale(1.05);
         box-shadow: 0 6px 20px rgba(0,255,136,0.5);
     }
-    
-    /* Headers */
     h1, h2, h3 {
         background: linear-gradient(135deg, #ffd89b, #19547b);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        font-weight: bold;
+    }
+    .trade-profit {
+        color: #00ff88;
+        font-weight: bold;
+    }
+    .trade-loss {
+        color: #ff5252;
         font-weight: bold;
     }
 </style>
@@ -626,6 +564,9 @@ st.markdown("""
 # ================= UI HEADER =================
 st.markdown("<h1 style='text-align:center;'>📱 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
+
+# ================= LIVE CLOCK =================
+clock_placeholder = st.empty()
 
 # ================= SLIDER BAR WITH START/STOP =================
 with st.container():
@@ -654,20 +595,25 @@ with st.container():
             send_telegram("🛑 ALGO STOPPED")
             st.rerun()
 
-# ================= LIVE STATUS DISPLAY =================
+# ================= LIVE STATUS & CLOCK =================
 st.markdown("---")
 if st.session_state.algo_running:
     st.markdown(f"""
     <div class="status-running">
-        🟢 ALGO RUNNING | IST: {get_ist_now().strftime('%H:%M:%S')} 🟢
+        🟢 ALGO RUNNING | {get_ist_now().strftime('%H:%M:%S')} 🟢
     </div>
     """, unsafe_allow_html=True)
 else:
     st.markdown(f"""
     <div class="status-stopped">
-        🔴 ALGO STOPPED | IST: {get_ist_now().strftime('%H:%M:%S')} 🔴
+        🔴 ALGO STOPPED | {get_ist_now().strftime('%H:%M:%S')} 🔴
     </div>
     """, unsafe_allow_html=True)
+
+# Update clock every second
+with clock_placeholder.container():
+    current_time = get_ist_now().strftime('%H:%M:%S')
+    st.caption(f"🕐 LIVE IST: {current_time}")
 
 st.markdown("---")
 
@@ -717,6 +663,28 @@ with st.sidebar:
     st.caption("🎯 TP1 Hit → 50% Book")
     st.caption("🎯 TP2 Hit → 25% Book + SL → TP1")
     st.caption("🎯 TP3 Hit → 25% Auto Exit")
+
+# ================= TRADING JOURNAL TABLE =================
+st.markdown("---")
+st.markdown("## 📋 TRADING JOURNAL")
+
+if st.session_state.trade_journal:
+    df_journal = pd.DataFrame(st.session_state.trade_journal)
+    st.dataframe(df_journal, use_container_width=True)
+    
+    # Summary Stats
+    total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum()
+    total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum()
+    win_trades = len(df_journal[df_journal['Profit/Loss'] > 0])
+    loss_trades = len(df_journal[df_journal['Profit/Loss'] < 0])
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Trades", len(df_journal))
+    col2.metric("Win Trades", win_trades)
+    col3.metric("Loss Trades", loss_trades)
+    col4.metric("Net P&L", f"₹{total_profit + total_loss:,.2f}", delta_color="normal")
+else:
+    st.info("📭 No trades executed yet. Trades will appear here once the algo runs.")
 
 # ================= MAIN CONTENT (Only when RUNNING) =================
 if st.session_state.algo_running and st.session_state.totp_verified:
@@ -780,10 +748,28 @@ if st.session_state.algo_running and st.session_state.totp_verified:
                     if not trade_done:
                         qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit, 
                                                               st.session_state.enable_big_lot_mode, stock.get("big_lot_qty"))
+                        
+                        buy_price = sig["price"]
+                        target_price = buy_price + FIXED_TARGETS["STOCKS"] if sig["buy"] else buy_price - FIXED_TARGETS["STOCKS"]
+                        
+                        # Add to Trade Journal
+                        trade_record = {
+                            "No": len(st.session_state.trade_journal) + 1,
+                            "Symbol": stock["name"],
+                            "Type": "BUY CE" if sig["buy"] else "SELL PE",
+                            "Qty": qty,
+                            "Lots": lots,
+                            "Buy Price": round(buy_price, 2),
+                            "Target Price": round(target_price, 2),
+                            "Status": "OPEN",
+                            "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                        }
+                        st.session_state.trade_journal.append(trade_record)
+                        
                         signals.append({
                             "stock": stock["name"],
                             "type": "BUY CE" if sig["buy"] else "SELL PE",
-                            "price": sig["price"],
+                            "price": buy_price,
                             "lots": lots,
                             "qty": qty,
                             "target": FIXED_TARGETS["STOCKS"],
@@ -820,4 +806,4 @@ else:
 
 # ================= FOOTER =================
 st.markdown("---")
-st.caption(f"🕐 Live IST: {get_ist_now().strftime('%H:%M:%S')} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:15")
+st.caption(f"📊 Trading Journal | Total Records: {len(st.session_state.trade_journal)}")
