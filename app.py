@@ -18,7 +18,7 @@ def get_ist_now():
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
-    st.session_state.app_password = "RUDRANSH@2025"  # तुमचा password इथे set करा
+    st.session_state.app_password = "2025"  # तुमचा Number Password इथे set करा (फक्त अंक)
 
 # ================= APP LOCK SCREEN =================
 if not st.session_state.app_unlocked:
@@ -26,9 +26,10 @@ if not st.session_state.app_unlocked:
     st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("<h3 style='text-align:center;'>🔐 APPLICATION LOCKED</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>Enter Password to Access the Application</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Enter 4-6 Digit Numeric Password to Access</p>", unsafe_allow_html=True)
     
-    password_input = st.text_input("Password", type="password", placeholder="Enter password", key="app_lock_password")
+    # Number password input (numeric only)
+    password_input = st.text_input("Password", type="password", placeholder="Enter numeric password", key="app_lock_password")
     
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
@@ -38,9 +39,7 @@ if not st.session_state.app_unlocked:
                 st.rerun()
             else:
                 st.error("❌ Wrong Password! Access Denied.")
-    
-    st.stop()  # Stop execution until password is entered
-
+      
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
     "NIFTY": 10,
