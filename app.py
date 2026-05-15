@@ -34,11 +34,13 @@ if not st.session_state.app_unlocked:
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         if st.button("🔓 UNLOCK", use_container_width=True):
-            if password_input == st.session_state.app_password:
+            if str(password_input).strip() == str(st.session_state.app_password).strip():
                 st.session_state.app_unlocked = True
                 st.rerun()
             else:
                 st.error("❌ Wrong Password! Access Denied.")
+    
+    st.stop()  # Important: Stop execution until password is entered
       
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
