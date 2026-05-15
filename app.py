@@ -674,7 +674,7 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
     st.markdown("---")
 
 # ================= UI =================
-st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Auto Trading System</h1>", unsafe_allow_html=True)
+st.markdown("<h1>📱 RUDRANSH PRO ALGO Trading </h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOP BY SATISH D. NAKHATE, TALWADE, PUNE :- 412114</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffaa00;'>🎯 TP2 Hit = SL Shift to TP1 | TP3 Hit = Auto Exit</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffaa00;'>🔒 BUY/SELL Signals based on Multi-Timeframe Analysis (5M/15M/1H)</p>", unsafe_allow_html=True)
