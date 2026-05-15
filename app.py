@@ -294,13 +294,10 @@ def get_technical_indicators(df):
     c2 = df.iloc[-1]
     strong_bull = c2['Close'] > c2['Open'] and c2['Close'] > c1['High']
     strong_bear = c2['Close'] < c2['Open'] and c2['Close'] < c1['Low']
-            
+    
     # Sideways Filter (RSI 45-55 and ADX < 20)
     current_rsi = rsi.iloc[-1]
     sideways = (45 < current_rsi < 55) and adx < 20
-    
-    # MTF Trends (5M, 15M, 1H)
-    # These will be calculated separately for each symbol
     
     return {
         "current_price": close.iloc[-1],
@@ -312,10 +309,6 @@ def get_technical_indicators(df):
         "volume_filter": volume_filter,
         "strong_bull": strong_bull,
         "strong_bear": strong_bear,
-        "confirmed_breakout": confirmed_breakout,
-        "confirmed_breakdown": confirmed_breakdown,
-        "resistance": resistance,
-        "support": support,
         "sideways": sideways,
         "c1_high": c1['High'] if 'High' in df.columns else close.iloc[-2],
         "c1_low": c1['Low'] if 'Low' in df.columns else close.iloc[-2]
@@ -539,9 +532,9 @@ def should_algo_run(asset_type):
         return is_stock_market_open()
     return False
 
-# ================= CALCULATE SIGNALS (Pine Script Logic) =================
+# ================= CALCULATE SIGNALS =================
 def calculate_signals_stock(symbol, stock_name, sector_name):
-    """Calculate signals based on Pine Script logic"""
+    """Calculate signals based on Pine Script logic (without breakout/breakdown)"""
     try:
         # Download data
         df = yf.download(symbol, period="10d", interval="5m", progress=False)
@@ -556,6 +549,17 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
             return None
         
         current_price = indicators["current_price"]
+        ema9_val = indicators["ema9"]
+        ema20_val = indicators["ema20"]
+        ema200_val = indicators["ema200"]
+        rsi_val = indicators["rsi"]
+        adx_val = indicators["adx"]
+        volume_filter_val = indicators["volume_filter"]
+        strong_bull_val = indicators["strong_bull"]
+        strong_bear_val = indicators["strong_bear"]
+        sideways_val = indicators["sideways"]
+        c1_high_val = indicators["c1_high"]
+        c1_low_val = indicators["c1_low"]
         
         # Get NIFTY trend
         nifty_trend = get_nifty_trend()
@@ -566,46 +570,39 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
         sector_bullish = get_sector_bullish(sector_name)
         sector_bearish = get_sector_bearish(sector_name)
         
-        # Get stock trend
-        stock_trend = get_stock_trend(symbol)
-        stock_bullish = stock_trend == "BULLISH"
-        stock_bearish = stock_trend == "BEARISH"
-        
         # Get MTF trends (5M, 15M, 1H)
         trend5_up = get_mtf_trend(symbol, "5m") == "UP"
         trend15_up = get_mtf_trend(symbol, "15m") == "UP"
         trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
         
-        # Pine Script BUY conditions
+        # BUY conditions (Breakout removed, RSI>=55, ADX>=22)
         buy_conditions = (
-            nifty_bullish and
-            not indicators["sideways"] and
+            nifty_bullish and 
+            not sideways_val and 
             sector_bullish and
-            indicators["ema9"] > indicators["ema20"] and
-            current_price > indicators["ema200"] and
-            indicators["rsi"] >= 60 and
-            indicators["adx"] >= 25 and
-            indicators["volume_filter"] and
-            indicators["strong_bull"] and
-            current_price > indicators["c1_high"] and
-            trend5_up and trend15_up and trend1h_up and
-            indicators["confirmed_breakout"]
+            ema9_val > ema20_val and 
+            current_price > ema200_val and
+            rsi_val >= 55 and 
+            adx_val >= 22 and
+            volume_filter_val and 
+            strong_bull_val and 
+            current_price > c1_high_val and
+            trend5_up and trend15_up and trend1h_up
         )
         
-        # Pine Script SELL conditions
+        # SELL conditions (Breakdown removed, RSI<=45, ADX>=22)
         sell_conditions = (
-            nifty_bearish and
-            not indicators["sideways"] and
+            nifty_bearish and 
+            not sideways_val and 
             sector_bearish and
-            indicators["ema9"] < indicators["ema20"] and
-            current_price < indicators["ema200"] and
-            indicators["rsi"] <= 40 and
-            indicators["adx"] >= 25 and
-            indicators["volume_filter"] and
-            indicators["strong_bear"] and
-            current_price < indicators["c1_low"] and
-            not trend5_up and not trend15_up and not trend1h_up and
-            indicators["confirmed_breakdown"]
+            ema9_val < ema20_val and 
+            current_price < ema200_val and
+            rsi_val <= 45 and 
+            adx_val >= 22 and
+            volume_filter_val and 
+            strong_bear_val and 
+            current_price < c1_low_val and
+            not trend5_up and not trend15_up and not trend1h_up
         )
         
         return {
@@ -613,24 +610,21 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
             "buy": buy_conditions,
             "sell": sell_conditions,
             "price": current_price,
-            "rsi": indicators["rsi"],
-            "adx": indicators["adx"],
-            "ema9": indicators["ema9"],
-            "ema20": indicators["ema20"],
-            "ema200": indicators["ema200"],
-            "sideways": indicators["sideways"],
-            "confirmed_breakout": indicators["confirmed_breakout"],
-            "confirmed_breakdown": indicators["confirmed_breakdown"],
-            "resistance": indicators["resistance"],
-            "support": indicators["support"],
+            "rsi": rsi_val,
+            "adx": adx_val,
+            "ema9": ema9_val,
+            "ema20": ema20_val,
+            "ema200": ema200_val,
+            "sideways": sideways_val,
             "trend5_up": trend5_up,
             "trend15_up": trend15_up,
             "trend1h_up": trend1h_up,
             "nifty_bullish": nifty_bullish,
             "sector_bullish": sector_bullish,
-            "stock_bullish": stock_bullish
+            "stock_bullish": (get_stock_trend(symbol) == "BULLISH")
         }
     except Exception as e:
+        print(f"Error in calculate_signals_stock: {e}")
         return None
 
 # ================= Display Asset Section =================
@@ -681,9 +675,9 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
 
 # ================= UI =================
 st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Auto Trading System</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | F&O STOCKS</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOP BY SATISH D. NAKHATE, TALWADE, PUNE :- 412114</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffaa00;'>🎯 TP2 Hit = SL Shift to TP1 | TP3 Hit = Auto Exit</p>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#ffaa00;'>🔒 BUY Signal only after CONFIRMED BREAKOUT | SELL Signal only after CONFIRMED BREAKDOWN</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#ffaa00;'>🔒 BUY/SELL Signals based on Multi-Timeframe Analysis (5M/15M/1H)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Sidebar
@@ -850,7 +844,7 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                 break
             
             try:
-                # Calculate signals using Pine Script logic
+                # Calculate signals using Pine Script logic (without breakout)
                 signal_data = calculate_signals_stock(stock["symbol"], stock["name"], stock["sector"])
                 
                 if signal_data is None:
@@ -859,27 +853,20 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                 current_price = signal_data["price"]
                 sector_bullish = get_sector_bullish(stock["sector"])
                 sector_bearish = get_sector_bearish(stock["sector"])
-                stock_trend = get_stock_trend(stock["symbol"])
-                stock_bullish = (stock_trend == "BULLISH")
-                stock_bearish = (stock_trend == "BEARISH")
                 trade_done = st.session_state.stock_trades[stock["name"]]["trades"] >= 1
                 trade_qty = st.session_state.stock_trades[stock["name"]]["quantity"]
                 trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
-                
-                # Get breakout/breakdown confirmation
-                breakout_confirmed = signal_data["confirmed_breakout"]
-                breakdown_confirmed = signal_data["confirmed_breakdown"]
                 
                 # MTF trends from signal data
                 trend5_up = signal_data["trend5_up"]
                 trend15_up = signal_data["trend15_up"]
                 trend1h_up = signal_data["trend1h_up"]
                 
-                # Pine Script BUY conditions
+                # BUY conditions (without breakout)
                 if (signal_data["nifty_bullish"] and not signal_data["sideways"] and sector_bullish and 
                     signal_data["ema9"] > signal_data["ema20"] and current_price > signal_data["ema200"] and
-                    signal_data["rsi"] >= 60 and signal_data["adx"] >= 25 and
-                    trend5_up and trend15_up and trend1h_up and breakout_confirmed and not trade_done):
+                    signal_data["rsi"] >= 55 and signal_data["adx"] >= 22 and
+                    trend5_up and trend15_up and trend1h_up and not trade_done):
                     
                     itm_strike = get_stock_itm_strike(current_price, stock, "CE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "CE")
@@ -889,13 +876,13 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔵 AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE | RSI:{signal_data['rsi']:.0f} ADX:{signal_data['adx']:.0f} Breakout Confirmed")
+                        send_telegram(f"🔵 AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE | RSI:{signal_data['rsi']:.0f} ADX:{signal_data['adx']:.0f}")
                 
-                # Pine Script SELL conditions
+                # SELL conditions (without breakdown)
                 elif (not signal_data["nifty_bullish"] and not signal_data["sideways"] and sector_bearish and 
                       signal_data["ema9"] < signal_data["ema20"] and current_price < signal_data["ema200"] and
-                      signal_data["rsi"] <= 40 and signal_data["adx"] >= 25 and
-                      not trend5_up and not trend15_up and not trend1h_up and breakdown_confirmed and not trade_done):
+                      signal_data["rsi"] <= 45 and signal_data["adx"] >= 22 and
+                      not trend5_up and not trend15_up and not trend1h_up and not trade_done):
                     
                     itm_strike = get_stock_itm_strike(current_price, stock, "PE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
@@ -905,7 +892,7 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["sell_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔴 AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE | RSI:{signal_data['rsi']:.0f} ADX:{signal_data['adx']:.0f} Breakdown Confirmed")
+                        send_telegram(f"🔴 AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE | RSI:{signal_data['rsi']:.0f} ADX:{signal_data['adx']:.0f}")
             except Exception as e:
                 continue
         
@@ -931,7 +918,6 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                         🛡️ TP2 Hit → SL Shift to TP1 ({tp_sl_calc['tp1_points']} pts)<br>
                         🚪 TP3 Hit → Auto Exit<br>
                         Lots: {signal['lots']} | Qty: {signal['quantity']}<br>
-                        🔒 Confirmed {'Breakout' if signal['type'] == 'BUY CE' else 'Breakdown'}<br>
                         ✅ Condition: {sd.get('nifty_bullish', False) and signal['type'] == 'BUY CE' and 'NIFTY Bullish' or 'NIFTY Bearish'} + {'Sector Bullish' if signal['type'] == 'BUY CE' else 'Sector Bearish'}
                     </div>
                     """, unsafe_allow_html=True)
@@ -997,4 +983,4 @@ with col3:
     st.markdown(f"SL: {FIXED_TP_SL['NATURALGAS']['sl']} | TP1: {FIXED_TP_SL['NATURALGAS']['tp1']} | TP2: {FIXED_TP_SL['NATURALGAS']['tp2']} | TP3: {FIXED_TP_SL['NATURALGAS']['tp3']}")
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Mode: {st.session_state.control_mode} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:15 | TP2=SL Shift to TP1 | TP3=Auto Exit | Breakout/Breakdown Confirmation Required")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Mode: {st.session_state.control_mode} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:15 | TP2=SL Shift to TP1 | TP3=Auto Exit")
