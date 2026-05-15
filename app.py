@@ -3,9 +3,9 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
-import time
 
-st.set_page_config(page_title="Rudransh Pro-Algo - Complete Auto Trading", layout="wide")
+# ================= PAGE CONFIG (MUST BE FIRST) =================
+st.set_page_config(page_title="RUDRANSH PRO-ALGO X", layout="wide", page_icon="📈")
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -332,40 +332,6 @@ def get_mtf_trend(symbol, timeframe):
     except:
         return "NEUTRAL"
 
-def get_sector_symbol(ticker):
-    ticker_upper = ticker.upper()
-    
-    if any(x in ticker_upper for x in ["HDFCBANK", "ICICIBANK", "SBIN", "AXISBANK", "KOTAKBANK", "PNB"]):
-        return "^NSEBANK"
-    elif any(x in ticker_upper for x in ["TCS", "INFY", "WIPRO", "TECHM", "HCLTECH"]):
-        return "^CNXIT"
-    elif any(x in ticker_upper for x in ["TATAMOTORS", "MARUTI", "M&M", "BAJAJ-AUTO", "EICHERMOT"]):
-        return "^CNXAUTO"
-    elif any(x in ticker_upper for x in ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN"]):
-        return "^CNXPHARMA"
-    elif any(x in ticker_upper for x in ["TATASTEEL", "HINDALCO", "JSWSTEEL", "SAIL"]):
-        return "^CNXMETAL"
-    elif any(x in ticker_upper for x in ["HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA"]):
-        return "^CNXFMCG"
-    elif any(x in ticker_upper for x in ["DLF", "GODREJPROP", "OBEROIRLTY"]):
-        return "^CNXREALTY"
-    elif any(x in ticker_upper for x in ["RELIANCE", "ONGC", "POWERGRID"]):
-        return "^CNXENERGY"
-    elif any(x in ticker_upper for x in ["BANKBARODA", "CANBK", "UNIONBANK"]):
-        return "^CNXPSUBANK"
-    elif any(x in ticker_upper for x in ["BAJFINANCE", "CHOLAFIN", "SHRIRAMFIN"]):
-        return "^CNXFINANCE"
-    elif any(x in ticker_upper for x in ["LT", "NBCC", "IRB"]):
-        return "^CNXINFRA"
-    elif any(x in ticker_upper for x in ["HAL", "BEL", "BDL"]):
-        return "^NIFTY_IND_DEFENCE"
-    elif any(x in ticker_upper for x in ["APOLLOHOSP", "MAXHEALTH", "FORTIS"]):
-        return "^NIFTY_HEALTHCARE"
-    elif any(x in ticker_upper for x in ["DIXON", "VOLTAS", "WHIRLPOOL"]):
-        return "^NIFTY_CONSR_DURBL"
-    else:
-        return "^NSEI"
-
 def get_nifty_trend():
     try:
         df = yf.download("^NSEI", period="7d", interval="15m", progress=False)
@@ -575,7 +541,7 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
         trend15_up = get_mtf_trend(symbol, "15m") == "UP"
         trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
         
-        # BUY conditions (Breakout removed, RSI>=55, ADX>=22)
+        # BUY conditions (without breakout)
         buy_conditions = (
             nifty_bullish and 
             not sideways_val and 
@@ -590,7 +556,7 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
             trend5_up and trend15_up and trend1h_up
         )
         
-        # SELL conditions (Breakdown removed, RSI<=45, ADX>=22)
+        # SELL conditions (without breakdown)
         sell_conditions = (
             nifty_bearish and 
             not sideways_val and 
@@ -844,7 +810,6 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                 break
             
             try:
-                # Calculate signals using Pine Script logic (without breakout)
                 signal_data = calculate_signals_stock(stock["symbol"], stock["name"], stock["sector"])
                 
                 if signal_data is None:
@@ -857,7 +822,6 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                 trade_qty = st.session_state.stock_trades[stock["name"]]["quantity"]
                 trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
                 
-                # MTF trends from signal data
                 trend5_up = signal_data["trend5_up"]
                 trend15_up = signal_data["trend15_up"]
                 trend1h_up = signal_data["trend1h_up"]
