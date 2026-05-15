@@ -53,7 +53,7 @@ FIXED_SL = {
     "NIFTY": 15,
     "CRUDEOIL": 30,
     "NATURALGAS": 1.5,
-    "STOCKS": "auto"  # Dynamic based on premium
+    "STOCKS": "auto"
 }
 
 # ================= USD/INR RATE =================
@@ -818,16 +818,6 @@ else:
     elif not st.session_state.totp_verified:
         st.warning("🔐 Please enter valid 6-digit TOTP code and press START.")
 
-# ================= RULES SUMMARY =================
-st.markdown("---")
-st.markdown("### 🎯 PROFIT BOOKING RULES")
-st.markdown("""
-| Rule | Action |
-|------|--------|
-| **TP1 Hit** | 50% Quantity Booked |
-| **TP2 Hit** | 25% Booked + SL Shift to TP1 |
-| **TP3 Hit** | 25% Auto Exit |
-""")
-
+# ================= FOOTER =================
 st.markdown("---")
 st.caption(f"🕐 Live IST: {get_ist_now().strftime('%H:%M:%S')} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:15")
