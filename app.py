@@ -472,20 +472,29 @@ with st.sidebar:
         st.caption("Force Start = Market बंद असताना पण Algo सुरू करण्यासाठी (Testing)")
     
     else:  # MANUAL MODE
-        st.info("👆 MANUAL MODE: तुम्ही स्वतः START/STOP करा")
-        st.session_state.force_start = False
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("▶️ START", use_container_width=True):
+    st.info("👆 MANUAL MODE: तुम्ही स्वतः START/STOP करा")
+    st.session_state.force_start = False
+    
+    # TOTP Code Input
+    totp_code = st.text_input("🔐 TOTP Code (Google Authenticator)", type="password", placeholder="Enter 6 digit code", key="totp_input")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("▶️ START", use_container_width=True):
+            if totp_code and len(totp_code) == 6:
                 st.session_state.running = True
-                send_telegram("🤖 ALGO STARTED (Manual Mode)")
-                st.success("Started!")
-        with col2:
-            if st.button("⏹️ STOP", use_container_width=True):
-                st.session_state.running = False
-                send_telegram("🛑 ALGO STOPPED (Manual Mode)")
-                st.warning("Stopped!")
+                send_telegram(f"🤖 ALGO STARTED (Manual Mode) | TOTP: {totp_code}")
+                st.success(f"Started! TOTP Code: {totp_code}")
+            else:
+                st.error("❌ Please enter valid 6-digit TOTP code from Google Authenticator!")
+    with col2:
+        if st.button("⏹️ STOP", use_container_width=True):
+            st.session_state.running = False
+            send_telegram("🛑 ALGO STOPPED (Manual Mode)")
+            st.warning("Stopped!")
+    
+    # TOTP Info
+    st.caption("📱 TOTP Code: Google Authenticator app मध्ये Angel One साठी दिसणारा 6 अंकी कोड")
     
     st.markdown("---")
     st.markdown("## 📌 ASSET SELECTION (ON/OFF)")
