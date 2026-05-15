@@ -41,13 +41,6 @@ SYMBOLS = {
     "NATURALGAS": "NG=F"
 }
 
-# ================= LOT SIZES =================
-ASSET_LOT_SIZES = {
-    "NIFTY": 65,
-    "CRUDEOIL": 100,
-    "NATURALGAS": 1250
-}
-
 # ================= USD/INR RATE =================
 def get_usd_inr_rate():
     try:
@@ -104,7 +97,7 @@ def get_option_tp_sl(entry_premium):
     else:
         return {"sl_points": 20.00, "tp1_points": 10.00, "tp2_points": 20.00, "tp3_points": 30.00}
 
-# ================= 45 F&O STOCKS with BIG LOT MODE (Even Lot Size) =================
+# ================= 45 F&O STOCKS with BIG LOT MODE =================
 FO_STOCKS = [
     {"symbol": "RELIANCE.NS", "lot": 500, "itm": 50, "name": "RELIANCE", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
     {"symbol": "TCS.NS", "lot": 174, "itm": 100, "name": "TCS", "sector": "IT", "tp1": 4, "tp2": 4, "big_lot_qty": 5220, "big_lot_lots": 30},
@@ -174,11 +167,11 @@ if "enable_ng" not in st.session_state:
 if "enable_stocks" not in st.session_state:
     st.session_state.enable_stocks = True
 if "nifty_lots" not in st.session_state:
-    st.session_state.nifty_lots = 1
+    st.session_state.nifty_lots = 65
 if "crude_lots" not in st.session_state:
-    st.session_state.crude_lots = 1
+    st.session_state.crude_lots = 100
 if "ng_lots" not in st.session_state:
-    st.session_state.ng_lots = 1
+    st.session_state.ng_lots = 1250
 if "max_qty_limit" not in st.session_state:
     st.session_state.max_qty_limit = 1500
 if "enable_big_lot_mode" not in st.session_state:
@@ -519,6 +512,12 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         font-weight: bold;
     }
+    .metric-card {
+        background: rgba(0,0,0,0.3);
+        border-radius: 15px;
+        padding: 10px;
+        text-align: center;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -559,13 +558,13 @@ with col_d:
         st.markdown(f"""
         <div style="
             background:linear-gradient(90deg,#00c853,#69f0ae);
-            padding:12px;
+            padding:10px;
             border-radius:18px;
             text-align:center;
             font-weight:bold;
             color:black;
             box-shadow:0 0 12px #00ff88;
-            font-size:15px;
+            font-size:14px;
         ">
             🟢 RUNNING<br>
             {get_ist_now().strftime('%H:%M:%S')}
@@ -575,110 +574,29 @@ with col_d:
         st.markdown(f"""
         <div style="
             background:linear-gradient(90deg,#d50000,#ff5252);
-            padding:12px;
+            padding:10px;
             border-radius:18px;
             text-align:center;
             font-weight:bold;
             color:white;
             box-shadow:0 0 12px #ff0000;
-            font-size:15px;
+            font-size:14px;
         ">
             🔴 STOPPED<br>
             {get_ist_now().strftime('%H:%M:%S')}
         </div>
         """, unsafe_allow_html=True)
 
-# ================= FIXED TARGETS DISPLAY (NIFTY, CRUDE, NG ONLY) =================
+st.markdown("---")
+
+# ================= FIXED TARGETS DISPLAY =================
 st.markdown("### 🎯 FIXED TARGETS")
 col1, col2, col3 = st.columns(3)
 col1.metric("📊 NIFTY", "Target ₹10", delta="per point")
 col2.metric("🛢️ CRUDE OIL", "Target ₹10", delta="per point")
 col3.metric("🌿 NATURAL GAS", "Target ₹1", delta="per point")
 
-# ================= GLOBAL MARKET TREND =================
-GLOBAL_MARKETS = {
-    "DJI": "^DJI",
-    "GOLD": "GC=F",
-    "OIL": "CL=F",
-    "NIKKEI": "^N225",
-    "GIFT": "^NSEI",
-    "SHANGHAI": "000001.SS",
-    "HANGSENG": "^HSI",
-    "FTSE": "^FTSE",
-    "DAX": "^GDAXI",
-    "CAC40": "^FCHI"
-}
-
-def get_market_direction(symbol):
-    try:
-        df = yf.download(symbol, period="5d", interval="1h", progress=False)
-
-        if df.empty or len(df) < 20:
-            return "SIDEWAYS"
-
-        close = df['Close']
-
-        ema20 = close.ewm(span=20).mean().iloc[-1]
-        current = close.iloc[-1]
-
-        if isinstance(current, pd.Series):
-            current = float(current.iloc[-1])
-
-        if isinstance(ema20, pd.Series):
-            ema20 = float(ema20.iloc[-1])
-
-        if current > ema20:
-            return "BULLISH"
-
-        elif current < ema20:
-            return "BEARISH"
-
-        return "SIDEWAYS"
-
-    except:
-        return "SIDEWAYS"
-
-bull_count = 0
-bear_count = 0
-
-for name, symbol in GLOBAL_MARKETS.items():
-
-    direction = get_market_direction(symbol)
-
-    if direction == "BULLISH":
-        bull_count += 1
-
-    elif direction == "BEARISH":
-        bear_count += 1
-
-if bull_count > bear_count:
-    overall = "🟢 🌍 GLOBAL BULLISH"
-    overall_bg = "linear-gradient(90deg,#00c853,#69f0ae)"
-
-elif bear_count > bull_count:
-    overall = "🔴 🌍 GLOBAL BEARISH"
-    overall_bg = "linear-gradient(90deg,#d50000,#ff5252)"
-
-else:
-    overall = "🟡 🌍 GLOBAL SIDEWAYS"
-    overall_bg = "linear-gradient(90deg,#fbc02d,#fff176)"
-
-st.markdown(f"""
-<div style="
-    background:{overall_bg};
-    padding:18px;
-    border-radius:18px;
-    text-align:center;
-    font-size:28px;
-    font-weight:bold;
-    color:black;
-    margin-top:10px;
-    margin-bottom:15px;
-    box-shadow:0 0 25px rgba(255,255,255,0.25);
-">
-    {overall}
-</div>
-""", unsafe_allow_html=True)
+st.markdown("---")
 
 # ================= NIFTY TREND =================
 nifty_trend = get_nifty_trend()
@@ -690,50 +608,109 @@ elif nifty_trend == "BEARISH":
 else:
     st.warning("🟡 SIDEWAYS")
 
+st.markdown("---")
+
 # ================= SIDEBAR =================
 with st.sidebar:
     st.markdown("## ⚙️ SETTINGS")
     
     st.markdown("### 📌 ASSETS")
-    st.session_state.enable_nifty = st.checkbox("NIFTY", value=st.session_state.enable_nifty)
-    st.session_state.enable_crude = st.checkbox("CRUDE OIL", value=st.session_state.enable_crude)
-    st.session_state.enable_ng = st.checkbox("NATURAL GAS", value=st.session_state.enable_ng)
-    st.session_state.enable_stocks = st.checkbox("F&O STOCKS (45)", value=st.session_state.enable_stocks)
+    
+    # NIFTY Lot Selection
+    st.session_state.enable_nifty = st.checkbox("📊 NIFTY", value=st.session_state.enable_nifty)
+    if st.session_state.enable_nifty:
+        st.session_state.nifty_lots = st.number_input(
+            "NIFTY Lot Size", 
+            min_value=1, 
+            max_value=100, 
+            value=st.session_state.nifty_lots, 
+            step=1,
+            help="1 Lot = 65 Quantity. Enter number of lots (e.g., 1 = 65 Qty, 2 = 130 Qty)"
+        )
+        nifty_qty = st.session_state.nifty_lots * 65
+        st.caption(f"📦 Total Quantity: {nifty_qty} ({st.session_state.nifty_lots} Lots × 65)")
+    
+    # CRUDE Lot Selection
+    st.session_state.enable_crude = st.checkbox("🛢️ CRUDE OIL", value=st.session_state.enable_crude)
+    if st.session_state.enable_crude:
+        st.session_state.crude_lots = st.number_input(
+            "CRUDE Lot Size", 
+            min_value=1, 
+            max_value=100, 
+            value=st.session_state.crude_lots, 
+            step=1,
+            help="1 Lot = 100 Quantity. Enter number of lots (e.g., 1 = 100 Qty, 2 = 200 Qty)"
+        )
+        crude_qty = st.session_state.crude_lots * 100
+        st.caption(f"📦 Total Quantity: {crude_qty} ({st.session_state.crude_lots} Lots × 100)")
+    
+    # NG Lot Selection
+    st.session_state.enable_ng = st.checkbox("🌿 NATURAL GAS", value=st.session_state.enable_ng)
+    if st.session_state.enable_ng:
+        st.session_state.ng_lots = st.number_input(
+            "NATURAL GAS Lot Size", 
+            min_value=1, 
+            max_value=50, 
+            value=st.session_state.ng_lots, 
+            step=1,
+            help="1 Lot = 1250 Quantity. Enter number of lots (e.g., 1 = 1250 Qty, 2 = 2500 Qty)"
+        )
+        ng_qty = st.session_state.ng_lots * 1250
+        st.caption(f"📦 Total Quantity: {ng_qty} ({st.session_state.ng_lots} Lots × 1250)")
+    
+    # Stocks Section
+    st.session_state.enable_stocks = st.checkbox("📈 F&O STOCKS (45)", value=st.session_state.enable_stocks)
     
     if st.session_state.enable_stocks:
+        st.markdown("---")
+        st.markdown("### 📊 STOCK SETTINGS")
         st.session_state.max_stocks_per_day = st.number_input("Max Stocks/Day", 1, 45, 10)
-        st.session_state.max_qty_limit = st.selectbox("Max Qty", MAX_QTY_OPTIONS, index=14)
+        st.session_state.max_qty_limit = st.selectbox("Max Qty per Trade", MAX_QTY_OPTIONS, index=14)
         st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE (45 Stocks)", value=st.session_state.enable_big_lot_mode)
         if st.session_state.enable_big_lot_mode:
-            st.warning("⚠️ BIG LOT ACTIVE - 45 Stocks with Even Lot Size")
+            st.success("✅ BIG LOT ACTIVE - 45 Stocks with Pre-calculated Lots")
+            st.caption("Each stock will trade with ~₹20k profit @ Target")
     
     st.markdown("---")
     st.markdown("### 📊 DAILY STATUS")
     total_trades = sum(v["trades"] for v in st.session_state.stock_trades.values())
     st.metric("Stocks Traded", f"{total_trades}/{st.session_state.max_stocks_per_day}")
-    st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}", delta_color="inverse")
+    
+    loss_color = "inverse"
+    st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}", delta_color=loss_color)
+    
+    st.markdown("---")
+    st.markdown("### 📦 CURRENT LOT SUMMARY")
+    st.markdown(f"""
+    | Asset | Lots | Quantity |
+    |-------|------|----------|
+    | NIFTY | {st.session_state.nifty_lots} | {st.session_state.nifty_lots * 65} |
+    | CRUDE | {st.session_state.crude_lots} | {st.session_state.crude_lots * 100} |
+    | NG | {st.session_state.ng_lots} | {st.session_state.ng_lots * 1250} |
+    """)
 
 # ================= TRADING JOURNAL TABLE =================
-st.markdown("---")
 st.markdown("## 📋 TRADING JOURNAL")
 
 if st.session_state.trade_journal:
     df_journal = pd.DataFrame(st.session_state.trade_journal)
-    st.dataframe(df_journal, use_container_width=True)
+    st.dataframe(df_journal, use_container_width=True, height=400)
     
     if 'Profit/Loss' in df_journal.columns:
-        total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum()
-        total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum()
+        total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum() if len(df_journal[df_journal['Profit/Loss'] > 0]) > 0 else 0
+        total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum() if len(df_journal[df_journal['Profit/Loss'] < 0]) > 0 else 0
         win_trades = len(df_journal[df_journal['Profit/Loss'] > 0])
         loss_trades = len(df_journal[df_journal['Profit/Loss'] < 0])
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Trades", len(df_journal))
-        col2.metric("Win Trades", win_trades)
-        col3.metric("Loss Trades", loss_trades)
-        col4.metric("Net P&L", f"₹{total_profit + total_loss:,.2f}")
+        col1.metric("📊 Total Trades", len(df_journal))
+        col2.metric("✅ Win Trades", win_trades)
+        col3.metric("❌ Loss Trades", loss_trades)
+        col4.metric("💰 Net P&L", f"₹{total_profit + total_loss:,.2f}")
 else:
-    st.info("📭 No trades executed yet.")
+    st.info("📭 No trades executed yet. Trades will appear here once the algo runs.")
+
+st.markdown("---")
 
 # ================= MAIN CONTENT (Only when RUNNING) =================
 if st.session_state.algo_running and st.session_state.totp_verified:
@@ -743,30 +720,33 @@ if st.session_state.algo_running and st.session_state.totp_verified:
         st.markdown("## 📊 NIFTY 50")
         price = get_live_price("^NSEI")
         strike, itm = get_itm_strike(price, "NIFTY", itm_points=100, strike_interval=50)
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Price", f"₹{price:,.2f}" if price > 0 else "Loading...")
-        col2.metric("ITM Strike", strike)
-        col3.metric("Target", "₹10")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("💰 Price", f"₹{price:,.2f}" if price > 0 else "Loading...")
+        col2.metric("🎯 ITM Strike", strike)
+        col3.metric("🎯 Target", f"₹{FIXED_TARGETS['NIFTY']}")
+        col4.metric("📦 Quantity", f"{st.session_state.nifty_lots * 65} ({st.session_state.nifty_lots} Lots)")
         st.markdown("---")
     
     # CRUDE Section
     if st.session_state.enable_crude:
         st.markdown("## 🛢️ CRUDE OIL")
         price = get_live_price_inr("CL=F")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Price (INR)", f"₹{price:,.2f}" if price > 0 else "Loading...")
-        col2.metric("Lot Size", "100")
-        col3.metric("Target", "₹10")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("💰 Price (INR)", f"₹{price:,.2f}" if price > 0 else "Loading...")
+        col2.metric("📦 Lot Size", "100")
+        col3.metric("🎯 Target", f"₹{FIXED_TARGETS['CRUDEOIL']}")
+        col4.metric("📦 Quantity", f"{st.session_state.crude_lots * 100} ({st.session_state.crude_lots} Lots)")
         st.markdown("---")
     
     # NG Section
     if st.session_state.enable_ng:
         st.markdown("## 🌿 NATURAL GAS")
         price = get_live_price_inr("NG=F")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Price (INR)", f"₹{price:,.2f}" if price > 0 else "Loading...")
-        col2.metric("Lot Size", "1250")
-        col3.metric("Target", "₹1")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("💰 Price (INR)", f"₹{price:,.2f}" if price > 0 else "Loading...")
+        col2.metric("📦 Lot Size", "1250")
+        col3.metric("🎯 Target", f"₹{FIXED_TARGETS['NATURALGAS']}")
+        col4.metric("📦 Quantity", f"{st.session_state.ng_lots * 1250} ({st.session_state.ng_lots} Lots)")
         st.markdown("---")
     
     # STOCKS Scanning
