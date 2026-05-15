@@ -189,7 +189,7 @@ if "max_qty_limit" not in st.session_state:
 if "enable_big_lot_mode" not in st.session_state:
     st.session_state.enable_big_lot_mode = False
 if "trade_journal" not in st.session_state:
-    st.session_state.trade_journal = []  # List of trade records
+    st.session_state.trade_journal = []
 if "stock_trades" not in st.session_state:
     st.session_state.stock_trades = {}
     for stock in FO_STOCKS:
@@ -535,7 +535,7 @@ st.markdown("""
         color: black;
         font-weight: bold;
         border-radius: 30px;
-        padding: 10px 30px;
+        padding: 8px 20px;
         border: none;
         box-shadow: 0 4px 15px rgba(0,255,136,0.3);
         transition: all 0.3s;
@@ -558,6 +558,16 @@ st.markdown("""
         color: #ff5252;
         font-weight: bold;
     }
+    /* One line control */
+    .control-row {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(0,0,0,0.3);
+        padding: 10px 20px;
+        border-radius: 50px;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -565,35 +575,27 @@ st.markdown("""
 st.markdown("<h1 style='text-align:center;'>📱 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
 
-# ================= LIVE CLOCK =================
-clock_placeholder = st.empty()
+# ================= ONE LINE CONTROL (TOTP + START + STOP) =================
+col_a, col_b, col_c = st.columns([2, 1, 1])
 
-# ================= SLIDER BAR WITH START/STOP =================
-with st.container():
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns([1,2,1,2])
-    
-    with col1:
-        st.markdown("### 🎮 CONTROL")
-    
-    with col2:
-        totp = st.text_input("🔐 TOTP Code", type="password", placeholder="6-digit code", key="totp_main")
-    
-    with col3:
-        if st.button("🟢 START", use_container_width=True):
-            if totp and len(totp) == 6:
-                st.session_state.algo_running = True
-                st.session_state.totp_verified = True
-                send_telegram("🚀 ALGO STARTED")
-                st.rerun()
-            else:
-                st.error("❌ Valid 6-digit TOTP required!")
-    
-    with col4:
-        if st.button("🔴 STOP", use_container_width=True):
-            st.session_state.algo_running = False
-            send_telegram("🛑 ALGO STOPPED")
+with col_a:
+    totp = st.text_input("🔐 TOTP Code", type="password", placeholder="6-digit code", key="totp_main", label_visibility="collapsed")
+
+with col_b:
+    if st.button("🟢 START", use_container_width=True):
+        if totp and len(totp) == 6:
+            st.session_state.algo_running = True
+            st.session_state.totp_verified = True
+            send_telegram("🚀 ALGO STARTED")
             st.rerun()
+        else:
+            st.error("❌ Valid TOTP required!")
+
+with col_c:
+    if st.button("🔴 STOP", use_container_width=True):
+        st.session_state.algo_running = False
+        send_telegram("🛑 ALGO STOPPED")
+        st.rerun()
 
 # ================= LIVE STATUS & CLOCK =================
 st.markdown("---")
@@ -609,11 +611,6 @@ else:
         🔴 ALGO STOPPED | {get_ist_now().strftime('%H:%M:%S')} 🔴
     </div>
     """, unsafe_allow_html=True)
-
-# Update clock every second
-with clock_placeholder.container():
-    current_time = get_ist_now().strftime('%H:%M:%S')
-    st.caption(f"🕐 LIVE IST: {current_time}")
 
 st.markdown("---")
 
@@ -657,12 +654,6 @@ with st.sidebar:
     total_trades = sum(v["trades"] for v in st.session_state.stock_trades.values())
     st.metric("Stocks Traded", f"{total_trades}/{st.session_state.max_stocks_per_day}")
     st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}", delta_color="inverse")
-    
-    st.markdown("---")
-    st.markdown("### 📜 RULES")
-    st.caption("🎯 TP1 Hit → 50% Book")
-    st.caption("🎯 TP2 Hit → 25% Book + SL → TP1")
-    st.caption("🎯 TP3 Hit → 25% Auto Exit")
 
 # ================= TRADING JOURNAL TABLE =================
 st.markdown("---")
@@ -673,16 +664,16 @@ if st.session_state.trade_journal:
     st.dataframe(df_journal, use_container_width=True)
     
     # Summary Stats
-    total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum()
-    total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum()
-    win_trades = len(df_journal[df_journal['Profit/Loss'] > 0])
-    loss_trades = len(df_journal[df_journal['Profit/Loss'] < 0])
+    total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum() if 'Profit/Loss' in df_journal.columns else 0
+    total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum() if 'Profit/Loss' in df_journal.columns else 0
+    win_trades = len(df_journal[df_journal['Profit/Loss'] > 0]) if 'Profit/Loss' in df_journal.columns else 0
+    loss_trades = len(df_journal[df_journal['Profit/Loss'] < 0]) if 'Profit/Loss' in df_journal.columns else 0
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Trades", len(df_journal))
     col2.metric("Win Trades", win_trades)
     col3.metric("Loss Trades", loss_trades)
-    col4.metric("Net P&L", f"₹{total_profit + total_loss:,.2f}", delta_color="normal")
+    col4.metric("Net P&L", f"₹{total_profit + total_loss:,.2f}" if total_profit or total_loss else "₹0", delta_color="normal")
 else:
     st.info("📭 No trades executed yet. Trades will appear here once the algo runs.")
 
@@ -759,8 +750,8 @@ if st.session_state.algo_running and st.session_state.totp_verified:
                             "Type": "BUY CE" if sig["buy"] else "SELL PE",
                             "Qty": qty,
                             "Lots": lots,
-                            "Buy Price": round(buy_price, 2),
-                            "Target Price": round(target_price, 2),
+                            "Entry Price": round(buy_price, 2),
+                            "Target": round(target_price, 2),
                             "Status": "OPEN",
                             "Entry Time": get_ist_now().strftime('%H:%M:%S')
                         }
