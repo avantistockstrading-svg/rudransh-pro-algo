@@ -244,6 +244,40 @@ if get_ist_now().date() != st.session_state.last_trade_date:
 MAX_DAILY_LOSS = 100000
 
 # ================= Helper Functions =================
+def get_sector_symbol(ticker):
+    ticker_upper = ticker.upper()
+    
+    if any(x in ticker_upper for x in ["HDFCBANK", "ICICIBANK", "SBIN", "AXISBANK", "KOTAKBANK", "PNB"]):
+        return "^NSEBANK"
+    elif any(x in ticker_upper for x in ["TCS", "INFY", "WIPRO", "TECHM", "HCLTECH"]):
+        return "^CNXIT"
+    elif any(x in ticker_upper for x in ["TATAMOTORS", "MARUTI", "M&M", "BAJAJ-AUTO", "EICHERMOT"]):
+        return "^CNXAUTO"
+    elif any(x in ticker_upper for x in ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN"]):
+        return "^CNXPHARMA"
+    elif any(x in ticker_upper for x in ["TATASTEEL", "HINDALCO", "JSWSTEEL", "SAIL"]):
+        return "^CNXMETAL"
+    elif any(x in ticker_upper for x in ["HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA"]):
+        return "^CNXFMCG"
+    elif any(x in ticker_upper for x in ["DLF", "GODREJPROP", "OBEROIRLTY"]):
+        return "^CNXREALTY"
+    elif any(x in ticker_upper for x in ["RELIANCE", "ONGC", "POWERGRID"]):
+        return "^CNXENERGY"
+    elif any(x in ticker_upper for x in ["BANKBARODA", "CANBK", "UNIONBANK"]):
+        return "^CNXPSUBANK"
+    elif any(x in ticker_upper for x in ["BAJFINANCE", "CHOLAFIN", "SHRIRAMFIN"]):
+        return "^CNXFINANCE"
+    elif any(x in ticker_upper for x in ["LT", "NBCC", "IRB"]):
+        return "^CNXINFRA"
+    elif any(x in ticker_upper for x in ["HAL", "BEL", "BDL"]):
+        return "^NIFTY_IND_DEFENCE"
+    elif any(x in ticker_upper for x in ["APOLLOHOSP", "MAXHEALTH", "FORTIS"]):
+        return "^NIFTY_HEALTHCARE"
+    elif any(x in ticker_upper for x in ["DIXON", "VOLTAS", "WHIRLPOOL"]):
+        return "^NIFTY_CONSR_DURBL"
+    else:
+        return "^NSEI"
+
 def get_nifty_trend():
     try:
         df = yf.download("^NSEI", period="7d", interval="15m", progress=False)
@@ -432,10 +466,191 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
     
     st.markdown("---")
 
+# ================= CALCULATE SIGNALS (BREAKOUT/BREAKDOWN CONFIRMATION ONLY) =================
+def calculate_signals():
+    symbol = SYMBOLS[asset]
+    
+    # NIFTY data
+    nifty_df = yf.download("^NSEI", period="7d", interval="5m", progress=False)
+    nifty_df.columns = [str(c).lower() for c in nifty_df.columns]
+    
+    # Sector data
+    sector_symbol = get_sector_symbol(asset)
+    sector_df = yf.download(sector_symbol, period="7d", interval="5m", progress=False)
+    sector_df.columns = [str(c).lower() for c in sector_df.columns]
+    
+    # Stock data
+    stock_df = yf.download(symbol, period="7d", interval="5m", progress=False)
+    
+    if stock_df.empty or len(stock_df) < 30:
+        return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0, "ema20": price}
+    
+    stock_df.columns = [str(c).lower() for c in stock_df.columns]
+    
+    if 'close' not in stock_df.columns:
+        return {"signal": "WAIT", "buy": False, "sell": False, "price": price, "trend": "NEUTRAL", "rsi": 50, "adx": 0, "ema20": price}
+    
+    # NIFTY Trend
+    nifty_positive = False
+    nifty_negative = False
+    
+    if not nifty_df.empty and 'close' in nifty_df.columns:
+        nifty_ema20 = nifty_df['close'].ewm(span=20, adjust=False).mean().iloc[-1]
+        nifty_current = nifty_df['close'].iloc[-1]
+        nifty_positive = nifty_current > nifty_ema20
+        nifty_negative = nifty_current < nifty_ema20
+    
+    # Sector Trend
+    sector_bullish = False
+    sector_bearish = False
+    
+    if not sector_df.empty and 'close' in sector_df.columns:
+        sector_ema20 = sector_df['close'].ewm(span=20, adjust=False).mean().iloc[-1]
+        sector_current = sector_df['close'].iloc[-1]
+        sector_bullish = sector_current > sector_ema20
+        sector_bearish = sector_current < sector_ema20
+    
+    # Stock Calculations
+    close = stock_df['close']
+    high = stock_df['high'] if 'high' in stock_df.columns else close
+    low = stock_df['low'] if 'low' in stock_df.columns else close
+    volume = stock_df['volume'] if 'volume' in stock_df.columns else pd.Series([1000000] * len(stock_df))
+    
+    ema9 = close.ewm(span=9, adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema200 = close.ewm(span=200, adjust=False).mean()
+    
+    # RSI
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    # Volume Filter
+    volume_sma = volume.rolling(20).mean()
+    volume_filter = volume.iloc[-1] > volume_sma.iloc[-1] if not volume_sma.isna().iloc[-1] else True
+    
+    # ADX
+    plus_dm = high.diff()
+    minus_dm = low.diff()
+    plus_dm = plus_dm.where(plus_dm > 0, 0)
+    minus_dm = minus_dm.where(minus_dm > 0, 0)
+    tr = pd.DataFrame({
+        'hl': high - low,
+        'hc': abs(high - close.shift()),
+        'lc': abs(low - close.shift())
+    }).max(axis=1)
+    atr = tr.rolling(14).mean()
+    
+    plus_di = 100 * (plus_dm.rolling(14).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(14).mean() / atr)
+    dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+    adx = dx.rolling(14).mean().iloc[-1] if len(dx) > 14 else 25
+    
+    # Sideways
+    current_rsi = rsi.iloc[-1]
+    sideways = (45 < current_rsi < 55) and adx < 20
+    
+    # Strong Bull/Bear
+    c1 = stock_df.iloc[-2]
+    c2 = stock_df.iloc[-1]
+    
+    strong_bull = c2['close'] > c2['open'] and c2['close'] > c1['high']
+    strong_bear = c2['close'] < c2['open'] and c2['close'] < c1['low']
+    
+    current_price = close.iloc[-1]
+    current_ema9 = ema9.iloc[-1]
+    current_ema20 = ema20.iloc[-1]
+    current_ema200 = ema200.iloc[-1] if not ema200.isna().all() else current_price
+    
+    # MTF Trends
+    tf5_df = yf.download(symbol, period="2d", interval="5m", progress=False)
+    if not tf5_df.empty and 'Close' in tf5_df.columns:
+        tf5_close = tf5_df['Close'].iloc[-1]
+        tf5_ema = tf5_df['Close'].ewm(span=20).mean().iloc[-1]
+        trend5_up = tf5_close > tf5_ema
+    else:
+        trend5_up = current_price > current_ema20
+    
+    tf15_df = yf.download(symbol, period="3d", interval="15m", progress=False)
+    if not tf15_df.empty and 'Close' in tf15_df.columns:
+        tf15_close = tf15_df['Close'].iloc[-1]
+        tf15_ema = tf15_df['Close'].ewm(span=20).mean().iloc[-1]
+        trend15_up = tf15_close > tf15_ema
+    else:
+        trend15_up = current_price > current_ema20
+    
+    tf1h_df = yf.download(symbol, period="5d", interval="60m", progress=False)
+    if not tf1h_df.empty and 'Close' in tf1h_df.columns:
+        tf1h_close = tf1h_df['Close'].iloc[-1]
+        tf1h_ema = tf1h_df['Close'].ewm(span=20).mean().iloc[-1]
+        trend1h_up = tf1h_close > tf1h_ema
+    else:
+        trend1h_up = current_price > current_ema20
+    
+    # Strict Conditions
+    strong_bull_stock = (current_ema9 > current_ema20 and current_price > current_ema200 and current_rsi >= 60 and adx >= 25 and volume_filter and strong_bull and current_price > c1['high'])
+    strong_bear_stock = (current_ema9 < current_ema20 and current_price < current_ema200 and current_rsi <= 40 and adx >= 25 and volume_filter and strong_bear and current_price < c1['low'])
+    
+    # ================= RESISTANCE / SUPPORT CONFIRMATION =================
+    lookback = 20
+    resistance = high.rolling(lookback).max().iloc[-1]
+    support = low.rolling(lookback).min().iloc[-1]
+    
+    # TRUE BREAKOUT = प्राइस रेझिस्टन्सच्या वर बंद झाली
+    confirmed_breakout = current_price > resistance
+    # TRUE BREAKDOWN = प्राइस सपोर्टच्या खाली बंद झाली
+    confirmed_breakdown = current_price < support
+    
+    # ================= FINAL BUY/SELL (STRICT + CONFIRMATION) =================
+    strict_buy = (nifty_positive and not nifty_negative and not sideways and sector_bullish and strong_bull_stock and trend5_up and trend15_up and trend1h_up and current_price > current_ema20)
+    strict_sell = (nifty_negative and not nifty_positive and not sideways and sector_bearish and strong_bear_stock and not trend5_up and not trend15_up and not trend1h_up and current_price < current_ema20)
+    
+    # फक्त कन्फर्म्ड ब्रेकआउट झाल्यावरच बाय सिग्नल, आणि ब्रेकडाउन झाल्यावरच सेल सिग्नल
+    buy_condition = strict_buy and confirmed_breakout
+    sell_condition = strict_sell and confirmed_breakdown
+    
+    # Cooldown
+    cooldown_ok = (get_ist_now() - st.session_state.last_trade_time).seconds > 300
+    
+    if buy_condition and cooldown_ok and st.session_state.last_trade_side != "BUY":
+        signal = "BUY"
+        buy_signal = True
+        sell_signal = False
+    elif sell_condition and cooldown_ok and st.session_state.last_trade_side != "SELL":
+        signal = "SELL"
+        buy_signal = False
+        sell_signal = True
+    else:
+        signal = "WAIT"
+        buy_signal = False
+        sell_signal = False
+    
+    return {
+        "signal": signal,
+        "buy": buy_signal,
+        "sell": sell_signal,
+        "price": current_price,
+        "trend": "BULLISH" if current_price > current_ema20 else "BEARISH",
+        "rsi": current_rsi,
+        "adx": adx,
+        "ema20": current_ema20,
+        "sideways": sideways,
+        "sector_bullish": sector_bullish,
+        "nifty_positive": nifty_positive,
+        "strict_buy": strict_buy,
+        "resistance": resistance,
+        "support": support,
+        "breakout": confirmed_breakout,
+        "breakdown": confirmed_breakdown
+    }
+
 # ================= UI =================
 st.markdown("<h1>📱 RUDRANSH PRO-ALGO - Complete Auto Trading System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>NIFTY | CRUDE OIL | NATURAL GAS | F&O STOCKS</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffaa00;'>🎯 TP2 Hit = SL Shift to TP1 | TP3 Hit = Auto Exit</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#ffaa00;'>🔒 BUY Signal only after CONFIRMED BREAKOUT | SELL Signal only after CONFIRMED BREAKDOWN</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Sidebar
@@ -451,7 +666,6 @@ with st.sidebar:
     
     if st.session_state.control_mode == "AUTO":
         st.info("🕐 AUTO MODE: Trading Hours नुसार Auto Start/Stop")
-        
         col1, col2 = st.columns(2)
         with col1:
             if st.button("⚠️ FORCE START", use_container_width=True):
@@ -464,31 +678,26 @@ with st.sidebar:
                 st.session_state.running = False
                 send_telegram("🔴 FORCE STOP ACTIVATED")
                 st.warning("Force Start OFF!")
-        
         st.caption("Force Start = Market बंद असताना पण Algo सुरू करण्यासाठी (Testing)")
     
-    else:  # MANUAL MODE
+    else:
         st.info("👆 MANUAL MODE: तुम्ही स्वतः START/STOP करा")
         st.session_state.force_start = False
-        
-        # TOTP Code Input
         totp_code = st.text_input("🔐 TOTP Code (Google Authenticator)", type="password", placeholder="Enter 6 digit code", key="totp_input")
-        
         col1, col2 = st.columns(2)
         with col1:
             if st.button("▶️ START", use_container_width=True):
                 if totp_code and len(totp_code) == 6:
                     st.session_state.running = True
-                    send_telegram(f"🤖 ALGO STARTED (Manual Mode)")
+                    send_telegram("🤖 ALGO STARTED (Manual Mode)")
                     st.success("Started! Algo is now RUNNING")
                 else:
-                    st.error("❌ Please enter valid 6-digit TOTP code from Google Authenticator!")
+                    st.error("❌ Please enter valid 6-digit TOTP code!")
         with col2:
             if st.button("⏹️ STOP", use_container_width=True):
                 st.session_state.running = False
                 send_telegram("🛑 ALGO STOPPED (Manual Mode)")
                 st.warning("Stopped!")
-        
         st.caption("📱 TOTP Code: Google Authenticator app मध्ये Angel One साठी दिसणारा 6 अंकी कोड")
     
     st.markdown("---")
@@ -621,7 +830,15 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                 trade_qty = st.session_state.stock_trades[stock["name"]]["quantity"]
                 trade_lots = st.session_state.stock_trades[stock["name"]]["lots"]
                 
-                if nifty_trend == "BULLISH" and sector_bullish and stock_bullish and not trade_done:
+                # स्टॉक्ससाठी हीच ब्रेकआउट/ब्रेकडाउन कंडिशन (स्टॉकच्या स्वतःच्या डेटावरून)
+                stock_high = stock_df['high'] if 'high' in stock_df.columns else pd.Series([current_price])
+                stock_low = stock_df['low'] if 'low' in stock_df.columns else pd.Series([current_price])
+                res = stock_high.rolling(20).max().iloc[-1]
+                sup = stock_low.rolling(20).min().iloc[-1]
+                breakout_confirmed = current_price > res
+                breakdown_confirmed = current_price < sup
+                
+                if nifty_trend == "BULLISH" and sector_bullish and stock_bullish and not trade_done and breakout_confirmed:
                     itm_strike = get_stock_itm_strike(current_price, stock, "CE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "CE")
                     tp_sl_calc = calculate_option_targets(estimated_premium, trade_qty)
@@ -630,8 +847,8 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["buy_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE")
-                elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done:
+                        send_telegram(f"🔵 REAL AUTO BUY {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} CE (Breakout Confirmed)")
+                elif nifty_trend == "BEARISH" and sector_bearish and stock_bearish and not trade_done and breakdown_confirmed:
                     itm_strike = get_stock_itm_strike(current_price, stock, "PE")
                     estimated_premium = get_option_premium(stock["symbol"], itm_strike, "PE")
                     tp_sl_calc = calculate_option_targets(estimated_premium, trade_qty)
@@ -640,7 +857,7 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         st.session_state.stock_trades[stock["name"]]["sell_done"] = True
                         trades_done += 1
-                        send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE")
+                        send_telegram(f"🔴 REAL AUTO SELL {stock['name']} | {trade_lots} lots ({trade_qty} qty) | Strike: {itm_strike} PE (Breakdown Confirmed)")
             except:
                 continue
         
@@ -663,6 +880,7 @@ if st.session_state.enable_stocks and (st.session_state.running if st.session_st
                         🛡️ TP2 Hit → SL Shift to TP1 ({tp_sl_calc['tp1_points']} pts)<br>
                         🚪 TP3 Hit → Auto Exit<br>
                         Lots: {signal['lots']} | Qty: {signal['quantity']}<br>
+                        🔒 Confirmed {'Breakout' if signal['type'] == 'BUY CE' else 'Breakdown'}<br>
                         ✅ Condition: {'NIFTY Bullish + Sector Bullish + Stock Bullish' if signal['type'] == 'BUY CE' else 'NIFTY Bearish + Sector Bearish + Stock Bearish'}
                     </div>
                     """, unsafe_allow_html=True)
@@ -728,4 +946,4 @@ with col3:
     st.markdown(f"SL: {FIXED_TP_SL['NATURALGAS']['sl']} | TP1: {FIXED_TP_SL['NATURALGAS']['tp1']} | TP2: {FIXED_TP_SL['NATURALGAS']['tp2']} | TP3: {FIXED_TP_SL['NATURALGAS']['tp3']}")
 
 # ================= Clock =================
-st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Mode: {st.session_state.control_mode} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30 | TP2=SL Shift to TP1 | TP3=Auto Exit")
+st.caption(f"🕐 IST: {get_ist_now().strftime('%H:%M:%S')} | Mode: {st.session_state.control_mode} | NIFTY/Stocks: 9:30-2:30 | Commodities: 6:00-10:30 | TP2=SL Shift to TP1 | TP3=Auto Exit | Breakout/Breakdown Confirmation Required")
