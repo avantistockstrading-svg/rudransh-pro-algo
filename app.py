@@ -18,7 +18,7 @@ def get_ist_now():
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
-    st.session_state.app_password = "8055"  # तुमचा Number Password इथे set करा (फक्त अंक)
+    st.session_state.app_password = "8055"  # तुमचा Password
 
 # ================= APP LOCK SCREEN =================
 if not st.session_state.app_unlocked:
@@ -28,19 +28,27 @@ if not st.session_state.app_unlocked:
     st.markdown("<h3 style='text-align:center;'>🔐 APPLICATION LOCKED</h3>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center;'>Enter 4-6 Digit Numeric Password to Access</p>", unsafe_allow_html=True)
     
-    # Number password input (numeric only)
+    # Number password input
     password_input = st.text_input("Password", type="password", placeholder="Enter numeric password", key="app_lock_password")
+    
+    # Debug info (तुम्ही हे remove करू शकता)
+    if password_input:
+        st.caption(f"Debug: You entered '{password_input}', Expected: '{st.session_state.app_password}'")
     
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         if st.button("🔓 UNLOCK", use_container_width=True):
-            if str(password_input).strip() == str(st.session_state.app_password).strip():
+            # Clean both strings: remove spaces, convert to string
+            entered = str(password_input).strip()
+            expected = str(st.session_state.app_password).strip()
+            
+            if entered == expected:
                 st.session_state.app_unlocked = True
                 st.rerun()
             else:
-                st.error("❌ Wrong Password! Access Denied.")
+                st.error(f"❌ Wrong Password! Access Denied. (Entered: '{entered}', Expected: '{expected}')")
     
-    st.stop()  # Important: Stop execution until password is entered
+    st.stop()
       
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
