@@ -595,6 +595,91 @@ col1.metric("📊 NIFTY", "Target ₹10", delta="per point")
 col2.metric("🛢️ CRUDE OIL", "Target ₹10", delta="per point")
 col3.metric("🌿 NATURAL GAS", "Target ₹1", delta="per point")
 
+# ================= GLOBAL MARKET TREND =================
+GLOBAL_MARKETS = {
+    "DJI": "^DJI",
+    "GOLD": "GC=F",
+    "OIL": "CL=F",
+    "NIKKEI": "^N225",
+    "GIFT": "^NSEI",
+    "SHANGHAI": "000001.SS",
+    "HANGSENG": "^HSI",
+    "FTSE": "^FTSE",
+    "DAX": "^GDAXI",
+    "CAC40": "^FCHI"
+}
+
+def get_market_direction(symbol):
+    try:
+        df = yf.download(symbol, period="5d", interval="1h", progress=False)
+
+        if df.empty or len(df) < 20:
+            return "SIDEWAYS"
+
+        close = df['Close']
+
+        ema20 = close.ewm(span=20).mean().iloc[-1]
+        current = close.iloc[-1]
+
+        if isinstance(current, pd.Series):
+            current = float(current.iloc[-1])
+
+        if isinstance(ema20, pd.Series):
+            ema20 = float(ema20.iloc[-1])
+
+        if current > ema20:
+            return "BULLISH"
+
+        elif current < ema20:
+            return "BEARISH"
+
+        return "SIDEWAYS"
+
+    except:
+        return "SIDEWAYS"
+
+bull_count = 0
+bear_count = 0
+
+for name, symbol in GLOBAL_MARKETS.items():
+
+    direction = get_market_direction(symbol)
+
+    if direction == "BULLISH":
+        bull_count += 1
+
+    elif direction == "BEARISH":
+        bear_count += 1
+
+if bull_count > bear_count:
+    overall = "🟢 🌍 GLOBAL BULLISH"
+    overall_bg = "linear-gradient(90deg,#00c853,#69f0ae)"
+
+elif bear_count > bull_count:
+    overall = "🔴 🌍 GLOBAL BEARISH"
+    overall_bg = "linear-gradient(90deg,#d50000,#ff5252)"
+
+else:
+    overall = "🟡 🌍 GLOBAL SIDEWAYS"
+    overall_bg = "linear-gradient(90deg,#fbc02d,#fff176)"
+
+st.markdown(f"""
+<div style="
+    background:{overall_bg};
+    padding:18px;
+    border-radius:18px;
+    text-align:center;
+    font-size:28px;
+    font-weight:bold;
+    color:black;
+    margin-top:10px;
+    margin-bottom:15px;
+    box-shadow:0 0 25px rgba(255,255,255,0.25);
+">
+    {overall}
+</div>
+""", unsafe_allow_html=True)
+
 # ================= NIFTY TREND =================
 nifty_trend = get_nifty_trend()
 st.markdown("### 🇮🇳 NIFTY TREND")
