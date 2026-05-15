@@ -6,13 +6,40 @@ import requests
 import time
 
 # ================= PAGE CONFIG =================
-st.set_page_config(page_title="RUDRANSH PRO-ALGO X", layout="wide", page_icon="📈")
+st.set_page_config(page_title="RUDRANSH PRO-ALGO X", layout="wide", page_icon="🇮🇳")
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def get_ist_now():
     return datetime.now(IST)
+
+# ================= APP LOCK SESSION STATE =================
+if "app_unlocked" not in st.session_state:
+    st.session_state.app_unlocked = False
+if "app_password" not in st.session_state:
+    st.session_state.app_password = "RUDRANSH@2025"  # तुमचा password इथे set करा
+
+# ================= APP LOCK SCREEN =================
+if not st.session_state.app_unlocked:
+    st.markdown("<h1 style='text-align:center;'>🇮🇳 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("<h3 style='text-align:center;'>🔐 APPLICATION LOCKED</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Enter Password to Access the Application</p>", unsafe_allow_html=True)
+    
+    password_input = st.text_input("Password", type="password", placeholder="Enter password", key="app_lock_password")
+    
+    col1, col2, col3 = st.columns([2,1,2])
+    with col2:
+        if st.button("🔓 UNLOCK", use_container_width=True):
+            if password_input == st.session_state.app_password:
+                st.session_state.app_unlocked = True
+                st.rerun()
+            else:
+                st.error("❌ Wrong Password! Access Denied.")
+    
+    st.stop()  # Stop execution until password is entered
 
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
@@ -43,7 +70,7 @@ def calculate_trade_quantity(lot_size, max_qty_limit, enable_big_lot_mode=False,
 
 # ================= SYMBOLS =================
 SYMBOLS = {
-    "🇮🇳 NIFTY": "^NSEI",
+    "NIFTY": "^NSEI",
     "CRUDEOIL": "CL=F",
     "NATURALGAS": "NG=F"
 }
@@ -763,7 +790,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================= UI HEADER =================
-st.markdown("<h1 style='text-align:center;'>📱 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>🇮🇳 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
 
 # ================= ONE LINE CONTROL =================
@@ -815,7 +842,7 @@ st.markdown("---")
 # ================= FIXED TARGETS DISPLAY =================
 st.markdown("### 🎯 FIXED TARGETS")
 col1, col2, col3 = st.columns(3)
-col1.metric("📊 NIFTY", "Target ₹10", delta="per point")
+col1.metric("🇮🇳 NIFTY", "Target ₹10", delta="per point")
 col2.metric("🛢️ CRUDE OIL", "Target ₹10", delta="per point")
 col3.metric("🌿 NATURAL GAS", "Target ₹1", delta="per point")
 
@@ -876,7 +903,7 @@ st.markdown("---")
 # ================= TRADE COUNTERS DISPLAY =================
 st.markdown("### 📊 DAILY TRADE COUNTERS (Max 2 per asset)")
 col1, col2, col3 = st.columns(3)
-col1.metric("📊 NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
+col1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
 col2.metric("🛢️ CRUDE Trades", f"{st.session_state.crude_trades_count}/2")
 col3.metric("🌿 NG Trades", f"{st.session_state.ng_trades_count}/2")
 st.markdown("---")
@@ -886,7 +913,7 @@ with st.sidebar:
     st.markdown("## ⚙️ SETTINGS")
     
     st.markdown("### 📌 ASSETS")
-    st.session_state.enable_nifty = st.checkbox("📊 NIFTY", value=st.session_state.enable_nifty)
+    st.session_state.enable_nifty = st.checkbox("🇮🇳 NIFTY", value=st.session_state.enable_nifty)
     if st.session_state.enable_nifty:
         st.session_state.nifty_lots = st.number_input("NIFTY Lots", min_value=1, max_value=50, value=st.session_state.nifty_lots, step=1)
         st.caption(f"📦 Qty: {st.session_state.nifty_lots * 65}")
@@ -924,6 +951,7 @@ with st.sidebar:
     st.caption("Stocks: Max stocks/day limit")
     st.caption("Daily Loss Limit: ₹1,00,000")
     st.caption("TP1=50% Book | TP2=50% Book")
+    st.caption("🔐 App Protected with Password")
 
 # ================= TRADING JOURNAL =================
 st.markdown("## 📋 TRADING JOURNAL")
@@ -955,7 +983,7 @@ if st.session_state.algo_running and st.session_state.totp_verified and not chec
     if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2:
         if is_nifty_market_open():
             signal, price = get_nifty_signal()
-            st.write(f"📊 NIFTY Signal: {signal} at ₹{price:.2f}")
+            st.write(f"🇮🇳 NIFTY Signal: {signal} at ₹{price:.2f}")
             
             if signal != "WAIT":
                 trade_type = "BUY" if signal == "BUY" else "SELL"
@@ -974,7 +1002,7 @@ if st.session_state.algo_running and st.session_state.totp_verified and not chec
                 }
                 st.session_state.trade_journal.append(trade_record)
                 st.session_state.nifty_trades_count += 1
-                send_telegram(f"📊 NIFTY {trade_type} | {st.session_state.nifty_lots} lots ({qty} qty) | Entry: ₹{price:.2f} | Target: ₹{FIXED_TARGETS['NIFTY']}")
+                send_telegram(f"🇮🇳 NIFTY {trade_type} | {st.session_state.nifty_lots} lots ({qty} qty) | Entry: ₹{price:.2f} | Target: ₹{FIXED_TARGETS['NIFTY']}")
                 st.success(f"✅ NIFTY {trade_type} Executed!")
                 st.rerun()
     
@@ -1130,3 +1158,4 @@ elif check_daily_loss_limit():
 # ================= FOOTER =================
 st.markdown("---")
 st.caption(f"📊 Trading Journal | NIFTY: {st.session_state.nifty_trades_count}/2 | CRUDE: {st.session_state.crude_trades_count}/2 | NG: {st.session_state.ng_trades_count}/2 | Daily Loss Limit: ₹{MAX_DAILY_LOSS:,.0f}")
+st.caption("🔐 App Protected with Password | Developed by Satish D. Nakhate")
