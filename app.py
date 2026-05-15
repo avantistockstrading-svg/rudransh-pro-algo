@@ -575,22 +575,67 @@ with col_c:
         send_telegram("🛑 ALGO STOPPED")
         st.rerun()
 
-# ================= LIVE STATUS & CLOCK =================
-st.markdown("---")
-if st.session_state.algo_running:
-    st.markdown(f"""
-    <div class="status-running">
-        🟢 ALGO RUNNING | {get_ist_now().strftime('%H:%M:%S')} 🟢
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown(f"""
-    <div class="status-stopped">
-        🔴 ALGO STOPPED | {get_ist_now().strftime('%H:%M:%S')} 🔴
-    </div>
-    """, unsafe_allow_html=True)
+# ================= ONE LINE CONTROL WITH LIVE STATUS =================
+col_a, col_b, col_c, col_d = st.columns([2.2, 1, 1, 1.2])
 
-st.markdown("---")
+with col_a:
+    totp = st.text_input(
+        "🔐 TOTP Code",
+        type="password",
+        placeholder="6-digit code",
+        key="totp_main",
+        label_visibility="collapsed"
+    )
+
+with col_b:
+    if st.button("🟢 START", use_container_width=True):
+        if totp and len(totp) == 6:
+            st.session_state.algo_running = True
+            st.session_state.totp_verified = True
+            send_telegram("🚀 ALGO STARTED")
+            st.rerun()
+        else:
+            st.error("❌ Valid TOTP required!")
+
+with col_c:
+    if st.button("🔴 STOP", use_container_width=True):
+        st.session_state.algo_running = False
+        send_telegram("🛑 ALGO STOPPED")
+        st.rerun()
+
+with col_d:
+    if st.session_state.algo_running:
+        st.markdown(f"""
+        <div style="
+            background:linear-gradient(90deg,#00c853,#69f0ae);
+            padding:12px;
+            border-radius:18px;
+            text-align:center;
+            font-weight:bold;
+            color:black;
+            box-shadow:0 0 12px #00ff88;
+            font-size:15px;
+        ">
+            🟢 RUNNING<br>
+            {get_ist_now().strftime('%H:%M:%S')}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="
+            background:linear-gradient(90deg,#d50000,#ff5252);
+            padding:12px;
+            border-radius:18px;
+            text-align:center;
+            font-weight:bold;
+            color:white;
+            box-shadow:0 0 12px #ff0000;
+            font-size:15px;
+        ">
+            🔴 STOPPED<br>
+            {get_ist_now().strftime('%H:%M:%S')}
+        </div>
+        """, unsafe_allow_html=True)
 
 # ================= FIXED TARGETS DISPLAY (NIFTY, CRUDE, NG ONLY) =================
 st.markdown("### 🎯 FIXED TARGETS")
