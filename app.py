@@ -75,7 +75,8 @@ def get_live_price_inr(symbol):
         return price_usd * usd_inr
     return 0.0
 
-def get_itm_strike(price, asset_type, itm_points=100, strike_interval=50):
+def get_itm_strike_nifty(price, itm_points=100, strike_interval=50):
+    """For NIFTY only - fixed ITM calculation"""
     if price <= 0:
         return 0, 0
     target_strike = price - itm_points
@@ -97,60 +98,141 @@ def get_option_tp_sl(entry_premium):
     else:
         return {"sl_points": 20.00, "tp1_points": 10.00, "tp2_points": 20.00, "tp3_points": 30.00}
 
-# ================= 45 F&O STOCKS with BIG LOT MODE =================
+# ================= AUTO ITM STRIKE DETECTION (ATM - 2 Strike for CE, ATM + 2 Strike for PE) =================
+def get_stock_itm_strike_auto(price, stock, option_type="CE", strike_offset=2):
+    """
+    Auto detect ATM strike and return ITM strike (2 strikes below for CE, 2 strikes above for PE)
+    
+    Parameters:
+    - price: Current stock price
+    - stock: Stock dictionary (contains lot, name etc.)
+    - option_type: "CE" or "PE"
+    - strike_offset: Number of strikes to go ITM (default 2)
+    
+    Returns:
+    - strike_price: Calculated ITM strike
+    - actual_itm: Actual ITM points
+    - strike_interval: Detected strike interval based on price
+    """
+    if price <= 0:
+        return 0, 0, 50
+    
+    # Detect strike interval based on price (Indian F&O rules)
+    if price < 100:
+        strike_interval = 2.5
+    elif price < 250:
+        strike_interval = 5
+    elif price < 500:
+        strike_interval = 10
+    elif price < 1000:
+        strike_interval = 20
+    elif price < 2000:
+        strike_interval = 50
+    elif price < 5000:
+        strike_interval = 100
+    else:
+        strike_interval = 200
+    
+    # Find ATM strike (nearest strike to current price)
+    atm_strike = round(price / strike_interval) * strike_interval
+    
+    if option_type == "CE":
+        # For CE: Go strike_offset strikes below ATM (ITM)
+        itm_strike = atm_strike - (strike_offset * strike_interval)
+        actual_itm = price - itm_strike
+    else:
+        # For PE: Go strike_offset strikes above ATM (ITM)
+        itm_strike = atm_strike + (strike_offset * strike_interval)
+        actual_itm = itm_strike - price
+    
+    # Ensure strike is positive
+    if itm_strike <= 0:
+        itm_strike = strike_interval
+    
+    return int(itm_strike), round(actual_itm, 2), strike_interval
+
+# ================= 69 F&O STOCKS with BIG LOT MODE =================
 FO_STOCKS = [
-    {"symbol": "RELIANCE.NS", "lot": 500, "itm": 50, "name": "RELIANCE", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
-    {"symbol": "TCS.NS", "lot": 174, "itm": 100, "name": "TCS", "sector": "IT", "tp1": 4, "tp2": 4, "big_lot_qty": 5220, "big_lot_lots": 30},
-    {"symbol": "HDFCBANK.NS", "lot": 550, "itm": 50, "name": "HDFC BANK", "sector": "BANK", "tp1": 3, "tp2": 3, "big_lot_qty": 7150, "big_lot_lots": 13},
-    {"symbol": "INFY.NS", "lot": 400, "itm": 100, "name": "INFOSYS", "sector": "IT", "tp1": 3, "tp2": 3, "big_lot_qty": 6800, "big_lot_lots": 17},
-    {"symbol": "ICICIBANK.NS", "lot": 700, "itm": 25, "name": "ICICI BANK", "sector": "BANK", "tp1": 2, "tp2": 2, "big_lot_qty": 10500, "big_lot_lots": 15},
-    {"symbol": "SBIN.NS", "lot": 750, "itm": 25, "name": "SBI", "sector": "BANK", "tp1": 3, "tp2": 2, "big_lot_qty": 8250, "big_lot_lots": 11},
-    {"symbol": "BHARTIARTL.NS", "lot": 476, "itm": 10, "name": "BHARTI AIRTEL", "sector": "TELECOM", "tp1": 3, "tp2": 3, "big_lot_qty": 7616, "big_lot_lots": 16},
-    {"symbol": "KOTAKBANK.NS", "lot": 2000, "itm": 50, "name": "KOTAK BANK", "sector": "BANK", "tp1": 3, "tp2": 3, "big_lot_qty": 8000, "big_lot_lots": 4},
-    {"symbol": "BAJFINANCE.NS", "lot": 750, "itm": 100, "name": "BAJAJ FINANCE", "sector": "FINANCE", "tp1": 3, "tp2": 3, "big_lot_qty": 6750, "big_lot_lots": 9},
-    {"symbol": "ITC.NS", "lot": 1600, "itm": 10, "name": "ITC", "sector": "FMCG", "tp1": 1, "tp2": 1, "big_lot_qty": 20800, "big_lot_lots": 13},
-    {"symbol": "HINDUNILVR.NS", "lot": 300, "itm": 100, "name": "HUL", "sector": "FMCG", "tp1": 3, "tp2": 3, "big_lot_qty": 6900, "big_lot_lots": 23},
-    {"symbol": "TATAMOTORS.NS", "lot": 800, "itm": 10, "name": "TMPV", "sector": "AUTO", "tp1": 0.75, "tp2": 0.75, "big_lot_qty": 27200, "big_lot_lots": 34},
-    {"symbol": "TATASTEEL.NS", "lot": 600, "itm": 10, "name": "TATA STEEL", "sector": "METAL", "tp1": 1, "tp2": 1, "big_lot_qty": 20400, "big_lot_lots": 34},
-    {"symbol": "AXISBANK.NS", "lot": 624, "itm": 25, "name": "AXIS BANK", "sector": "BANK", "tp1": 3, "tp2": 3, "big_lot_qty": 7488, "big_lot_lots": 12},
-    {"symbol": "MARUTI.NS", "lot": 50, "itm": 100, "name": "MARUTI", "sector": "AUTO", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 80},
-    {"symbol": "SUNPHARMA.NS", "lot": 350, "itm": 20, "name": "SUN PHARMA", "sector": "PHARMA", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 20},
-    {"symbol": "WIPRO.NS", "lot": 3000, "itm": 40, "name": "WIPRO", "sector": "IT", "tp1": 0.50, "tp2": 0.50, "big_lot_qty": 42000, "big_lot_lots": 14},
-    {"symbol": "HCLTECH.NS", "lot": 350, "itm": 100, "name": "HCL TECH", "sector": "IT", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 20},
-    {"symbol": "NTPC.NS", "lot": 1500, "itm": 10, "name": "NTPC", "sector": "ENERGY", "tp1": 0.50, "tp2": 0.50, "big_lot_qty": 40500, "big_lot_lots": 27},
-    {"symbol": "POWERGRID.NS", "lot": 1900, "itm": 10, "name": "POWER GRID", "sector": "ENERGY", "tp1": 0.75, "tp2": 0.75, "big_lot_qty": 28500, "big_lot_lots": 15},
-    {"symbol": "ONGC.NS", "lot": 2250, "itm": 10, "name": "ONGC", "sector": "ENERGY", "tp1": 0.50, "tp2": 0.50, "big_lot_qty": 40500, "big_lot_lots": 18},
-    {"symbol": "M&M.NS", "lot": 200, "itm": 25, "name": "M&M", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 10},
-    {"symbol": "ULTRACEMCO.NS", "lot": 50, "itm": 100, "name": "ULTRATECH", "sector": "INFRA", "tp1": 20, "tp2": 20, "big_lot_qty": 1000, "big_lot_lots": 20},
-    {"symbol": "NESTLEIND.NS", "lot": 500, "itm": 200, "name": "NESTLE", "sector": "FMCG", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
-    {"symbol": "JSWSTEEL.NS", "lot": 674, "itm": 10, "name": "JSW STEEL", "sector": "METAL", "tp1": 5, "tp2": 5, "big_lot_qty": 4044, "big_lot_lots": 6},
-    {"symbol": "TECHM.NS", "lot": 600, "itm": 50, "name": "TECH MAHINDRA", "sector": "IT", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 7},
-    {"symbol": "BAJAJFINSV.NS", "lot": 250, "itm": 100, "name": "BAJAJ FINSERV", "sector": "FINANCE", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 16},
-    {"symbol": "ASIANPAINT.NS", "lot": 250, "itm": 100, "name": "ASIAN PAINTS", "sector": "CONSUMER", "tp1": 4, "tp2": 4, "big_lot_qty": 5000, "big_lot_lots": 20},
-    {"symbol": "GRASIM.NS", "lot": 250, "itm": 50, "name": "GRASIM", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 16},
-    {"symbol": "INDUSINDBK.NS", "lot": 700, "itm": 50, "name": "INDUSIND BANK", "sector": "BANK", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 6},
-    {"symbol": "BRITANNIA.NS", "lot": 124, "itm": 50, "name": "BRITANNIA", "sector": "FMCG", "tp1": 5, "tp2": 5, "big_lot_qty": 4216, "big_lot_lots": 34},
-    {"symbol": "DRREDDY.NS", "lot": 624, "itm": 100, "name": "DR REDDY", "sector": "PHARMA", "tp1": 5, "tp2": 5, "big_lot_qty": 4992, "big_lot_lots": 8},
-    {"symbol": "DIVISLAB.NS", "lot": 100, "itm": 100, "name": "DIVIS LAB", "sector": "PHARMA", "tp1": 15, "tp2": 15, "big_lot_qty": 1400, "big_lot_lots": 14},
-    {"symbol": "HAL.NS", "lot": 150, "itm": 20, "name": "HAL", "sector": "DEFENCE", "tp1": 10, "tp2": 10, "big_lot_qty": 2100, "big_lot_lots": 14},
-    {"symbol": "ADANIENT.NS", "lot": 308, "itm": 50, "name": "ADANI ENTERPRISES", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4312, "big_lot_lots": 14},
-    {"symbol": "ADANIPORTS.NS", "lot": 476, "itm": 25, "name": "ADANI PORTS", "sector": "ENERGY", "tp1": 3, "tp2": 3, "big_lot_qty": 7616, "big_lot_lots": 16},
-    {"symbol": "HEROMOTOCO.NS", "lot": 150, "itm": 50, "name": "HERO MOTOCORP", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2100, "big_lot_lots": 14},
-    {"symbol": "EICHERMOT.NS", "lot": 100, "itm": 50, "name": "EICHER MOTORS", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 20},
-    {"symbol": "PIDILITIND.NS", "lot": 500, "itm": 50, "name": "PIDILITE", "sector": "CONSUMER", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
-    {"symbol": "DABUR.NS", "lot": 1250, "itm": 25, "name": "DABUR", "sector": "FMCG", "tp1": 2, "tp2": 2, "big_lot_qty": 10000, "big_lot_lots": 8},
-    {"symbol": "HAVELLS.NS", "lot": 500, "itm": 25, "name": "HAVELLS", "sector": "CONSUMER", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 14},
-    {"symbol": "UPL.NS", "lot": 1356, "itm": 10, "name": "UPL", "sector": "CHEMICAL", "tp1": 3, "tp2": 3, "big_lot_qty": 8136, "big_lot_lots": 6},
-    {"symbol": "LT.NS", "lot": 174, "itm": 100, "name": "LT", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4176, "big_lot_lots": 24},
-    {"symbol": "ADANIGREEN.NS", "lot": 600, "itm": 50, "name": "ADANI GREEN", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 7},
-    {"symbol": "VEDANTA.NS", "lot": 1150, "itm": 10, "name": "VEDANTA", "sector": "METAL", "tp1": 3, "tp2": 3, "big_lot_qty": 6900, "big_lot_lots": 6},
+    # Existing 45 Stocks
+    {"symbol": "RELIANCE.NS", "lot": 500, "name": "RELIANCE", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
+    {"symbol": "TCS.NS", "lot": 174, "name": "TCS", "sector": "IT", "tp1": 4, "tp2": 4, "big_lot_qty": 5220, "big_lot_lots": 30},
+    {"symbol": "HDFCBANK.NS", "lot": 550, "name": "HDFC BANK", "sector": "BANK", "tp1": 3, "tp2": 3, "big_lot_qty": 7150, "big_lot_lots": 13},
+    {"symbol": "INFY.NS", "lot": 400, "name": "INFOSYS", "sector": "IT", "tp1": 3, "tp2": 3, "big_lot_qty": 6800, "big_lot_lots": 17},
+    {"symbol": "ICICIBANK.NS", "lot": 700, "name": "ICICI BANK", "sector": "BANK", "tp1": 2, "tp2": 2, "big_lot_qty": 10500, "big_lot_lots": 15},
+    {"symbol": "SBIN.NS", "lot": 750, "name": "SBI", "sector": "BANK", "tp1": 3, "tp2": 2, "big_lot_qty": 8250, "big_lot_lots": 11},
+    {"symbol": "BHARTIARTL.NS", "lot": 476, "name": "BHARTI AIRTEL", "sector": "TELECOM", "tp1": 3, "tp2": 3, "big_lot_qty": 7616, "big_lot_lots": 16},
+    {"symbol": "KOTAKBANK.NS", "lot": 2000, "name": "KOTAK BANK", "sector": "BANK", "tp1": 3, "tp2": 3, "big_lot_qty": 8000, "big_lot_lots": 4},
+    {"symbol": "BAJFINANCE.NS", "lot": 750, "name": "BAJAJ FINANCE", "sector": "FINANCE", "tp1": 3, "tp2": 3, "big_lot_qty": 6750, "big_lot_lots": 9},
+    {"symbol": "ITC.NS", "lot": 1600, "name": "ITC", "sector": "FMCG", "tp1": 1, "tp2": 1, "big_lot_qty": 20800, "big_lot_lots": 13},
+    {"symbol": "HINDUNILVR.NS", "lot": 300, "name": "HUL", "sector": "FMCG", "tp1": 3, "tp2": 3, "big_lot_qty": 6900, "big_lot_lots": 23},
+    {"symbol": "TATAMOTORS.NS", "lot": 800, "name": "TMPV", "sector": "AUTO", "tp1": 0.75, "tp2": 0.75, "big_lot_qty": 27200, "big_lot_lots": 34},
+    {"symbol": "TATASTEEL.NS", "lot": 600, "name": "TATA STEEL", "sector": "METAL", "tp1": 1, "tp2": 1, "big_lot_qty": 20400, "big_lot_lots": 34},
+    {"symbol": "AXISBANK.NS", "lot": 624, "name": "AXIS BANK", "sector": "BANK", "tp1": 3, "tp2": 3, "big_lot_qty": 7488, "big_lot_lots": 12},
+    {"symbol": "MARUTI.NS", "lot": 50, "name": "MARUTI", "sector": "AUTO", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 80},
+    {"symbol": "SUNPHARMA.NS", "lot": 350, "name": "SUN PHARMA", "sector": "PHARMA", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 20},
+    {"symbol": "WIPRO.NS", "lot": 3000, "name": "WIPRO", "sector": "IT", "tp1": 0.50, "tp2": 0.50, "big_lot_qty": 42000, "big_lot_lots": 14},
+    {"symbol": "HCLTECH.NS", "lot": 350, "name": "HCL TECH", "sector": "IT", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 20},
+    {"symbol": "NTPC.NS", "lot": 1500, "name": "NTPC", "sector": "ENERGY", "tp1": 0.50, "tp2": 0.50, "big_lot_qty": 40500, "big_lot_lots": 27},
+    {"symbol": "POWERGRID.NS", "lot": 1900, "name": "POWER GRID", "sector": "ENERGY", "tp1": 0.75, "tp2": 0.75, "big_lot_qty": 28500, "big_lot_lots": 15},
+    {"symbol": "ONGC.NS", "lot": 2250, "name": "ONGC", "sector": "ENERGY", "tp1": 0.50, "tp2": 0.50, "big_lot_qty": 40500, "big_lot_lots": 18},
+    {"symbol": "M&M.NS", "lot": 200, "name": "M&M", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 10},
+    {"symbol": "ULTRACEMCO.NS", "lot": 50, "name": "ULTRATECH", "sector": "INFRA", "tp1": 20, "tp2": 20, "big_lot_qty": 1000, "big_lot_lots": 20},
+    {"symbol": "NESTLEIND.NS", "lot": 500, "name": "NESTLE", "sector": "FMCG", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
+    {"symbol": "JSWSTEEL.NS", "lot": 674, "name": "JSW STEEL", "sector": "METAL", "tp1": 5, "tp2": 5, "big_lot_qty": 4044, "big_lot_lots": 6},
+    {"symbol": "TECHM.NS", "lot": 600, "name": "TECH MAHINDRA", "sector": "IT", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 7},
+    {"symbol": "BAJAJFINSV.NS", "lot": 250, "name": "BAJAJ FINSERV", "sector": "FINANCE", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 16},
+    {"symbol": "ASIANPAINT.NS", "lot": 250, "name": "ASIAN PAINTS", "sector": "CONSUMER", "tp1": 4, "tp2": 4, "big_lot_qty": 5000, "big_lot_lots": 20},
+    {"symbol": "GRASIM.NS", "lot": 250, "name": "GRASIM", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 16},
+    {"symbol": "INDUSINDBK.NS", "lot": 700, "name": "INDUSIND BANK", "sector": "BANK", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 6},
+    {"symbol": "BRITANNIA.NS", "lot": 124, "name": "BRITANNIA", "sector": "FMCG", "tp1": 5, "tp2": 5, "big_lot_qty": 4216, "big_lot_lots": 34},
+    {"symbol": "DRREDDY.NS", "lot": 624, "name": "DR REDDY", "sector": "PHARMA", "tp1": 5, "tp2": 5, "big_lot_qty": 4992, "big_lot_lots": 8},
+    {"symbol": "DIVISLAB.NS", "lot": 100, "name": "DIVIS LAB", "sector": "PHARMA", "tp1": 15, "tp2": 15, "big_lot_qty": 1400, "big_lot_lots": 14},
+    {"symbol": "HAL.NS", "lot": 150, "name": "HAL", "sector": "DEFENCE", "tp1": 10, "tp2": 10, "big_lot_qty": 2100, "big_lot_lots": 14},
+    {"symbol": "ADANIENT.NS", "lot": 308, "name": "ADANI ENTERPRISES", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4312, "big_lot_lots": 14},
+    {"symbol": "ADANIPORTS.NS", "lot": 476, "name": "ADANI PORTS", "sector": "ENERGY", "tp1": 3, "tp2": 3, "big_lot_qty": 7616, "big_lot_lots": 16},
+    {"symbol": "HEROMOTOCO.NS", "lot": 150, "name": "HERO MOTOCORP", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2100, "big_lot_lots": 14},
+    {"symbol": "EICHERMOT.NS", "lot": 100, "name": "EICHER MOTORS", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 20},
+    {"symbol": "PIDILITIND.NS", "lot": 500, "name": "PIDILITE", "sector": "CONSUMER", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
+    {"symbol": "DABUR.NS", "lot": 1250, "name": "DABUR", "sector": "FMCG", "tp1": 2, "tp2": 2, "big_lot_qty": 10000, "big_lot_lots": 8},
+    {"symbol": "HAVELLS.NS", "lot": 500, "name": "HAVELLS", "sector": "CONSUMER", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 14},
+    {"symbol": "UPL.NS", "lot": 1356, "name": "UPL", "sector": "CHEMICAL", "tp1": 3, "tp2": 3, "big_lot_qty": 8136, "big_lot_lots": 6},
+    {"symbol": "LT.NS", "lot": 174, "name": "LT", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4176, "big_lot_lots": 24},
+    {"symbol": "ADANIGREEN.NS", "lot": 600, "name": "ADANI GREEN", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 7},
+    {"symbol": "VEDANTA.NS", "lot": 1150, "name": "VEDANTA", "sector": "METAL", "tp1": 3, "tp2": 3, "big_lot_qty": 6900, "big_lot_lots": 6},
+    # New 24 Stocks
+    {"symbol": "ABB.NS", "lot": 125, "name": "ABB", "sector": "INFRA", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 16},
+    {"symbol": "TITAN.NS", "lot": 175, "name": "TITAN", "sector": "CONSUMER", "tp1": 10, "tp2": 10, "big_lot_qty": 2100, "big_lot_lots": 12},
+    {"symbol": "INDIGO.NS", "lot": 150, "name": "INDIGO", "sector": "TRAVEL", "tp1": 5, "tp2": 5, "big_lot_qty": 4050, "big_lot_lots": 27},
+    {"symbol": "BAJAJ-AUTO.NS", "lot": 50, "name": "BAJAJAUTO", "sector": "AUTO", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 40},
+    {"symbol": "TVSMOTOR.NS", "lot": 175, "name": "TVSMOTOR", "sector": "AUTO", "tp1": 5, "tp2": 5, "big_lot_qty": 4025, "big_lot_lots": 23},
+    {"symbol": "COFORGE.NS", "lot": 375, "name": "COFORGE", "sector": "IT", "tp1": 5, "tp2": 5, "big_lot_qty": 4125, "big_lot_lots": 11},
+    {"symbol": "PERSISTENT.NS", "lot": 100, "name": "PERSISTENT", "sector": "IT", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 20},
+    {"symbol": "LUPIN.NS", "lot": 425, "name": "LUPIN", "sector": "PHARMA", "tp1": 5, "tp2": 5, "big_lot_qty": 4250, "big_lot_lots": 10},
+    {"symbol": "AUROPHARMA.NS", "lot": 550, "name": "AUROPHARMA", "sector": "PHARMA", "tp1": 5, "tp2": 5, "big_lot_qty": 4400, "big_lot_lots": 8},
+    {"symbol": "HINDALCO.NS", "lot": 700, "name": "HINDALCO", "sector": "METAL", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 6},
+    {"symbol": "DMART.NS", "lot": 150, "name": "DMART", "sector": "CONSUMER", "tp1": 5, "tp2": 5, "big_lot_qty": 4050, "big_lot_lots": 27},
+    {"symbol": "GODREJPROP.NS", "lot": 275, "name": "GODREJPROP", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4125, "big_lot_lots": 15},
+    {"symbol": "JSWENERGY.NS", "lot": 1000, "name": "JSWENERGY", "sector": "ENERGY", "tp1": 3, "tp2": 3, "big_lot_qty": 7000, "big_lot_lots": 7},
+    {"symbol": "CHOLAFIN.NS", "lot": 625, "name": "CHOLAFIN", "sector": "FINANCE", "tp1": 5, "tp2": 5, "big_lot_qty": 4375, "big_lot_lots": 7},
+    {"symbol": "SHRIRAMFIN.NS", "lot": 825, "name": "SHRIRAMFIN", "sector": "FINANCE", "tp1": 5, "tp2": 5, "big_lot_qty": 4125, "big_lot_lots": 5},
+    {"symbol": "SIEMENS.NS", "lot": 175, "name": "SIEMENS", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4025, "big_lot_lots": 23},
+    {"symbol": "KEI.NS", "lot": 175, "name": "KEI", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4025, "big_lot_lots": 23},
+    {"symbol": "POLYCAB.NS", "lot": 125, "name": "POLYCAB", "sector": "INFRA", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 32},
+    {"symbol": "APOLLOHOSP.NS", "lot": 125, "name": "APOLLOHOSP", "sector": "HEALTHCARE", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 32},
+    {"symbol": "MAXHEALTH.NS", "lot": 525, "name": "MAXHEALTH", "sector": "HEALTHCARE", "tp1": 5, "tp2": 5, "big_lot_qty": 4200, "big_lot_lots": 8},
+    {"symbol": "AMBER.NS", "lot": 100, "name": "AMBER", "sector": "CONSUMER", "tp1": 10, "tp2": 10, "big_lot_qty": 2000, "big_lot_lots": 20},
+    {"symbol": "VOLTAS.NS", "lot": 375, "name": "VOLTAS", "sector": "CONSUMER", "tp1": 10, "tp2": 10, "big_lot_qty": 2250, "big_lot_lots": 6},
+    {"symbol": "MCX.NS", "lot": 225, "name": "MCX", "sector": "FINANCE", "tp1": 5, "tp2": 5, "big_lot_qty": 4050, "big_lot_lots": 18},
+    {"symbol": "TRENT.NS", "lot": 100, "name": "TRENT", "sector": "CONSUMER", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 40},
 ]
 
 # ================= SECTOR MAPPING =================
 SECTOR_INDEX = {
     "BANK": "^NSEBANK", "IT": "^CNXIT", "AUTO": "^CNXAUTO", "PHARMA": "^CNXPHARMA",
     "METAL": "^CNXMETAL", "FMCG": "^CNXFMCG", "FINANCE": "^CNXFINANCE", "ENERGY": "^CNXENERGY",
-    "INFRA": "^CNXINFRA", "DEFENCE": "^CNXINFRA", "CONSUMER": "^NIFTY_CONSR_DURBL", "TELECOM": "^CNXIT", "CHEMICAL": "^NIFTY_CHEMICAL",
+    "INFRA": "^CNXINFRA", "DEFENCE": "^CNXINFRA", "CONSUMER": "^NIFTY_CONSR_DURBL", 
+    "TELECOM": "^CNXIT", "CHEMICAL": "^NIFTY_CHEMICAL", "HEALTHCARE": "^NIFTY_HEALTHCARE",
+    "TRAVEL": "^CNXSERVICE",
 }
 
 # ================= SESSION STATE =================
@@ -167,11 +249,11 @@ if "enable_ng" not in st.session_state:
 if "enable_stocks" not in st.session_state:
     st.session_state.enable_stocks = True
 if "nifty_lots" not in st.session_state:
-    st.session_state.nifty_lots = 65
+    st.session_state.nifty_lots = 1
 if "crude_lots" not in st.session_state:
-    st.session_state.crude_lots = 100
+    st.session_state.crude_lots = 1
 if "ng_lots" not in st.session_state:
-    st.session_state.ng_lots = 1250
+    st.session_state.ng_lots = 1
 if "max_qty_limit" not in st.session_state:
     st.session_state.max_qty_limit = 1500
 if "enable_big_lot_mode" not in st.session_state:
@@ -343,24 +425,6 @@ def get_stock_trend(symbol):
         pass
     return "NEUTRAL"
 
-def get_stock_itm_strike(price, stock, option_type="CE"):
-    if price <= 0:
-        return 0
-    itm_points = stock["itm"]
-    if option_type == "CE":
-        itm_strike = price - itm_points
-    else:
-        itm_strike = price + itm_points
-    if itm_strike <= 0:
-        itm_strike = 5
-    if itm_strike > 1000:
-        itm_strike = round(itm_strike / 50) * 50
-    elif itm_strike > 100:
-        itm_strike = round(itm_strike / 10) * 10
-    else:
-        itm_strike = round(itm_strike / 5) * 5
-    return int(itm_strike)
-
 def get_option_premium(symbol, strike_price, option_type):
     try:
         df = yf.download(symbol, period="1d", interval="5m", progress=False)
@@ -512,12 +576,6 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         font-weight: bold;
     }
-    .metric-card {
-        background: rgba(0,0,0,0.3);
-        border-radius: 15px;
-        padding: 10px;
-        text-align: center;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -625,7 +683,7 @@ with st.sidebar:
             max_value=100, 
             value=st.session_state.nifty_lots, 
             step=1,
-            help="1 Lot = 65 Quantity. Enter number of lots (e.g., 1 = 65 Qty, 2 = 130 Qty)"
+            help="1 Lot = 65 Quantity"
         )
         nifty_qty = st.session_state.nifty_lots * 65
         st.caption(f"📦 Total Quantity: {nifty_qty} ({st.session_state.nifty_lots} Lots × 65)")
@@ -639,7 +697,7 @@ with st.sidebar:
             max_value=100, 
             value=st.session_state.crude_lots, 
             step=1,
-            help="1 Lot = 100 Quantity. Enter number of lots (e.g., 1 = 100 Qty, 2 = 200 Qty)"
+            help="1 Lot = 100 Quantity"
         )
         crude_qty = st.session_state.crude_lots * 100
         st.caption(f"📦 Total Quantity: {crude_qty} ({st.session_state.crude_lots} Lots × 100)")
@@ -653,31 +711,29 @@ with st.sidebar:
             max_value=50, 
             value=st.session_state.ng_lots, 
             step=1,
-            help="1 Lot = 1250 Quantity. Enter number of lots (e.g., 1 = 1250 Qty, 2 = 2500 Qty)"
+            help="1 Lot = 1250 Quantity"
         )
         ng_qty = st.session_state.ng_lots * 1250
         st.caption(f"📦 Total Quantity: {ng_qty} ({st.session_state.ng_lots} Lots × 1250)")
     
     # Stocks Section
-    st.session_state.enable_stocks = st.checkbox("📈 F&O STOCKS (45)", value=st.session_state.enable_stocks)
+    st.session_state.enable_stocks = st.checkbox("📈 F&O STOCKS (69)", value=st.session_state.enable_stocks)
     
     if st.session_state.enable_stocks:
         st.markdown("---")
         st.markdown("### 📊 STOCK SETTINGS")
-        st.session_state.max_stocks_per_day = st.number_input("Max Stocks/Day", 1, 45, 10)
+        st.session_state.max_stocks_per_day = st.number_input("Max Stocks/Day", 1, 69, 10)
         st.session_state.max_qty_limit = st.selectbox("Max Qty per Trade", MAX_QTY_OPTIONS, index=14)
-        st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE (45 Stocks)", value=st.session_state.enable_big_lot_mode)
+        st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE (69 Stocks)", value=st.session_state.enable_big_lot_mode)
         if st.session_state.enable_big_lot_mode:
-            st.success("✅ BIG LOT ACTIVE - 45 Stocks with Pre-calculated Lots")
+            st.success("✅ BIG LOT ACTIVE - 69 Stocks with Pre-calculated Lots")
             st.caption("Each stock will trade with ~₹20k profit @ Target")
     
     st.markdown("---")
     st.markdown("### 📊 DAILY STATUS")
     total_trades = sum(v["trades"] for v in st.session_state.stock_trades.values())
     st.metric("Stocks Traded", f"{total_trades}/{st.session_state.max_stocks_per_day}")
-    
-    loss_color = "inverse"
-    st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}", delta_color=loss_color)
+    st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}", delta_color="inverse")
     
     st.markdown("---")
     st.markdown("### 📦 CURRENT LOT SUMMARY")
@@ -688,6 +744,12 @@ with st.sidebar:
     | CRUDE | {st.session_state.crude_lots} | {st.session_state.crude_lots * 100} |
     | NG | {st.session_state.ng_lots} | {st.session_state.ng_lots * 1250} |
     """)
+    
+    st.markdown("---")
+    st.markdown("### 🎯 AUTO ITM SETTINGS")
+    st.caption("ATM - 2 Strike ITM for CE")
+    st.caption("ATM + 2 Strike ITM for PE")
+    st.caption("Strike interval auto-detected based on price")
 
 # ================= TRADING JOURNAL TABLE =================
 st.markdown("## 📋 TRADING JOURNAL")
@@ -719,7 +781,7 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     if st.session_state.enable_nifty:
         st.markdown("## 📊 NIFTY 50")
         price = get_live_price("^NSEI")
-        strike, itm = get_itm_strike(price, "NIFTY", itm_points=100, strike_interval=50)
+        strike, itm = get_itm_strike_nifty(price, itm_points=100, strike_interval=50)
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("💰 Price", f"₹{price:,.2f}" if price > 0 else "Loading...")
         col2.metric("🎯 ITM Strike", strike)
@@ -752,6 +814,7 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     # STOCKS Scanning
     if st.session_state.enable_stocks:
         st.markdown("## 🔍 SCANNING F&O STOCKS")
+        st.info("🎯 Auto ITM Detection: ATM - 2 Strike for CE | ATM + 2 Strike for PE")
         
         if not is_stock_market_open():
             st.info("⏸️ Market Closed | Trading Hours: 9:30 AM - 2:30 PM IST")
@@ -779,15 +842,21 @@ if st.session_state.algo_running and st.session_state.totp_verified:
                                                               st.session_state.enable_big_lot_mode, stock.get("big_lot_qty"))
                         
                         buy_price = sig["price"]
+                        option_type = "CE" if sig["buy"] else "PE"
+                        
+                        # Auto detect ITM strike (ATM - 2 Strike for CE, ATM + 2 Strike for PE)
+                        itm_strike, actual_itm, strike_interval = get_stock_itm_strike_auto(buy_price, stock, option_type, strike_offset=2)
                         
                         # Add to Trade Journal
                         trade_record = {
                             "No": len(st.session_state.trade_journal) + 1,
                             "Symbol": stock["name"],
-                            "Type": "BUY CE" if sig["buy"] else "SELL PE",
+                            "Type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
                             "Qty": qty,
                             "Lots": lots,
                             "Entry Price": round(buy_price, 2),
+                            "ITM Strike": itm_strike,
+                            "ITM Points": actual_itm,
                             "TP1": stock["tp1"],
                             "TP2": stock["tp2"],
                             "Status": "OPEN",
@@ -797,10 +866,12 @@ if st.session_state.algo_running and st.session_state.totp_verified:
                         
                         signals.append({
                             "stock": stock["name"],
-                            "type": "BUY CE" if sig["buy"] else "SELL PE",
+                            "type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
                             "price": buy_price,
                             "lots": lots,
                             "qty": qty,
+                            "itm_strike": itm_strike,
+                            "itm_points": actual_itm,
                             "tp1": stock["tp1"],
                             "tp2": stock["tp2"],
                             "rsi": sig["rsi"],
@@ -808,7 +879,7 @@ if st.session_state.algo_running and st.session_state.totp_verified:
                         })
                         st.session_state.stock_trades[stock["name"]]["trades"] += 1
                         trades_done += 1
-                        send_telegram(f"{'🔵 BUY' if sig['buy'] else '🔴 SELL'} {stock['name']} | {lots} lots ({qty} qty) | TP1: ₹{stock['tp1']} TP2: ₹{stock['tp2']}")
+                        send_telegram(f"{'🔵 BUY' if sig['buy'] else '🔴 SELL'} {stock['name']} {option_type} | Strike: {itm_strike} ({actual_itm} pts ITM) | {lots} lots ({qty} qty) | TP1: ₹{stock['tp1']} TP2: ₹{stock['tp2']}")
             
             progress_bar.empty()
             status_text.empty()
@@ -821,9 +892,10 @@ if st.session_state.algo_running and st.session_state.totp_verified:
                         <div style='background:rgba(0,255,136,0.1); padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #00ff88;'>
                             <b>{'🟢' if 'BUY' in s['type'] else '🔴'} {s['stock']}</b><br>
                             Action: {s['type']}<br>
+                            🎯 ITM Strike: {s['itm_strike']} ({s['itm_points']} pts ITM)<br>
                             Lots: {s['lots']} | Qty: {s['qty']}<br>
                             TP1: ₹{s['tp1']} (50% Book) | TP2: ₹{s['tp2']} (50% Book)<br>
-                            RSI: {s['rsi']:.0f} | ADX: {s['adx']:.0f}
+                            📊 RSI: {s['rsi']:.0f} | ADX: {s['adx']:.0f}
                         </div>
                         """, unsafe_allow_html=True)
                 else:
@@ -837,4 +909,4 @@ else:
 
 # ================= FOOTER =================
 st.markdown("---")
-st.caption(f"📊 Trading Journal | Total Records: {len(st.session_state.trade_journal)} | TP1=50% Book | TP2=50% Book")
+st.caption(f"📊 Trading Journal | Total Records: {len(st.session_state.trade_journal)} | 🎯 Auto ITM: ATM ± 2 Strikes | TP1=50% Book | TP2=50% Book")
