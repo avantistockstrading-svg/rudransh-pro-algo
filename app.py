@@ -43,7 +43,7 @@ def calculate_trade_quantity(lot_size, max_qty_limit, enable_big_lot_mode=False,
 
 # ================= SYMBOLS =================
 SYMBOLS = {
-    "NIFTY": "^NSEI",
+    "🇮🇳 NIFTY": "^NSEI",
     "CRUDEOIL": "CL=F",
     "NATURALGAS": "NG=F"
 }
