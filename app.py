@@ -641,7 +641,7 @@ def display_asset_section(asset_type, display_name, symbol, tp_sl, lot_size, tot
 
 # ================= HERO IMAGE =================
 import os
-image_path = "WhatsApp Image 2026-05-15 at 11.31.32.jpeg"
+image_path = "WhatsApp Image 2026-05-15 at 11.31.32"
 if os.path.exists(image_path):
     st.image(image_path, use_container_width=True)
 else:
