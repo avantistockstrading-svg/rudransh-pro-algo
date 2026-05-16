@@ -3,6 +3,7 @@ import yfinance as yf
 import requests
 import time
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta, timezone
 from streamlit_autorefresh import st_autorefresh
 
@@ -83,6 +84,288 @@ if get_ist_now().date() != st.session_state.last_date:
     st.session_state.ng_count = 0
     st.session_state.last_date = get_ist_now().date()
 
+# ================= TECHNICAL INDICATORS FUNCTION =================
+def get_technical_indicators(df):
+    """Calculate all technical indicators"""
+    if df.empty or len(df) < 200:
+        return None
+    
+    close = df['Close']
+    high = df['High'] if 'High' in df.columns else close
+    low = df['Low'] if 'Low' in df.columns else close
+    volume = df['Volume'] if 'Volume' in df.columns else pd.Series([1000000] * len(df))
+    
+    # EMAs
+    ema9 = close.ewm(span=9, adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema200 = close.ewm(span=200, adjust=False).mean()
+    
+    # RSI
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    # Volume Filter
+    volume_sma = volume.rolling(20).mean()
+    volume_filter = volume.iloc[-1] > volume_sma.iloc[-1] if not volume_sma.isna().iloc[-1] else True
+    
+    # ADX
+    plus_dm = high.diff()
+    minus_dm = low.diff()
+    plus_dm = plus_dm.where(plus_dm > 0, 0)
+    minus_dm = minus_dm.where(minus_dm > 0, 0)
+    tr = pd.DataFrame({
+        'hl': high - low,
+        'hc': abs(high - close.shift()),
+        'lc': abs(low - close.shift())
+    }).max(axis=1)
+    atr = tr.rolling(14).mean()
+    
+    plus_di = 100 * (plus_dm.rolling(14).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(14).mean() / atr)
+    dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+    adx = dx.rolling(14).mean().iloc[-1] if len(dx) > 14 else 25
+    
+    # Strong Bull/Bear candles
+    c1 = df.iloc[-2]
+    c2 = df.iloc[-1]
+    strong_bull = c2['Close'] > c2['Open'] and c2['Close'] > c1['High']
+    strong_bear = c2['Close'] < c2['Open'] and c2['Close'] < c1['Low']
+    
+    # Sideways detection
+    current_rsi = rsi.iloc[-1]
+    sideways = (45 < current_rsi < 55) and adx < 20
+    
+    # Multi-timeframe trends
+    def get_trend(data, period):
+        if len(data) < period:
+            return False
+        return data['Close'].iloc[-1] > data['Close'].ewm(span=20).mean().iloc[-1]
+    
+    return {
+        "current_price": close.iloc[-1],
+        "ema9": ema9.iloc[-1],
+        "ema20": ema20.iloc[-1],
+        "ema200": ema200.iloc[-1],
+        "rsi": current_rsi,
+        "adx": adx,
+        "volume_filter": volume_filter,
+        "strong_bull": strong_bull,
+        "strong_bear": strong_bear,
+        "sideways": sideways,
+        "c1_high": c1['High'] if 'High' in df.columns else close.iloc[-2],
+        "c1_low": c1['Low'] if 'Low' in df.columns else close.iloc[-2]
+    }
+
+# ================= NIFTY TREND =================
+def get_nifty_trend():
+    try:
+        df = yf.download("^NSEI", period="7d", interval="15m", progress=False)
+        if df.empty:
+            return "NEUTRAL"
+        close = df['Close']
+        ema20 = close.ewm(span=20).mean().iloc[-1]
+        current = close.iloc[-1]
+        if current > ema20:
+            return "BULLISH"
+        elif current < ema20:
+            return "BEARISH"
+        return "NEUTRAL"
+    except:
+        return "NEUTRAL"
+
+# ================= SECTOR TREND =================
+def get_sector_trend(sector_symbol):
+    try:
+        df = yf.download(sector_symbol, period="7d", interval="15m", progress=False)
+        if df.empty:
+            return False
+        close = df['Close']
+        ema20 = close.ewm(span=20).mean().iloc[-1]
+        current = close.iloc[-1]
+        return current > ema20
+    except:
+        return False
+
+# ================= STRICT BUY SIGNAL =================
+def get_strict_buy_signal(symbol, sector_symbol=None):
+    """Strict Buy Signal based on your conditions"""
+    try:
+        # Fetch data
+        df = yf.download(symbol, period="10d", interval="5m", progress=False)
+        if df.empty or len(df) < 200:
+            return False, 0
+        
+        indicators = get_technical_indicators(df)
+        if indicators is None:
+            return False, 0
+        
+        current_price = indicators["current_price"]
+        ema9_val = indicators["ema9"]
+        ema20_val = indicators["ema20"]
+        ema200_val = indicators["ema200"]
+        rsi_val = indicators["rsi"]
+        adx_val = indicators["adx"]
+        volume_filter_val = indicators["volume_filter"]
+        strong_bull_val = indicators["strong_bull"]
+        sideways_val = indicators["sideways"]
+        c1_high_val = indicators["c1_high"]
+        
+        # Multi-timeframe trends
+        df5 = yf.download(symbol, period="3d", interval="5m", progress=False)
+        df15 = yf.download(symbol, period="5d", interval="15m", progress=False)
+        df1h = yf.download(symbol, period="7d", interval="60m", progress=False)
+        
+        trend5_up = False
+        trend15_up = False
+        trend1h_up = False
+        
+        if not df5.empty and len(df5) > 20:
+            trend5_up = df5['Close'].iloc[-1] > df5['Close'].ewm(span=20).mean().iloc[-1]
+        if not df15.empty and len(df15) > 20:
+            trend15_up = df15['Close'].iloc[-1] > df15['Close'].ewm(span=20).mean().iloc[-1]
+        if not df1h.empty and len(df1h) > 20:
+            trend1h_up = df1h['Close'].iloc[-1] > df1h['Close'].ewm(span=20).mean().iloc[-1]
+        
+        # Nifty trend
+        nifty_trend = get_nifty_trend()
+        nifty_bullish = nifty_trend == "BULLISH"
+        nifty_bearish = nifty_trend == "BEARISH"
+        
+        # Sector trend
+        sector_bullish = True
+        sector_bearish = False
+        if sector_symbol:
+            sector_bullish = get_sector_trend(sector_symbol)
+            sector_bearish = not sector_bullish
+        
+        # Strong Bull Stock conditions
+        strong_bull_stock = (ema9_val > ema20_val and 
+                            current_price > ema200_val and 
+                            rsi_val >= 60 and 
+                            adx_val >= 25 and 
+                            volume_filter_val and 
+                            strong_bull_val and 
+                            current_price > c1_high_val)
+        
+        # EMA Buy conditions (Strict)
+        ema_buy = (nifty_bullish and 
+                  not sideways_val and 
+                  sector_bullish and 
+                  ema9_val > ema20_val and 
+                  current_price > ema200_val and 
+                  rsi_val >= 60 and 
+                  adx_val >= 25 and 
+                  volume_filter_val and 
+                  strong_bull_val and 
+                  current_price > c1_high_val and 
+                  trend5_up and 
+                  trend15_up and 
+                  trend1h_up)
+        
+        return ema_buy, current_price
+        
+    except Exception as e:
+        print(f"Buy signal error for {symbol}: {e}")
+        return False, 0
+
+# ================= STRICT SELL SIGNAL =================
+def get_strict_sell_signal(symbol, sector_symbol=None):
+    """Strict Sell Signal based on your conditions"""
+    try:
+        # Fetch data
+        df = yf.download(symbol, period="10d", interval="5m", progress=False)
+        if df.empty or len(df) < 200:
+            return False, 0
+        
+        indicators = get_technical_indicators(df)
+        if indicators is None:
+            return False, 0
+        
+        current_price = indicators["current_price"]
+        ema9_val = indicators["ema9"]
+        ema20_val = indicators["ema20"]
+        ema200_val = indicators["ema200"]
+        rsi_val = indicators["rsi"]
+        adx_val = indicators["adx"]
+        volume_filter_val = indicators["volume_filter"]
+        strong_bear_val = indicators["strong_bear"]
+        sideways_val = indicators["sideways"]
+        c1_low_val = indicators["c1_low"]
+        
+        # Multi-timeframe trends
+        df5 = yf.download(symbol, period="3d", interval="5m", progress=False)
+        df15 = yf.download(symbol, period="5d", interval="15m", progress=False)
+        df1h = yf.download(symbol, period="7d", interval="60m", progress=False)
+        
+        trend5_up = False
+        trend15_up = False
+        trend1h_up = False
+        
+        if not df5.empty and len(df5) > 20:
+            trend5_up = df5['Close'].iloc[-1] > df5['Close'].ewm(span=20).mean().iloc[-1]
+        if not df15.empty and len(df15) > 20:
+            trend15_up = df15['Close'].iloc[-1] > df15['Close'].ewm(span=20).mean().iloc[-1]
+        if not df1h.empty and len(df1h) > 20:
+            trend1h_up = df1h['Close'].iloc[-1] > df1h['Close'].ewm(span=20).mean().iloc[-1]
+        
+        # Nifty trend
+        nifty_trend = get_nifty_trend()
+        nifty_bullish = nifty_trend == "BULLISH"
+        nifty_bearish = nifty_trend == "BEARISH"
+        
+        # Sector trend
+        sector_bullish = True
+        sector_bearish = False
+        if sector_symbol:
+            sector_bullish = get_sector_trend(sector_symbol)
+            sector_bearish = not sector_bullish
+        
+        # Strong Bear Stock conditions
+        strong_bear_stock = (ema9_val < ema20_val and 
+                            current_price < ema200_val and 
+                            rsi_val <= 40 and 
+                            adx_val >= 25 and 
+                            volume_filter_val and 
+                            strong_bear_val and 
+                            current_price < c1_low_val)
+        
+        # EMA Sell conditions (Strict)
+        ema_sell = (nifty_bearish and 
+                   not sideways_val and 
+                   sector_bearish and 
+                   ema9_val < ema20_val and 
+                   current_price < ema200_val and 
+                   rsi_val <= 40 and 
+                   adx_val >= 25 and 
+                   volume_filter_val and 
+                   strong_bear_val and 
+                   current_price < c1_low_val and 
+                   not trend5_up and 
+                   not trend15_up and 
+                   not trend1h_up)
+        
+        return ema_sell, current_price
+        
+    except Exception as e:
+        print(f"Sell signal error for {symbol}: {e}")
+        return False, 0
+
+# ================= GET SIGNAL FOR DISPLAY =================
+def get_signal_display(symbol):
+    """Get signal for display (BUY/SELL/WAIT)"""
+    buy, buy_price = get_strict_buy_signal(symbol)
+    if buy:
+        return "BUY", buy_price
+    
+    sell, sell_price = get_strict_sell_signal(symbol)
+    if sell:
+        return "SELL", sell_price
+    
+    return "WAIT", 0
+
 # ================= FUNCTIONS =================
 @st.cache_data(ttl=30)
 def get_live_prices():
@@ -120,24 +403,7 @@ def get_live_prices():
         pass
     ng = round(ng_usd * usdinr, 2) if ng_usd else 0
     
-    return nifty, crude, ng
-
-@st.cache_data(ttl=10)
-def get_trading_signal(symbol):
-    try:
-        df = yf.download(symbol, period="2d", interval="5m", progress=False)
-        if df.empty or len(df) < 20:
-            return "WAIT"
-        close = df['Close']
-        ema9 = close.ewm(span=9).mean().iloc[-1]
-        ema20 = close.ewm(span=20).mean().iloc[-1]
-        if ema9 > ema20:
-            return "BUY"
-        elif ema9 < ema20:
-            return "SELL"
-        return "WAIT"
-    except:
-        return "WAIT"
+    return nifty, crude, ng, usdinr
 
 def send_telegram(msg):
     try:
@@ -169,7 +435,7 @@ def execute_trade(symbol, trade_type, price, lots, qty, target):
     send_telegram(f"🤖 {trade_type} {symbol} | {lots} lots @ ₹{price:.2f}")
     return True
 
-# ================= HEADER =================
+# ================= UI HEADER =================
 st.markdown("<h1 style='text-align:center;'>⚡ RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE</p>", unsafe_allow_html=True)
 
@@ -201,16 +467,52 @@ with col4:
         st.error(f"🔴 STOPPED | {get_ist_now().strftime('%H:%M:%S')}")
 
 # ================= AUTO-REFRESH STATUS =================
-st.info("🔄 **Auto-Refresh every 30 seconds** | Data updates automatically without logout")
+st.info("🔄 **Auto-Refresh every 30 seconds** | Strict Buy/Sell Filters Active")
+st.markdown("---")
 
-# ================= LIVE PRICES =================
-with st.spinner("Fetching live prices..."):
-    nifty_price, crude_price, ng_price = get_live_prices()
+# ================= LIVE PRICES AND SIGNALS =================
+with st.spinner("Fetching live data..."):
+    nifty_price, crude_price, ng_price, usdinr = get_live_prices()
+    
+    # Get signals using strict filters
+    nifty_signal, _ = get_signal_display("^NSEI")
+    crude_signal, _ = get_signal_display("CL=F")
+    ng_signal, _ = get_signal_display("NG=F")
 
+# Display 3 columns with Price and Signal
 col1, col2, col3 = st.columns(3)
-col1.metric("🇮🇳 NIFTY 50", f"₹{nifty_price:,.2f}" if nifty_price else "Loading...")
-col2.metric("🛢️ CRUDE OIL", f"₹{crude_price:,.2f}" if crude_price else "Loading...")
-col3.metric("🌿 NATURAL GAS", f"₹{ng_price:,.2f}" if ng_price else "Loading...")
+
+with col1:
+    st.markdown("### 🇮🇳 NIFTY 50")
+    st.metric("Price", f"₹{nifty_price:,.2f}" if nifty_price else "Loading...")
+    if nifty_signal == "BUY":
+        st.success(f"🟢 SIGNAL: {nifty_signal}")
+    elif nifty_signal == "SELL":
+        st.error(f"🔴 SIGNAL: {nifty_signal}")
+    else:
+        st.warning(f"⏳ SIGNAL: {nifty_signal}")
+
+with col2:
+    st.markdown("### 🛢️ CRUDE OIL")
+    st.metric("Price", f"₹{crude_price:,.2f}" if crude_price else "Loading...")
+    if crude_signal == "BUY":
+        st.success(f"🟢 SIGNAL: {crude_signal}")
+    elif crude_signal == "SELL":
+        st.error(f"🔴 SIGNAL: {crude_signal}")
+    else:
+        st.warning(f"⏳ SIGNAL: {crude_signal}")
+
+with col3:
+    st.markdown("### 🌿 NATURAL GAS")
+    st.metric("Price", f"₹{ng_price:,.2f}" if ng_price else "Loading...")
+    if ng_signal == "BUY":
+        st.success(f"🟢 SIGNAL: {ng_signal}")
+    elif ng_signal == "SELL":
+        st.error(f"🔴 SIGNAL: {ng_signal}")
+    else:
+        st.warning(f"⏳ SIGNAL: {ng_signal}")
+
+st.markdown("---")
 
 # ================= Q4 RESULTS DASHBOARD =================
 st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
@@ -252,6 +554,7 @@ c2.metric("🟢 Positive", sum(1 for d in Q4_DATA.values() if "Positive" in d['v
 c3.metric("🔴 Negative", sum(1 for d in Q4_DATA.values() if "Negative" in d['verdict']))
 c4.metric("⏳ Pending", sum(1 for d in Q4_DATA.values() if d['profit'] == 0))
 c5.metric("🎯 BUY Signals", sum(1 for d in Q4_DATA.values() if "BUY" in d['ai_signal']))
+st.markdown("---")
 
 # ================= TRADING STATUS =================
 st.markdown("## 📊 TRADING STATUS")
@@ -259,6 +562,7 @@ c1, c2, c3 = st.columns(3)
 c1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_count}/2")
 c2.metric("🛢️ CRUDE Trades", f"{st.session_state.crude_count}/2")
 c3.metric("🌿 NG Trades", f"{st.session_state.ng_count}/2")
+st.markdown("---")
 
 # ================= TRADING JOURNAL =================
 st.markdown("## 📋 TRADING JOURNAL")
@@ -267,33 +571,76 @@ if st.session_state.trades:
     st.dataframe(df_trades, use_container_width=True, height=250)
 else:
     st.info("📭 No trades executed yet")
+st.markdown("---")
 
 # ================= AUTO TRADING LOGIC =================
 if st.session_state.running and st.session_state.auto_trade:
     st.markdown("### 🔍 SCANNING FOR SIGNALS...")
     
-    nifty_signal = get_trading_signal("^NSEI") if st.session_state.nifty_count < 2 else "WAIT"
-    crude_signal = get_trading_signal("CL=F") if st.session_state.crude_count < 2 else "WAIT"
-    ng_signal = get_trading_signal("NG=F") if st.session_state.ng_count < 2 else "WAIT"
+    # Get fresh signals for trading
+    nifty_buy, nifty_buy_price = get_strict_buy_signal("^NSEI")
+    nifty_sell, nifty_sell_price = get_strict_sell_signal("^NSEI")
+    crude_buy, crude_buy_price = get_strict_buy_signal("CL=F")
+    crude_sell, crude_sell_price = get_strict_sell_signal("CL=F")
+    ng_buy, ng_buy_price = get_strict_buy_signal("NG=F")
+    ng_sell, ng_sell_price = get_strict_sell_signal("NG=F")
     
+    # Display current signals
     c1, c2, c3 = st.columns(3)
-    c1.metric("🇮🇳 NIFTY Signal", nifty_signal)
-    c2.metric("🛢️ CRUDE Signal", crude_signal)
-    c3.metric("🌿 NG Signal", ng_signal)
     
-    if nifty_signal != "WAIT":
-        if execute_trade("NIFTY", nifty_signal, nifty_price, st.session_state.nifty_lots, st.session_state.nifty_lots * 65, 10):
-            st.success(f"✅ NIFTY {nifty_signal} executed!")
+    with c1:
+        if nifty_buy:
+            st.success("🟢 NIFTY: STRONG BUY")
+        elif nifty_sell:
+            st.error("🔴 NIFTY: STRONG SELL")
+        else:
+            st.warning("⏳ NIFTY: WAIT")
+    
+    with c2:
+        if crude_buy:
+            st.success("🟢 CRUDE: STRONG BUY")
+        elif crude_sell:
+            st.error("🔴 CRUDE: STRONG SELL")
+        else:
+            st.warning("⏳ CRUDE: WAIT")
+    
+    with c3:
+        if ng_buy:
+            st.success("🟢 NG: STRONG BUY")
+        elif ng_sell:
+            st.error("🔴 NG: STRONG SELL")
+        else:
+            st.warning("⏳ NG: WAIT")
+    
+    # Execute trades
+    if nifty_buy and st.session_state.nifty_count < 2:
+        if execute_trade("NIFTY", "BUY", nifty_buy_price, st.session_state.nifty_lots, st.session_state.nifty_lots * 65, 10):
+            st.success(f"✅ NIFTY BUY executed at ₹{nifty_buy_price:.2f}")
             st.rerun()
     
-    if crude_signal != "WAIT" and crude_price:
-        if execute_trade("CRUDE", crude_signal, crude_price, st.session_state.crude_lots, st.session_state.crude_lots * 100, 10):
-            st.success(f"✅ CRUDE {crude_signal} executed!")
+    if nifty_sell and st.session_state.nifty_count < 2:
+        if execute_trade("NIFTY", "SELL", nifty_sell_price, st.session_state.nifty_lots, st.session_state.nifty_lots * 65, 10):
+            st.success(f"✅ NIFTY SELL executed at ₹{nifty_sell_price:.2f}")
             st.rerun()
     
-    if ng_signal != "WAIT" and ng_price:
-        if execute_trade("NG", ng_signal, ng_price, st.session_state.ng_lots, st.session_state.ng_lots * 1250, 1):
-            st.success(f"✅ NG {ng_signal} executed!")
+    if crude_buy and st.session_state.crude_count < 2:
+        if execute_trade("CRUDE", "BUY", crude_buy_price * usdinr, st.session_state.crude_lots, st.session_state.crude_lots * 100, 10):
+            st.success(f"✅ CRUDE BUY executed")
+            st.rerun()
+    
+    if crude_sell and st.session_state.crude_count < 2:
+        if execute_trade("CRUDE", "SELL", crude_sell_price * usdinr, st.session_state.crude_lots, st.session_state.crude_lots * 100, 10):
+            st.success(f"✅ CRUDE SELL executed")
+            st.rerun()
+    
+    if ng_buy and st.session_state.ng_count < 2:
+        if execute_trade("NG", "BUY", ng_buy_price * usdinr, st.session_state.ng_lots, st.session_state.ng_lots * 1250, 1):
+            st.success(f"✅ NG BUY executed")
+            st.rerun()
+    
+    if ng_sell and st.session_state.ng_count < 2:
+        if execute_trade("NG", "SELL", ng_sell_price * usdinr, st.session_state.ng_lots, st.session_state.ng_lots * 1250, 1):
+            st.success(f"✅ NG SELL executed")
             st.rerun()
     
     st.info("⏳ Waiting for next scan cycle... (Auto-refresh in 30 seconds)")
@@ -319,7 +666,16 @@ with st.sidebar:
     st.markdown("### 📡 STATUS")
     st.success("✅ FMP API Connected")
     st.success("✅ GNews API Connected")
-    st.info("🔄 Auto-refresh: 30 sec (No logout)")
+    st.info("🔄 Auto-refresh: 30 sec")
+    st.markdown("---")
+    st.markdown("### 🛡️ STRICT FILTERS ACTIVE")
+    st.caption("• EMA9 > EMA20")
+    st.caption("• Price > EMA200")
+    st.caption("• RSI >= 60 (BUY) / <= 40 (SELL)")
+    st.caption("• ADX >= 25")
+    st.caption("• Volume Filter")
+    st.caption("• Strong Bull/Bear Candle")
+    st.caption("• Multi-timeframe confirmation")
 
 # ================= FOOTER =================
 st.markdown("---")
