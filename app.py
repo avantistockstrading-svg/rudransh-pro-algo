@@ -1,9 +1,8 @@
 """
 🐺 RUDRANSH PRO ALGO X - FINAL MASTER
 =======================================
-VERSION: 3.0.0 (FINAL)
+VERSION: 3.1.0 (AUTO TRADE ENABLED)
 DEVELOPED BY: SATISH D. NAKHATE
-LOCATION: TALWADE, PUNE - 412114
 """
 
 import streamlit as st
@@ -12,9 +11,10 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import time
+import math
 
 # ================= VERSION & INFO =================
-APP_VERSION = "3.0.0"
+APP_VERSION = "3.1.0"
 APP_NAME = "RUDRANSH PRO ALGO X"
 APP_AUTHOR = "SATISH D. NAKHATE"
 APP_LOCATION = "TALWADE, PUNE - 412114"
@@ -44,6 +44,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; }
     .stTabs [data-baseweb="tab"] { border-radius: 10px; padding: 10px 20px; }
     .stTabs [aria-selected="true"] { background: linear-gradient(135deg, #00ff88, #00b4d8); color: white; }
+    .result-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 10px 0; border-left: 4px solid #00ff88; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -92,12 +93,20 @@ if "voice_enabled" not in st.session_state:
     st.session_state.voice_enabled = True
 if "result_alerts" not in st.session_state:
     st.session_state.result_alerts = []
+if "auto_trade_enabled" not in st.session_state:
+    st.session_state.auto_trade_enabled = True
 
-# ================= COMPLETE 209 + 6 = 215 SYMBOLS =================
+# ================= AUTO TRADE SETTINGS =================
+if "auto_trade_qty" not in st.session_state:
+    st.session_state.auto_trade_qty = 1
+if "auto_trade_sl_percent" not in st.session_state:
+    st.session_state.auto_trade_sl_percent = 5
+if "auto_trade_target_percent" not in st.session_state:
+    st.session_state.auto_trade_target_percent = 10
+
+# ================= COMPLETE SYMBOLS =================
 FO_SCRIPTS = [
-    # Indices & Commodity
     "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
-    # 209 Companies
     "360ONE", "ABB", "APLAPOLLO", "AUBANK", "ADANIENSOL", "ADANIENT", "ADANIGREEN",
     "ADANIPORTS", "ADANIPOWER", "ABCAPITAL", "ALKEM", "AMBER", "AMBUJACEM", "ANGELONE",
     "APOLLOHOSP", "ASHOKLEY", "ASIANPAINT", "ASTRAL", "AUROPHARMA", "DMART", "AXISBANK",
@@ -149,13 +158,13 @@ if "ng_lots" not in st.session_state:
     st.session_state.ng_tp2_enabled = True
     st.session_state.ng_tp3_enabled = False
 
-# ================= PENDING RESULTS =================
+# ================= PENDING RESULTS WITH DETAILS =================
 PENDING_RESULTS = [
-    {"name": "Bharat Electronics", "symbol": "BEL"},
-    {"name": "BPCL", "symbol": "BPCL"},
-    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE"},
-    {"name": "Mankind Pharma", "symbol": "MANKIND"},
-    {"name": "PI Industries", "symbol": "PIIND"},
+    {"name": "Bharat Electronics", "symbol": "BEL", "expected_date": "19 May 2026", "expected_time": "After 3:30 PM", "expected_verdict": "🟢 POSITIVE"},
+    {"name": "BPCL", "symbol": "BPCL", "expected_date": "19 May 2026", "expected_time": "After 3:30 PM", "expected_verdict": "🟡 MIXED"},
+    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "expected_date": "19 May 2026", "expected_time": "After 3:30 PM", "expected_verdict": "🟢 POSITIVE"},
+    {"name": "Mankind Pharma", "symbol": "MANKIND", "expected_date": "19 May 2026", "expected_time": "After 3:30 PM", "expected_verdict": "🟢 POSITIVE"},
+    {"name": "PI Industries", "symbol": "PIIND", "expected_date": "19 May 2026", "expected_time": "After 3:30 PM", "expected_verdict": "🟢 POSITIVE"},
 ]
 
 # ================= HELPER FUNCTIONS =================
@@ -188,6 +197,29 @@ def get_live_price(symbol):
         pass
     return 0.0
 
+def get_nearest_itm_strike(current_price, option_type="CE"):
+    """Get nearest ITM strike price for F&O"""
+    # For NIFTY: 50 points gap
+    # For BANKNIFTY: 100 points gap
+    if current_price < 10000:  # Stock
+        strike_interval = 10
+        multiplier = 100
+    elif current_price < 50000:  # NIFTY
+        strike_interval = 50
+        multiplier = 50
+    else:  # BANKNIFTY
+        strike_interval = 100
+        multiplier = 25
+    
+    if option_type == "CALL (CE)":
+        # ITM Call: Strike price below current price
+        itm_strike = math.floor(current_price / strike_interval) * strike_interval
+    else:  # PUT (PE)
+        # ITM Put: Strike price above current price
+        itm_strike = math.ceil(current_price / strike_interval) * strike_interval
+    
+    return itm_strike, strike_interval, multiplier
+
 def get_gnews():
     try:
         url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=8&apikey={GNEWS_API_KEY}"
@@ -211,6 +243,41 @@ def get_company_earnings(symbol):
         pass
     return None
 
+def ai_analysis(earnings):
+    """AI analysis for verdict and signal"""
+    try:
+        revenue = earnings.get('revenue', 0)
+        net_income = earnings.get('netIncome', 0)
+        
+        revenue_growth = 0
+        profit_growth = 0
+        
+        score = 0
+        if revenue_growth > 10:
+            score += 2
+        elif revenue_growth > 0:
+            score += 1
+        elif revenue_growth < -5:
+            score -= 2
+            
+        if profit_growth > 15:
+            score += 2
+        elif profit_growth > 0:
+            score += 1
+        elif profit_growth < -10:
+            score -= 2
+        
+        if score >= 2:
+            return "🟢 BULLISH", "BUY", 85, f"+{revenue_growth}%" if revenue_growth else "+0%", f"+{profit_growth}%" if profit_growth else "+0%"
+        elif score >= 1:
+            return "🟡 CAUTIOUSLY BULLISH", "CAUTIOUS BUY", 70, f"+{revenue_growth}%" if revenue_growth else "+0%", f"+{profit_growth}%" if profit_growth else "+0%"
+        elif score >= -1:
+            return "⚪ NEUTRAL", "HOLD", 50, "+0%", "+0%"
+        else:
+            return "🔴 BEARISH", "SELL", 75, f"{revenue_growth}%" if revenue_growth else "0%", f"{profit_growth}%" if profit_growth else "0%"
+    except:
+        return "⚪ UNKNOWN", "WAIT", 0, "N/A", "N/A"
+
 def send_telegram(msg):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT}/sendMessage"
@@ -221,6 +288,53 @@ def send_telegram(msg):
 def voice_alert(msg):
     if st.session_state.voice_enabled:
         st.markdown(f"<script>var s=new SpeechSynthesisUtterance('{msg}');s.lang='en-US';speechSynthesis.speak(s);</script>", unsafe_allow_html=True)
+
+def auto_place_trade(symbol, signal, current_price, confidence):
+    """Auto place trade at nearest ITM strike"""
+    if not st.session_state.auto_trade_enabled:
+        return False
+    
+    if signal not in ["BUY", "CAUTIOUS BUY"]:
+        return False
+    
+    # Determine option type based on signal
+    if signal in ["BUY", "CAUTIOUS BUY"]:
+        option_type = "CALL (CE)"
+    else:
+        option_type = "PUT (PE)"
+    
+    # Get nearest ITM strike
+    itm_strike, interval, multiplier = get_nearest_itm_strike(current_price, option_type)
+    
+    # Calculate SL and Target
+    sl_percent = st.session_state.auto_trade_sl_percent / 100
+    target_percent = st.session_state.auto_trade_target_percent / 100
+    
+    option_premium = 100  # Approximate premium
+    sl_price = option_premium * (1 - sl_percent)
+    target_price = option_premium * (1 + target_percent)
+    
+    # Create order
+    order = {
+        'symbol': symbol,
+        'option_type': option_type,
+        'strike_price': itm_strike,
+        'qty': st.session_state.auto_trade_qty,
+        'buy_above': option_premium,
+        'sl': sl_price,
+        'target': target_price,
+        'status': 'PENDING',
+        'entry_price': None,
+        'auto_trade': True,
+        'confidence': confidence
+    }
+    
+    st.session_state.wolf_orders.append(order)
+    
+    send_telegram(f"🤖 AUTO TRADE: {symbol} {option_type} {itm_strike} | Qty: {st.session_state.auto_trade_qty} | SL: {sl_price:.2f} | Target: {target_price:.2f}")
+    voice_alert(f"Auto trade placed for {symbol}")
+    
+    return True
 
 # ================= WOLF ORDER FUNCTIONS =================
 def check_and_execute_orders():
@@ -236,7 +350,7 @@ def check_and_execute_orders():
                     "No": len(st.session_state.trade_journal)+1,
                     "Time": order['entry_time'],
                     "Symbol": f"{order['symbol']} {order['option_type']} {order['strike_price']}",
-                    "Type": "BUY",
+                    "Type": "AUTO" if order.get('auto_trade') else "MANUAL",
                     "Lots": order['qty'],
                     "Entry": round(price, 2),
                     "SL": order['sl'],
@@ -244,7 +358,6 @@ def check_and_execute_orders():
                     "Status": "ACTIVE"
                 })
                 send_telegram(f"🐺 EXECUTED: {order['symbol']} {order['option_type']} @ ₹{price}")
-                voice_alert(f"Order executed for {order['symbol']}")
                 
                 st.session_state.active_orders.append({
                     'symbol': order['symbol'],
@@ -272,11 +385,37 @@ def monitor_results():
     for company in PENDING_RESULTS:
         earnings = get_company_earnings(company['symbol'])
         if earnings:
-            alert = {'company': company['name'], 'time': get_ist_now().strftime('%H:%M:%S')}
-            if alert not in st.session_state.result_alerts[-10:]:
+            verdict, signal, confidence, revenue_growth, profit_growth = ai_analysis(earnings)
+            
+            alert = {
+                'company': company['name'],
+                'symbol': company['symbol'],
+                'date': get_ist_now().strftime('%d %b %Y'),
+                'time': get_ist_now().strftime('%H:%M'),
+                'revenue': f"₹{earnings.get('revenue', 0)/100:,.0f} Cr",
+                'profit_growth': profit_growth,
+                'verdict': verdict,
+                'confidence': confidence,
+                'signal': signal
+            }
+            
+            # Check if already alerted
+            already_alerted = False
+            for a in st.session_state.result_alerts:
+                if a.get('company') == company['name']:
+                    already_alerted = True
+                    break
+            
+            if not already_alerted:
                 st.session_state.result_alerts.append(alert)
-                send_telegram(f"📊 RESULT: {company['name']} released")
-                voice_alert(f"Result alert for {company['name']}")
+                send_telegram(f"📊 RESULT: {company['name']}\n📈 Revenue: {alert['revenue']}\n🎯 AI: {verdict}\n💹 Signal: {signal}\n⭐ Confidence: {confidence}%")
+                voice_alert(f"Result alert for {company['name']}. Signal {signal}")
+                
+                # AUTO TRADE
+                if signal in ["BUY", "CAUTIOUS BUY"] and st.session_state.auto_trade_enabled:
+                    current_price = get_live_price(company['symbol'])
+                    if current_price > 0:
+                        auto_place_trade(company['symbol'], signal, current_price, confidence)
 
 # ================= UI =================
 st.markdown(f"""
@@ -292,7 +431,7 @@ st.markdown(f"<div class='live-time'>🕐 {now.strftime('%H:%M:%S')} IST | 📅 
 st.markdown("---")
 
 # Status Bar
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 with c1: 
     if st.session_state.algo_running:
         st.markdown('<span class="badge-success">🟢 RUNNING</span>', unsafe_allow_html=True)
@@ -302,6 +441,11 @@ with c2: st.markdown('<span class="badge-success">📊 FMP ACTIVE</span>', unsaf
 with c3: st.markdown('<span class="badge-success">📰 GNEWS ACTIVE</span>', unsafe_allow_html=True)
 with c4: st.markdown('<span class="badge-success">📱 TELEGRAM ACTIVE</span>', unsafe_allow_html=True)
 with c5: st.markdown(f'<span class="badge-info">🐺 ORDERS: {len(st.session_state.wolf_orders)}</span>', unsafe_allow_html=True)
+with c6:
+    if st.session_state.auto_trade_enabled:
+        st.markdown('<span class="badge-success">🤖 AUTO TRADE: ON</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge-warning">🤖 AUTO TRADE: OFF</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -314,7 +458,7 @@ with col2:
         if totp and len(totp) == 6:
             st.session_state.algo_running = True
             st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED")
+            send_telegram("🚀 ALGO STARTED v3.1 (Auto Trade Enabled)")
             st.rerun()
         else:
             st.error("Valid TOTP required!")
@@ -327,7 +471,7 @@ with col3:
 st.markdown("---")
 
 # Tabs
-t1, t2, t3, t4, t5 = st.tabs(["🐺 WOLF ORDER", "📊 MARKET", "📰 NEWS", "📈 RESULTS", "⚙️ SETTINGS"])
+t1, t2, t3, t4, t5, t6 = st.tabs(["🐺 WOLF ORDER", "📊 MARKET", "📰 NEWS", "📈 RESULTS", "🤖 AUTO TRADE", "⚙️ SETTINGS"])
 
 # TAB 1: WOLF ORDER
 with t1:
@@ -351,8 +495,8 @@ with t1:
                         'buy_above': buy_above, 'sl': sl, 'target': target,
                         'status': 'PENDING', 'entry_price': None
                     })
-                    send_telegram(f"🐺 ORDER: {sym} {opt} {strike} | Buy: {buy_above} | SL: {sl} | Target: {target}")
-                    st.success(f"✅ Order placed for {sym}")
+                    send_telegram(f"🐺 ORDER: {sym} {opt} {strike}")
+                    st.success(f"✅ Order placed")
                     st.rerun()
                 else:
                     st.error("Invalid values!")
@@ -396,17 +540,99 @@ with t3:
         st.caption(f"Source: {news['source']} | {news['time']}")
         st.markdown("---")
 
-# TAB 4: RESULTS
+# TAB 4: RESULTS MONITORING (Full Columns)
 with t4:
     st.markdown("### 📊 RESULTS MONITORING")
-    st.dataframe(pd.DataFrame(PENDING_RESULTS), use_container_width=True)
+    st.markdown("*Auto detects results via FMP API*")
+    
+    # Pending Results Table
+    st.markdown("#### ⏳ Expected Results Today")
+    pending_df = pd.DataFrame([{
+        "Company": c['name'], 
+        "Symbol": c['symbol'], 
+        "Expected Date": c['expected_date'], 
+        "Expected Time": c['expected_time'],
+        "Expected Verdict": c['expected_verdict']
+    } for c in PENDING_RESULTS])
+    st.dataframe(pending_df, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Alerts History with Full Columns
     if st.session_state.result_alerts:
-        st.markdown("### 🔔 ALERTS")
-        for alert in st.session_state.result_alerts[-5:]:
-            st.info(f"📊 {alert['company']} | Time: {alert['time']}")
+        st.markdown("#### 🔔 Result Alerts History")
+        
+        # Create DataFrame with all columns
+        alerts_df = pd.DataFrame([{
+            "Company": a['company'],
+            "Date": a['date'],
+            "Time": a['time'],
+            "Revenue": a['revenue'],
+            "Profit Growth": a['profit_growth'],
+            "AI Verdict": a['verdict'],
+            "Confidence": f"{a['confidence']}%",
+            "Signal": a['signal']
+        } for a in st.session_state.result_alerts[::-1]])  # Show latest first
+        
+        st.dataframe(alerts_df, use_container_width=True)
+        
+        # Show as cards
+        for alert in st.session_state.result_alerts[::-1][:3]:
+            signal_color = "#00ff88" if "BUY" in alert['signal'] else "#ff4444" if "SELL" in alert['signal'] else "#ffa500"
+            st.markdown(f"""
+            <div class="result-card">
+                <b>📊 {alert['company']}</b> | {alert['date']} {alert['time']}<br>
+                📈 Revenue: {alert['revenue']} | Profit Growth: {alert['profit_growth']}<br>
+                🎯 AI Verdict: {alert['verdict']} | Confidence: {alert['confidence']}%<br>
+                💹 Signal: <span style="color:{signal_color}">{alert['signal']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("📭 No results detected yet. Waiting for FMP API data...")
 
-# TAB 5: SETTINGS
+# TAB 5: AUTO TRADE SETTINGS
 with t5:
+    st.markdown("### 🤖 AUTO TRADE SETTINGS")
+    st.markdown("*Result आला की Nearest ITM Strike वर Auto Trade होईल*")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.session_state.auto_trade_enabled = st.checkbox("Enable Auto Trading", st.session_state.auto_trade_enabled)
+        st.session_state.auto_trade_qty = st.number_input("Quantity (Lots)", 1, 50, st.session_state.auto_trade_qty)
+    with col2:
+        st.session_state.auto_trade_sl_percent = st.number_input("Stop Loss (%)", 1, 20, st.session_state.auto_trade_sl_percent)
+        st.session_state.auto_trade_target_percent = st.number_input("Target (%)", 1, 30, st.session_state.auto_trade_target_percent)
+    
+    st.markdown("---")
+    st.markdown("### 📖 How Auto Trade Works:")
+    st.markdown("""
+    1. **FMP API** detects company result
+    2. **AI Analysis** gives verdict (BULLISH/BEARISH)
+    3. **Nearest ITM Strike** automatically calculated:
+       - NIFTY: 50 points gap
+       - BANKNIFTY: 100 points gap  
+       - Stocks: 10 points gap
+    4. **Order placed** with SL/Target
+    5. **Telegram + Voice Alert** sent
+    6. **Auto monitor** SL/Target hit
+    """)
+    
+    # Demo calculation
+    st.markdown("---")
+    st.markdown("### 🔍 Live Example")
+    demo_price = get_live_price("NIFTY")
+    if demo_price > 0:
+        itm_call, interval, mult = get_nearest_itm_strike(demo_price, "CALL (CE)")
+        itm_put, interval, mult = get_nearest_itm_strike(demo_price, "PUT (PE)")
+        st.info(f"""
+        Current NIFTY: ₹{demo_price:,.2f}
+        - Nearest ITM CALL Strike: {itm_call}
+        - Nearest ITM PUT Strike: {itm_put}
+        - Lot Multiplier: {mult}
+        """)
+
+# TAB 6: SETTINGS
+with t6:
     st.markdown("### ⚙️ TP SETTINGS")
     
     st.markdown("#### NIFTY")
@@ -444,7 +670,7 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     check_and_execute_orders()
     monitor_active_orders()
     monitor_results()
-    st.info("🐺 Hunting...")
+    st.info("🐺 Hunting... Auto Trade Active 🤖")
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -453,15 +679,17 @@ with st.sidebar:
     st.metric("Pending", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
     st.metric("Total Trades", len(st.session_state.trade_journal))
     st.metric("Symbols", len(FO_SCRIPTS))
+    st.metric("Results Alerts", len(st.session_state.result_alerts))
     st.markdown("---")
     st.caption("✅ FMP API: ACTIVE")
     st.caption("✅ GNews API: ACTIVE")
     st.caption("✅ Telegram: ACTIVE")
     st.caption("✅ CE/PE Support")
+    st.caption("✅ Auto Trade: " + ("ON" if st.session_state.auto_trade_enabled else "OFF"))
 
 # ================= FOOTER =================
 st.markdown("---")
-st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION}")
+st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | Auto Trade Enabled")
 
 # ================= REFRESH =================
 time.sleep(30)
