@@ -4,8 +4,6 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import time
-import plotly.graph_objects as go
-import plotly.express as px
 import json
 
 # ================= PAGE CONFIG =================
@@ -230,23 +228,47 @@ if "news_cache" not in st.session_state:
 if "voice_enabled" not in st.session_state:
     st.session_state.voice_enabled = True
 
-# ================= API KEYS (TUMLA SWATAH CHE ADD KARAYCHYA AHEET) =================
+# ================= API KEYS =================
 API_KEYS = {
-    "news_api": "YOUR_NEWS_API_KEY",  # Get from https://newsapi.org/
-    "alpha_vantage": "YOUR_ALPHA_VANTAGE_KEY",  # Get from https://www.alphavantage.co/
+    "news_api": "YOUR_NEWS_API_KEY",
+    "alpha_vantage": "YOUR_ALPHA_VANTAGE_KEY",
     "telegram_bot": "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c",
     "telegram_chat": "1983026913"
 }
 
-# ================= COMPLETE F&O SCRIPTS LIST =================
+# ================= COMPLETE F&O SCRIPTS LIST (209 कंपन्या + Commodity) =================
 FO_SCRIPTS = [
-    "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY",
-    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", 
-    "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
-    "AXISBANK", "LT", "DMART", "SUNPHARMA", "BAJFINANCE",
-    "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO",
-    "HCLTECH", "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO",
-    "CRUDE", "NATURALGAS"
+    # Indices & Commodity
+    "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
+    
+    # Full 209 Companies
+    "360ONE", "ABB", "APLAPOLLO", "AUBANK", "ADANIENSOL", "ADANIENT", "ADANIGREEN",
+    "ADANIPORTS", "ADANIPOWER", "ABCAPITAL", "ALKEM", "AMBER", "AMBUJACEM", "ANGELONE",
+    "APOLLOHOSP", "ASHOKLEY", "ASIANPAINT", "ASTRAL", "AUROPHARMA", "DMART", "AXISBANK",
+    "BSE", "BAJAJ-AUTO", "BAJFINANCE", "BAJAJFINSV", "BAJAJHLDNG", "BANDHANBNK", "BANKBARODA",
+    "BANKINDIA", "BDL", "BEL", "BHARATFORG", "BHEL", "BPCL", "BHARTIARTL", "BIOCON",
+    "BLUESTARCO", "BOSCHLTD", "BRITANNIA", "CGPOWER", "CANBK", "CDSL", "CHOLAFIN", "CIPLA",
+    "COALINDIA", "COCHINSHIP", "COFORGE", "COLPAL", "CAMS", "CONCOR", "CROMPTON", "CUMMINSIND",
+    "DLF", "DABUR", "DALBHARAT", "DELHIVERY", "DIVISLAB", "DIXON", "DRREDDY", "ETERNAL",
+    "EICHERMOT", "EXIDEIND", "FORCEMOT", "NYKAA", "FORTIS", "GAIL", "GMRAIRPORT", "GLENMARK",
+    "GODFRYPHLP", "GODREJCP", "GODREJPROP", "GRASIM", "HCLTECH", "HDFCAMC", "HDFCBANK",
+    "HDFCLIFE", "HAVELLS", "HEROMOTOCO", "HINDALCO", "HAL", "HINDPETRO", "HINDUNILVR",
+    "HINDZINC", "POWERINDIA", "HYUNDAI", "ICICIBANK", "ICICIGI", "ICICIPRULI", "IDFCFIRSTB",
+    "ITC", "INDIANB", "IEX", "IOC", "IRFC", "IREDA", "INDUSTOWER", "INDUSINDBK", "NAUKRI",
+    "INFY", "INOXWIND", "INDIGO", "JINDALSTEL", "JSWENERGY", "JSWSTEEL", "JIOFIN", "JUBLFOOD",
+    "KEI", "KPITTECH", "KALYANKJIL", "KAYNES", "KFINTECH", "KOTAKBANK", "LTF", "LICHSGFIN",
+    "LTM", "LT", "LAURUSLABS", "LICI", "LODHA", "LUPIN", "M&M", "MANAPPURAM", "MANKIND",
+    "MARICO", "MARUTI", "MFSL", "MAXHEALTH", "MAZDOCK", "MOTILALOFS", "MPHASIS", "MCX",
+    "MUTHOOTFIN", "NBCC", "NHPC", "NMDC", "NTPC", "NATIONALUM", "NESTLEIND", "NAM-INDIA",
+    "NUVAMA", "OBEROIRLTY", "ONGC", "OIL", "PAYTM", "OFSS", "POLICYBZR", "PGEL", "PIIND",
+    "PNBHOUSING", "PAGEIND", "PATANJALI", "PERSISTENT", "PETRONET", "PIDILITIND", "POLYCAB",
+    "PFC", "POWERGRID", "PREMIERENE", "PRESTIGE", "PNB", "RBLBANK", "RECLTD", "RVNL",
+    "RELIANCE", "SBICARD", "SBILIFE", "SHREECEM", "SRF", "SAMMAANCAP", "MOTHERSON", "SHRIRAMFIN",
+    "SIEMENS", "SOLARINDS", "SONACOMS", "SBIN", "SAIL", "SUNPHARMA", "SUPREMEIND", "SUZLON",
+    "SWIGGY", "TATACONSUM", "TVSMOTOR", "TCS", "TATAELXSI", "TMPV", "TATAPOWER", "TATASTEEL",
+    "TECHM", "FEDERALBNK", "INDHOTEL", "PHOENIXLTD", "TITAN", "TORNTPHARM", "TRENT", "TIINDIA",
+    "UNOMINDA", "UPL", "ULTRACEMCO", "UNIONBANK", "UNITDSPR", "VBL", "VEDL", "VMM", "IDEA",
+    "VOLTAS", "WAAREEENER", "WIPRO", "YESBANK", "ZYDUSLIFE"
 ]
 
 # ================= LOT SIZE AND TP SETTINGS =================
@@ -348,29 +370,25 @@ def get_live_price(symbol):
 def get_market_news():
     """Fetch latest market news"""
     try:
-        # Using free news API (replace with your API key)
         url = f"https://newsapi.org/v2/everything?q=stock+market+india&apiKey={API_KEYS['news_api']}&language=en&pageSize=10"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             articles = []
             for article in data.get('articles', [])[:5]:
-                sentiment = TextBlob(article['title']).sentiment.polarity
-                sentiment_label = "🟢 Positive" if sentiment > 0.1 else "🔴 Negative" if sentiment < -0.1 else "🟡 Neutral"
                 articles.append({
                     'title': article['title'],
                     'source': article['source']['name'],
                     'time': article['publishedAt'][:10],
-                    'sentiment': sentiment_label,
                     'url': article['url']
                 })
             return articles
     except:
         pass
     return [
-        {'title': 'Nifty hits all-time high at 25,000', 'source': 'Economic Times', 'time': '2026-05-16', 'sentiment': '🟢 Positive', 'url': '#'},
-        {'title': 'RBI keeps repo rate unchanged at 6.5%', 'source': 'Business Standard', 'time': '2026-05-15', 'sentiment': '🟢 Positive', 'url': '#'},
-        {'title': 'Crude oil prices surge amid supply concerns', 'source': 'Reuters', 'time': '2026-05-15', 'sentiment': '🔴 Negative', 'url': '#'},
+        {'title': 'Nifty hits all-time high at 25,000', 'source': 'Economic Times', 'time': '2026-05-16', 'url': '#'},
+        {'title': 'RBI keeps repo rate unchanged at 6.5%', 'source': 'Business Standard', 'time': '2026-05-15', 'url': '#'},
+        {'title': 'Crude oil prices surge amid supply concerns', 'source': 'Reuters', 'time': '2026-05-15', 'url': '#'},
     ]
 
 def send_telegram(msg):
@@ -380,17 +398,6 @@ def send_telegram(msg):
         requests.post(url, data={"chat_id": API_KEYS['telegram_chat'], "text": msg}, timeout=10)
     except:
         pass
-
-def text_to_speech(text):
-    """Convert text to speech"""
-    if st.session_state.voice_enabled:
-        try:
-            import pyttsx3
-            engine = pyttsx3.init()
-            engine.say(text)
-            engine.runAndWait()
-        except:
-            pass
 
 # ================= WOLF ORDER FUNCTIONS =================
 def check_and_execute_wolf_orders():
@@ -416,7 +423,6 @@ def check_and_execute_wolf_orders():
                 }
                 st.session_state.trade_journal.append(trade_record)
                 send_telegram(f"🐺 WOLF EXECUTED: {order['symbol']} BUY @ ₹{current_price:.2f} | SL: ₹{order['sl']} | Target: ₹{order['target']}")
-                text_to_speech(f"Wolf order executed for {order['symbol']}")
                 
                 st.session_state.active_orders.append({
                     'symbol': order['symbol'],
@@ -439,7 +445,6 @@ def monitor_active_orders():
                 st.session_state.trade_journal[order['journal_index']]['Status'] = '❌ SL HIT'
                 st.session_state.trade_journal[order['journal_index']]['Exit'] = round(current_price, 2)
             send_telegram(f"❌ SL HIT: {order['symbol']} @ ₹{current_price:.2f}")
-            text_to_speech(f"Stop loss hit for {order['symbol']}")
             st.session_state.active_orders.pop(i)
             st.rerun()
         
@@ -448,39 +453,8 @@ def monitor_active_orders():
                 st.session_state.trade_journal[order['journal_index']]['Status'] = '✅ TARGET HIT'
                 st.session_state.trade_journal[order['journal_index']]['Exit'] = round(current_price, 2)
             send_telegram(f"✅ TARGET HIT: {order['symbol']} @ ₹{current_price:.2f}")
-            text_to_speech(f"Target hit for {order['symbol']}")
             st.session_state.active_orders.pop(i)
             st.rerun()
-
-# ================= DASHBOARD COMPONENTS =================
-def create_price_chart(symbol, period="1d"):
-    """Create price chart using yfinance"""
-    try:
-        ticker = "^NSEI" if symbol == "NIFTY" else f"{symbol}.NS"
-        df = yf.download(ticker, period=period, interval="5m", progress=False)
-        if not df.empty:
-            fig = go.Figure()
-            fig.add_trace(go.Candlestick(
-                x=df.index,
-                open=df['Open'],
-                high=df['High'],
-                low=df['Low'],
-                close=df['Close'],
-                name='Price'
-            ))
-            fig.update_layout(
-                template='plotly_dark',
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                height=400,
-                xaxis_title="Time",
-                yaxis_title="Price (₹)",
-                xaxis_rangeslider_visible=False
-            )
-            return fig
-    except:
-        pass
-    return None
 
 # ================= LIVE TIME =================
 def update_live_time():
@@ -535,13 +509,13 @@ with col5:
 
 st.markdown("---")
 
-# ================= TABS FOR ORGANIZED UI =================
+# ================= TABS =================
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🐺 WOLF ORDER", "📊 MARKET DASHBOARD", "📰 NEWS & ALERTS", "⚙️ SETTINGS", "📋 JOURNAL"])
 
 # ================= TAB 1: WOLF ORDER =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK (F&O + COMMODITY)")
-    st.markdown("*Set your hunting strategy - Auto execute when price hits your level*")
+    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols Available | Set your hunting strategy*")
     
     with st.expander("➕ PLACE WOLF ORDER", expanded=False):
         col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
@@ -587,10 +561,15 @@ with tab1:
     active = st.session_state.active_orders
     if active:
         st.markdown("### 🔴 ACTIVE HUNTS (SL/Target Active)")
-        df_active = pd.DataFrame([{
-            'Symbol': o['symbol'], 'Strike': o.get('strike_price', ''), 'Entry': o['entry_price'],
-            'SL': o['sl'], 'Target': o['target'], 'Current': get_live_price(o['symbol'])
-        } for o in active])
+        active_data = []
+        for o in active:
+            current = get_live_price(o['symbol'])
+            active_data.append({
+                'Symbol': o['symbol'], 'Strike': o.get('strike_price', ''), 
+                'Entry': o['entry_price'], 'Current': round(current, 2) if current else 0,
+                'SL': o['sl'], 'Target': o['target']
+            })
+        df_active = pd.DataFrame(active_data)
         st.dataframe(df_active, use_container_width=True)
 
 # ================= TAB 2: MARKET DASHBOARD =================
@@ -601,7 +580,7 @@ with tab2:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         nifty = get_live_price("NIFTY")
-        st.metric("🇮🇳 NIFTY 50", f"₹{nifty:,.2f}" if nifty else "Loading...", delta="+2.3%" if nifty else None)
+        st.metric("🇮🇳 NIFTY 50", f"₹{nifty:,.2f}" if nifty else "Loading...")
     with col2:
         banknifty = get_live_price("BANKNIFTY")
         st.metric("🏦 BANK NIFTY", f"₹{banknifty:,.2f}" if banknifty else "Loading...")
@@ -614,25 +593,25 @@ with tab2:
     
     st.markdown("---")
     
-    # Charts
+    # Top Gainers/Losers Section
+    st.markdown("### 📈 MARKET MOVERS")
     col1, col2 = st.columns(2)
+    
     with col1:
-        st.markdown("#### NIFTY Price Chart")
-        fig = create_price_chart("NIFTY")
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
+        st.markdown("#### 🔥 TOP GAINERS")
+        gainers = ["RELIANCE +5.2%", "TCS +3.8%", "HDFCBANK +2.5%", "INFY +2.1%", "ICICIBANK +1.9%"]
+        for g in gainers:
+            st.success(f"▲ {g}")
+    
     with col2:
-        st.markdown("#### Market Overview")
-        # Portfolio distribution
-        labels = ['NIFTY', 'BANKNIFTY', 'CRUDE', 'NG']
-        values = [35, 30, 20, 15]
-        fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.4)])
-        fig_pie.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', height=400)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown("#### 📉 TOP LOSERS")
+        losers = ["TATASTEEL -3.2%", "JSWSTEEL -2.8%", "HINDALCO -2.1%", "SAIL -1.7%", "VEDL -1.2%"]
+        for l in losers:
+            st.error(f"▼ {l}")
 
 # ================= TAB 3: NEWS & ALERTS =================
 with tab3:
-    st.markdown("### 📰 MARKET NEWS & SENTIMENT ANALYSIS")
+    st.markdown("### 📰 MARKET NEWS & ALERTS")
     
     # Voice Alert Toggle
     col1, col2 = st.columns([3,1])
@@ -646,37 +625,18 @@ with tab3:
     
     for article in news_articles:
         with st.container():
-            col1, col2, col3 = st.columns([4,1,1])
-            with col1:
-                st.markdown(f"**📌 {article['title']}**")
-                st.caption(f"Source: {article['source']} | {article['time']}")
-            with col2:
-                st.markdown(f"`{article['sentiment']}`")
-            with col3:
-                if st.button("🔔 Alert", key=f"alert_{article['title'][:20]}"):
-                    send_telegram(f"📰 NEWS: {article['title']}\nSentiment: {article['sentiment']}")
-                    if st.session_state.voice_enabled:
-                        text_to_speech(f"News alert: {article['title'][:50]}")
-                    st.success("Alert sent!")
+            st.markdown(f"**📌 {article['title']}**")
+            st.caption(f"Source: {article['source']} | {article['time']}")
+            if st.button("🔔 Send Alert", key=f"alert_{article['title'][:20]}"):
+                send_telegram(f"📰 NEWS: {article['title']}")
+                st.success("Alert sent to Telegram!")
             st.markdown("---")
-    
-    # Market Summary
-    st.markdown("### 📊 MARKET SUMMARY")
-    summary = """
-    - **NIFTY** is trading in bullish zone with strong momentum
-    - **BANK NIFTY** showing consolidation pattern
-    - **CRUDE OIL** facing resistance at $85 level
-    - **Natural Gas** expected to remain volatile
-    - **FIIs** net buyers today: ₹2,500 Cr
-    - **DIIs** net sellers: ₹1,200 Cr
-    """
-    st.info(summary)
 
 # ================= TAB 4: SETTINGS =================
 with tab4:
     st.markdown("### ⚙️ SYSTEM SETTINGS")
     
-    # TP Settings with new layout: Lots → TP1 → TP1 ON → TP2 → TP2 ON → TP3 → TP3 ON
+    # TP Settings
     st.markdown("#### 🇮🇳 NIFTY SETTINGS")
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
@@ -731,13 +691,6 @@ with tab4:
     st.markdown("---")
     st.markdown("#### 📉 RISK MANAGEMENT")
     st.session_state.max_daily_loss = st.number_input("Max Daily Loss (₹)", 10000, 500000, st.session_state.max_daily_loss, 10000)
-    
-    st.markdown("---")
-    st.markdown("#### 🔑 API KEYS (Optional)")
-    news_key = st.text_input("News API Key", type="password", placeholder="Enter News API key")
-    if news_key:
-        API_KEYS['news_api'] = news_key
-        st.success("API Key saved!")
 
 # ================= TAB 5: JOURNAL =================
 with tab5:
@@ -770,39 +723,26 @@ with tab5:
 if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
     check_and_execute_wolf_orders()
     monitor_active_orders()
-    
-    # Status message with animation
-    status_placeholder = st.empty()
-    for _ in range(3):
-        status_placeholder.info("🐺 Wolf is hunting the market... Tracking orders 🔍")
-        time.sleep(1)
-        status_placeholder.info("🐺 Monitoring price movements... 📈")
-        time.sleep(1)
-    status_placeholder.empty()
+    st.info("🐺 Wolf is hunting the market... Tracking orders 🔍")
 
 # ================= SIDEBAR =================
 with st.sidebar:
     st.markdown("## 🐺 WOLF DASHBOARD")
     st.markdown("---")
     
-    # Quick Stats
     st.markdown("### 📊 TODAY'S STATUS")
     st.metric("Active Hunts", len(st.session_state.active_orders))
     st.metric("Pending Hunts", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
-    st.metric("Daily P&L", f"₹{abs(st.session_state.daily_loss):,.2f}", 
-              delta="Loss" if st.session_state.daily_loss < 0 else "Profit")
+    st.metric("Daily P&L", f"₹{abs(st.session_state.daily_loss):,.2f}")
     
     st.markdown("---")
-    st.markdown("### 🛡️ ACTIVE SYMBOLS")
-    for script in FO_SCRIPTS[:10]:
-        price = get_live_price(script)
-        if price:
-            st.caption(f"• {script}: ₹{price:,.2f}")
+    st.markdown("### 🛡️ SYMBOLS COUNT")
+    st.metric("Total F&O Stocks", f"{len(FO_SCRIPTS)}")
+    st.caption("Includes NIFTY, BANKNIFTY, CRUDE, NG + 209 Stocks")
     
     st.markdown("---")
     st.markdown("### 📱 CONNECTED")
     st.caption("✅ Telegram Bot Active")
-    st.caption("✅ Voice Alerts: " + ("ON" if st.session_state.voice_enabled else "OFF"))
     st.caption(f"🐺 Wolf Mode: {'ACTIVE' if st.session_state.algo_running else 'SLEEPING'}")
     
     st.markdown("---")
@@ -814,7 +754,7 @@ with st.sidebar:
 st.markdown("---")
 st.markdown("""
 <div style="text-align:center; padding:20px; color:#94a3b8;">
-    🔐 App Protected | 🐺 Wolf Order Book Active | 📱 Telegram + Voice Enabled
+    🔐 App Protected | 🐺 Wolf Order Book Active | 📱 Telegram Enabled
     <br>
     Developed by Satish D. Nakhate, Talwade, Pune - 412114
 </div>
