@@ -15,9 +15,8 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_ist_now():
     return datetime.now(IST)
 
-# ================= AUTO REFRESH (30 सेकंद - Without Logout) =================
-# हे फक्त Dashboard refresh करेल, App बाहेर फेकणार नाही
-refresh_count = st_autorefresh(interval=30000, key="auto_refresh", limit=None)
+# ================= AUTO REFRESH =================
+st_autorefresh(interval=30000, key="auto_refresh", limit=None)
 
 # ================= API KEYS =================
 FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"
@@ -29,7 +28,6 @@ if "unlocked" not in st.session_state:
 
 if not st.session_state.unlocked:
     st.markdown("<h1 style='text-align:center;'>⚡ RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE</p>", unsafe_allow_html=True)
     pw = st.text_input("Password", type="password", placeholder="Enter password")
     if st.button("UNLOCK", use_container_width=True):
         if pw == "8055":
@@ -171,13 +169,39 @@ def execute_trade(symbol, trade_type, price, lots, qty, target):
     send_telegram(f"🤖 {trade_type} {symbol} | {lots} lots @ ₹{price:.2f}")
     return True
 
-# ================= UI HEADER =================
+# ================= HEADER =================
 st.markdown("<h1 style='text-align:center;'>⚡ RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE</p>", unsafe_allow_html=True)
+
+# ================= CONTROL PANEL =================
+col1, col2, col3, col4 = st.columns([2, 1, 1, 1.5])
+
+with col1:
+    totp = st.text_input("🔐 TOTP", type="password", placeholder="6-digit code", label_visibility="collapsed")
+
+with col2:
+    if st.button("🟢 START", use_container_width=True):
+        if totp and len(totp) == 6:
+            st.session_state.running = True
+            send_telegram("🚀 ALGO STARTED")
+            st.rerun()
+        else:
+            st.error("Valid TOTP required!")
+
+with col3:
+    if st.button("🔴 STOP", use_container_width=True):
+        st.session_state.running = False
+        send_telegram("🛑 ALGO STOPPED")
+        st.rerun()
+
+with col4:
+    if st.session_state.running:
+        st.success(f"🟢 RUNNING | {get_ist_now().strftime('%H:%M:%S')}")
+    else:
+        st.error(f"🔴 STOPPED | {get_ist_now().strftime('%H:%M:%S')}")
 
 # ================= AUTO-REFRESH STATUS =================
 st.info("🔄 **Auto-Refresh every 30 seconds** | Data updates automatically without logout")
-st.markdown("---")
 
 # ================= LIVE PRICES =================
 with st.spinner("Fetching live prices..."):
@@ -187,7 +211,6 @@ col1, col2, col3 = st.columns(3)
 col1.metric("🇮🇳 NIFTY 50", f"₹{nifty_price:,.2f}" if nifty_price else "Loading...")
 col2.metric("🛢️ CRUDE OIL", f"₹{crude_price:,.2f}" if crude_price else "Loading...")
 col3.metric("🌿 NATURAL GAS", f"₹{ng_price:,.2f}" if ng_price else "Loading...")
-st.markdown("---")
 
 # ================= Q4 RESULTS DASHBOARD =================
 st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
@@ -229,41 +252,13 @@ c2.metric("🟢 Positive", sum(1 for d in Q4_DATA.values() if "Positive" in d['v
 c3.metric("🔴 Negative", sum(1 for d in Q4_DATA.values() if "Negative" in d['verdict']))
 c4.metric("⏳ Pending", sum(1 for d in Q4_DATA.values() if d['profit'] == 0))
 c5.metric("🎯 BUY Signals", sum(1 for d in Q4_DATA.values() if "BUY" in d['ai_signal']))
-st.markdown("---")
-
-# ================= CONTROL PANEL =================
-st.markdown("## 🎮 CONTROL PANEL")
-
-col1, col2, col3, col4 = st.columns([2, 1, 1, 1.5])
-with col1:
-    totp = st.text_input("🔐 TOTP", type="password", placeholder="6-digit code", label_visibility="collapsed")
-with col2:
-    if st.button("🟢 START", use_container_width=True):
-        if totp and len(totp) == 6:
-            st.session_state.running = True
-            send_telegram("🚀 ALGO STARTED")
-            st.rerun()
-        else:
-            st.error("Valid TOTP required!")
-with col3:
-    if st.button("🔴 STOP", use_container_width=True):
-        st.session_state.running = False
-        send_telegram("🛑 ALGO STOPPED")
-        st.rerun()
-with col4:
-    if st.session_state.running:
-        st.success(f"🟢 RUNNING | {get_ist_now().strftime('%H:%M:%S')}")
-    else:
-        st.error(f"🔴 STOPPED | {get_ist_now().strftime('%H:%M:%S')}")
-
-st.markdown("---")
 
 # ================= TRADING STATUS =================
+st.markdown("## 📊 TRADING STATUS")
 c1, c2, c3 = st.columns(3)
 c1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_count}/2")
 c2.metric("🛢️ CRUDE Trades", f"{st.session_state.crude_count}/2")
 c3.metric("🌿 NG Trades", f"{st.session_state.ng_count}/2")
-st.markdown("---")
 
 # ================= TRADING JOURNAL =================
 st.markdown("## 📋 TRADING JOURNAL")
@@ -272,7 +267,6 @@ if st.session_state.trades:
     st.dataframe(df_trades, use_container_width=True, height=250)
 else:
     st.info("📭 No trades executed yet")
-st.markdown("---")
 
 # ================= AUTO TRADING LOGIC =================
 if st.session_state.running and st.session_state.auto_trade:
