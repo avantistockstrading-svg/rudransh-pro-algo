@@ -97,7 +97,7 @@ def send_telegram_result_notification(company, verdict, profit_change):
     except:
         pass
 
-# ================= Q4 RESULTS DASHBOARD FUNCTION =================
+# ================= Q4 RESULTS DASHBOARD FUNCTION (FIXED) =================
 def show_q4_dashboard():
     st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
     
@@ -136,7 +136,8 @@ def show_q4_dashboard():
     # Color coded cards
     st.markdown("### 📈 Company-wise Performance")
     
-    for _, row in rows:
+    # FIXED: Iterate through rows list correctly
+    for row in rows:  # येथे सुधारणा केली - rows list वरून iterate करा
         if "Negative" in row["Verdict"]:
             color = "#ff4444"
             bg = "rgba(255,68,68,0.1)"
