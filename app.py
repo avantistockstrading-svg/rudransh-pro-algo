@@ -4,7 +4,6 @@ import requests
 import time
 import pandas as pd
 from datetime import datetime, timedelta, timezone
-import threading
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="RUDRANSH PRO ALGO X", layout="wide", page_icon="⚡")
@@ -38,7 +37,7 @@ if not st.session_state.unlocked:
             st.error("❌ Wrong password")
     st.stop()
 
-# ================= SESSION STATE (फक्त आवश्यक) =================
+# ================= SESSION STATE =================
 if "running" not in st.session_state:
     st.session_state.running = False
 if "trades" not in st.session_state:
@@ -49,8 +48,6 @@ if "crude_count" not in st.session_state:
     st.session_state.crude_count = 0
 if "ng_count" not in st.session_state:
     st.session_state.ng_count = 0
-if "capital" not in st.session_state:
-    st.session_state.capital = 1000000
 if "auto_trade" not in st.session_state:
     st.session_state.auto_trade = True
 if "nifty_lots" not in st.session_state:
@@ -64,7 +61,7 @@ if "daily_loss" not in st.session_state:
 if "last_date" not in st.session_state:
     st.session_state.last_date = get_ist_now().date()
 
-# ================= Q4 RESULTS DATA (Static - जलद लोडसाठी) =================
+# ================= Q4 RESULTS DATA =================
 Q4_DATA = {
     "HDFC Bank": {"profit": 9.1, "verdict": "🟡 Mixed", "date": "15 May 2026", "revenue": "₹88,500 Cr", "ai_signal": "WAIT", "key": "Deposits grew 14.4%, NII missed"},
     "Reliance": {"profit": -12.5, "verdict": "🔴 Negative", "date": "14 May 2026", "revenue": "₹2,34,000 Cr", "ai_signal": "SELL", "key": "Retail strong, Energy weak"},
@@ -86,10 +83,9 @@ if get_ist_now().date() != st.session_state.last_date:
     st.session_state.ng_count = 0
     st.session_state.last_date = get_ist_now().date()
 
-# ================= FUNCTIONS (Optimized) =================
+# ================= FUNCTIONS =================
 @st.cache_data(ttl=30)
 def get_live_prices():
-    """सर्व prices एकाच function मध्ये - जलद"""
     usdinr = 87.5
     try:
         df = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
@@ -124,11 +120,10 @@ def get_live_prices():
         pass
     ng = round(ng_usd * usdinr, 2) if ng_usd else 0
     
-    return nifty, crude, ng, usdinr
+    return nifty, crude, ng
 
 @st.cache_data(ttl=10)
 def get_trading_signal(symbol):
-    """जलद signal detection"""
     try:
         df = yf.download(symbol, period="2d", interval="5m", progress=False)
         if df.empty or len(df) < 20:
@@ -182,9 +177,9 @@ st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D.
 st.info("🔄 **Auto-Refresh every 30 seconds** | Page will reload automatically")
 st.markdown("---")
 
-# ================= LIVE PRICES (जलद) =================
+# ================= LIVE PRICES =================
 with st.spinner("Fetching live prices..."):
-    nifty_price, crude_price, ng_price, usdinr = get_live_prices()
+    nifty_price, crude_price, ng_price = get_live_prices()
 
 col1, col2, col3 = st.columns(3)
 col1.metric("🇮🇳 NIFTY 50", f"₹{nifty_price:,.2f}" if nifty_price else "Loading...")
@@ -196,7 +191,6 @@ st.markdown("---")
 st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
 st.caption("🤖 AI-Powered Real-Time Analysis | Updates every 30 seconds")
 
-# Create DataFrame
 rows = []
 for company, data in Q4_DATA.items():
     profit_display = f"{data['profit']:+.1f}%" if data['profit'] != 0 else "—"
@@ -263,12 +257,10 @@ with col4:
 st.markdown("---")
 
 # ================= TRADING STATUS =================
-available_funds = st.session_state.capital - st.session_state.daily_loss
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("💰 Available", f"₹{available_funds:,.0f}")
-c2.metric("📉 Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}")
-c3.metric("🇮🇳 NIFTY", f"{st.session_state.nifty_count}/2")
-c4.metric("🛢️ CRUDE", f"{st.session_state.crude_count}/2")
+c1, c2, c3 = st.columns(3)
+c1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_count}/2")
+c2.metric("🛢️ CRUDE Trades", f"{st.session_state.crude_count}/2")
+c3.metric("🌿 NG Trades", f"{st.session_state.ng_count}/2")
 st.markdown("---")
 
 # ================= TRADING JOURNAL =================
@@ -282,39 +274,34 @@ st.markdown("---")
 
 # ================= AUTO TRADING LOGIC =================
 if st.session_state.running and st.session_state.auto_trade:
-    if st.session_state.daily_loss >= 100000:
-        st.error(f"🚨 DAILY LOSS LIMIT HIT: ₹{st.session_state.daily_loss:,.0f}")
-    else:
-        st.markdown("### 🔍 SCANNING FOR SIGNALS...")
-        
-        # Get signals
-        nifty_signal = get_trading_signal("^NSEI") if st.session_state.nifty_count < 2 else "WAIT"
-        crude_signal = get_trading_signal("CL=F") if st.session_state.crude_count < 2 else "WAIT"
-        ng_signal = get_trading_signal("NG=F") if st.session_state.ng_count < 2 else "WAIT"
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("🇮🇳 NIFTY Signal", nifty_signal)
-        c2.metric("🛢️ CRUDE Signal", crude_signal)
-        c3.metric("🌿 NG Signal", ng_signal)
-        
-        # Execute trades
-        if nifty_signal != "WAIT":
-            if execute_trade("NIFTY", nifty_signal, nifty_price, st.session_state.nifty_lots, st.session_state.nifty_lots * 65, 10):
-                st.success(f"✅ NIFTY {nifty_signal} executed!")
-                st.rerun()
-        
-        if crude_signal != "WAIT" and crude_price:
-            if execute_trade("CRUDE", crude_signal, crude_price, st.session_state.crude_lots, st.session_state.crude_lots * 100, 10):
-                st.success(f"✅ CRUDE {crude_signal} executed!")
-                st.rerun()
-        
-        if ng_signal != "WAIT" and ng_price:
-            if execute_trade("NG", ng_signal, ng_price, st.session_state.ng_lots, st.session_state.ng_lots * 1250, 1):
-                st.success(f"✅ NG {ng_signal} executed!")
-                st.rerun()
-        
-        st.info("⏳ Waiting for next scan cycle... (Auto-refresh in 30 seconds)")
-        
+    st.markdown("### 🔍 SCANNING FOR SIGNALS...")
+    
+    nifty_signal = get_trading_signal("^NSEI") if st.session_state.nifty_count < 2 else "WAIT"
+    crude_signal = get_trading_signal("CL=F") if st.session_state.crude_count < 2 else "WAIT"
+    ng_signal = get_trading_signal("NG=F") if st.session_state.ng_count < 2 else "WAIT"
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("🇮🇳 NIFTY Signal", nifty_signal)
+    c2.metric("🛢️ CRUDE Signal", crude_signal)
+    c3.metric("🌿 NG Signal", ng_signal)
+    
+    if nifty_signal != "WAIT":
+        if execute_trade("NIFTY", nifty_signal, nifty_price, st.session_state.nifty_lots, st.session_state.nifty_lots * 65, 10):
+            st.success(f"✅ NIFTY {nifty_signal} executed!")
+            st.rerun()
+    
+    if crude_signal != "WAIT" and crude_price:
+        if execute_trade("CRUDE", crude_signal, crude_price, st.session_state.crude_lots, st.session_state.crude_lots * 100, 10):
+            st.success(f"✅ CRUDE {crude_signal} executed!")
+            st.rerun()
+    
+    if ng_signal != "WAIT" and ng_price:
+        if execute_trade("NG", ng_signal, ng_price, st.session_state.ng_lots, st.session_state.ng_lots * 1250, 1):
+            st.success(f"✅ NG {ng_signal} executed!")
+            st.rerun()
+    
+    st.info("⏳ Waiting for next scan cycle... (Auto-refresh in 30 seconds)")
+    
 elif not st.session_state.running:
     st.warning("⏸️ Press START to begin auto trading")
 
@@ -323,8 +310,6 @@ with st.sidebar:
     st.markdown("## ⚙️ SETTINGS")
     st.markdown("### 🤖 AUTO TRADE")
     st.session_state.auto_trade = st.checkbox("Enable Auto Trading", value=st.session_state.auto_trade)
-    st.markdown("### 💰 CAPITAL")
-    st.session_state.capital = st.number_input("Initial Capital (₹)", 50000, 10000000, st.session_state.capital, 50000)
     st.markdown("### 📊 LOT SIZE")
     st.session_state.nifty_lots = st.number_input("NIFTY Lots", 1, 20, st.session_state.nifty_lots)
     st.session_state.crude_lots = st.number_input("CRUDE Lots", 1, 20, st.session_state.crude_lots)
@@ -336,8 +321,8 @@ with st.sidebar:
     st.caption("🌿 NG: ₹1 per point")
     st.markdown("---")
     st.markdown("### 📡 STATUS")
-    st.success("✅ FMP API")
-    st.success("✅ GNews API")
+    st.success("✅ FMP API Connected")
+    st.success("✅ GNews API Connected")
     st.info("🔄 Auto-refresh: 30 sec")
 
 # ================= FOOTER =================
