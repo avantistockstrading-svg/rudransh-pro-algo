@@ -87,7 +87,7 @@ if "nifty_tp1_enabled" not in st.session_state:
 if "nifty_tp2_enabled" not in st.session_state:
     st.session_state.nifty_tp2_enabled = True
 if "nifty_tp3_enabled" not in st.session_state:
-    st.session_state.nifty_tp3_enabled = False
+    st.session_state.nifty_tp3_enabled = True
 
 # CRUDE
 if "crude_lots" not in st.session_state:
@@ -103,7 +103,7 @@ if "crude_tp1_enabled" not in st.session_state:
 if "crude_tp2_enabled" not in st.session_state:
     st.session_state.crude_tp2_enabled = True
 if "crude_tp3_enabled" not in st.session_state:
-    st.session_state.crude_tp3_enabled = False
+    st.session_state.crude_tp3_enabled = True
 
 # NG
 if "ng_lots" not in st.session_state:
@@ -119,7 +119,7 @@ if "ng_tp1_enabled" not in st.session_state:
 if "ng_tp2_enabled" not in st.session_state:
     st.session_state.ng_tp2_enabled = True
 if "ng_tp3_enabled" not in st.session_state:
-    st.session_state.ng_tp3_enabled = False
+    st.session_state.ng_tp3_enabled = True
 
 # ================= Q4 RESULTS DATA =================
 if "q4_results" not in st.session_state:
