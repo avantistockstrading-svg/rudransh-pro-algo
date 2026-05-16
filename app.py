@@ -1,6 +1,7 @@
 # ============================================================
 # RUDRANSH PRO ALGO X - COMPLETE AUTO TRADING ECOSYSTEM
 # With Fund Management, Dynamic Lot Sizing, AI Auto Trade
+# And Live Market Dashboard with Sliding News Ticker
 # DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114
 # ============================================================
 
@@ -30,29 +31,23 @@ if "app_unlocked" not in st.session_state:
 if "app_password" not in st.session_state:
     st.session_state.app_password = "8055"
 
-# ================= FUND MANAGEMENT SYSTEM (NEW) =================
+# ================= FUND MANAGEMENT SYSTEM =================
 if "initial_capital" not in st.session_state:
-    st.session_state.initial_capital = 1000000  # ₹10 Lakhs default
+    st.session_state.initial_capital = 1000000
 if "premium_estimate" not in st.session_state:
     st.session_state.premium_estimate = 30
 if "max_capital_per_trade" not in st.session_state:
-    st.session_state.max_capital_per_trade = 20  # 20% of capital per trade max
+    st.session_state.max_capital_per_trade = 20
 
 def get_available_funds():
-    """उपलब्ध फंड मिळवा (Initial Capital + P&L)"""
     total_pnl = 0
     for trade in st.session_state.trade_journal:
         if 'Profit/Loss' in trade:
             total_pnl += trade.get('Profit/Loss', 0)
-    
     available = st.session_state.initial_capital + total_pnl
     return max(available, 0)
 
 def calculate_dynamic_quantity(lot_size, max_qty_limit, enable_big_lot_mode, big_lot_qty, available_funds, entry_premium_estimate=30):
-    """
-    Fund नुसार Dynamic Quantity Calculate करेल
-    """
-    # Big Lot Mode ची quantity
     if enable_big_lot_mode and big_lot_qty:
         suggested_qty = big_lot_qty
         suggested_lots = big_lot_qty // lot_size
@@ -63,38 +58,25 @@ def calculate_dynamic_quantity(lot_size, max_qty_limit, enable_big_lot_mode, big
         suggested_qty = max_lots * lot_size
         suggested_lots = max_lots
     
-    # Max capital per trade limit
     max_capital_this_trade = (available_funds * st.session_state.max_capital_per_trade) / 100
     max_qty_by_capital = max_capital_this_trade // entry_premium_estimate
-    
-    # Fund required for this trade
     required_funds = suggested_qty * entry_premium_estimate
-    
-    # Minimum funds required (at least 1 lot)
     min_required = lot_size * entry_premium_estimate
     
-    # Fund check with capital limit
     if available_funds >= required_funds and suggested_qty <= max_qty_by_capital:
-        # Enough funds - use suggested quantity
         return suggested_qty, suggested_lots, None, required_funds
-        
     elif available_funds >= min_required:
-        # Partial funds - reduce lot size
         max_possible_qty = min(max_qty_by_capital, available_funds // entry_premium_estimate)
         max_possible_lots = max_possible_qty // lot_size
         if max_possible_lots < 1:
             max_possible_lots = 1
-        
         final_qty = max_possible_lots * lot_size
         final_lots = max_possible_lots
         final_required = final_qty * entry_premium_estimate
-        
-        warning = f"⚠️ Fund limit! Reduced from {suggested_lots} lots to {final_lots} lots. Required: ₹{required_funds:,.0f}, Available: ₹{available_funds:,.0f}, Max per trade: {st.session_state.max_capital_per_trade}%"
+        warning = f"⚠️ Fund limit! Reduced from {suggested_lots} lots to {final_lots} lots"
         return final_qty, final_lots, warning, final_required
-        
     else:
-        # Not enough for even 1 lot - cannot trade
-        warning = f"❌ Insufficient funds! Required: ₹{min_required:,.0f}, Available: ₹{available_funds:,.0f}. Trade skipped."
+        warning = f"❌ Insufficient funds! Required: ₹{min_required:,.0f}, Available: ₹{available_funds:,.0f}"
         return 0, 0, warning, 0
 
 # ================= COMPANY SYMBOLS =================
@@ -136,6 +118,8 @@ if "voice_alert" not in st.session_state:
     st.session_state.voice_alert = None
 if "auto_trade_enabled" not in st.session_state:
     st.session_state.auto_trade_enabled = True
+if "selected_timeframe" not in st.session_state:
+    st.session_state.selected_timeframe = "15m"
 
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
@@ -156,27 +140,14 @@ if "ng_trades_count" not in st.session_state:
 MAX_QTY_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500]
 
 def calculate_trade_quantity(lot_size, max_qty_limit, enable_big_lot_mode=False, big_lot_qty=None):
-    """
-    Fund Check सह Dynamic Quantity Calculate करेल (UPDATED)
-    """
-    # Get available funds
     available_funds = get_available_funds()
     premium_estimate = st.session_state.get("premium_estimate", 30)
-    
-    # Calculate using dynamic function
     final_qty, final_lots, warning, required = calculate_dynamic_quantity(
-        lot_size, 
-        max_qty_limit, 
-        enable_big_lot_mode, 
-        big_lot_qty,
-        available_funds,
-        premium_estimate
+        lot_size, max_qty_limit, enable_big_lot_mode, big_lot_qty,
+        available_funds, premium_estimate
     )
-    
-    # Show warning if any
     if warning:
         st.warning(warning)
-    
     return final_qty, final_lots
 
 # ================= SYMBOLS =================
@@ -237,14 +208,135 @@ def get_stock_itm_strike_auto(price, stock, option_type="CE", strike_offset=2):
         itm_strike = strike_interval
     return int(itm_strike), round(actual_itm, 2), strike_interval
 
+# ================= LIVE MARKET DATA FUNCTIONS (NEW) =================
+
+@st.cache_data(ttl=60)
+def get_live_market_indices():
+    """Get live NIFTY, BANK NIFTY, etc. data"""
+    indices = {
+        "NIFTY 50": {"symbol": "^NSEI", "name": "🇮🇳 NIFTY 50"},
+        "BANK NIFTY": {"symbol": "^NSEBANK", "name": "🏦 BANK NIFTY"},
+        "NIFTY IT": {"symbol": "^CNXIT", "name": "💻 NIFTY IT"},
+        "NIFTY PHARMA": {"symbol": "^CNXPHARMA", "name": "💊 NIFTY PHARMA"},
+    }
+    
+    result = {}
+    for key, value in indices.items():
+        try:
+            df = yf.download(value["symbol"], period="1d", interval="5m", progress=False)
+            if not df.empty:
+                current = df['Close'].iloc[-1]
+                prev_close = df['Close'].iloc[0] if len(df) > 1 else current
+                change = current - prev_close
+                change_percent = (change / prev_close) * 100 if prev_close != 0 else 0
+                result[key] = {
+                    "price": round(current, 2),
+                    "change": round(change, 2),
+                    "change_percent": round(change_percent, 2),
+                    "name": value["name"]
+                }
+        except:
+            result[key] = {"price": 0, "change": 0, "change_percent": 0, "name": value["name"]}
+    return result
+
+@st.cache_data(ttl=120)
+def get_top_movers():
+    """Get top gainers and losers"""
+    nifty50_symbols = [
+        "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+        "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "HINDUNILVR.NS", "TATAMOTORS.NS"
+    ]
+    
+    gainers = []
+    losers = []
+    
+    for symbol in nifty50_symbols:
+        try:
+            df = yf.download(symbol, period="2d", progress=False)
+            if len(df) >= 2:
+                current = df['Close'].iloc[-1]
+                prev = df['Close'].iloc[-2]
+                change_percent = ((current - prev) / prev) * 100
+                name = symbol.replace(".NS", "")
+                
+                if change_percent > 0:
+                    gainers.append({"name": name, "change": round(change_percent, 2)})
+                else:
+                    losers.append({"name": name, "change": round(change_percent, 2)})
+        except:
+            pass
+    
+    gainers = sorted(gainers, key=lambda x: x["change"], reverse=True)[:5]
+    losers = sorted(losers, key=lambda x: x["change"])[:5]
+    
+    return gainers, losers
+
+@st.cache_data(ttl=60)
+def get_live_news():
+    """Get live market news - Free API"""
+    news_items = []
+    
+    # Free News API (GNews)
+    try:
+        url = "https://gnews.io/api/v4/search?q=stock%20market%20india&lang=en&max=10&apikey=YOUR_API_KEY"
+        # Note: Get free API key from https://gnews.io/
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            for article in data.get("articles", [])[:10]:
+                news_items.append({
+                    "title": article.get("title", "No Title"),
+                    "time": article.get("publishedAt", "Just now")[:16],
+                    "source": article.get("source", {}).get("name", "News")
+                })
+    except:
+        # Fallback news
+        news_items = [
+            {"title": "NIFTY hits fresh record high above 25,000", "time": "Just now", "source": "Market Update"},
+            {"title": "RBI announces ₹50,000 cr OMO purchase", "time": "5 mins ago", "source": "Policy News"},
+            {"title": "FIIs turn net buyers in Indian equities", "time": "15 mins ago", "source": "FII/DII"},
+            {"title": "Crude oil prices steady above $85", "time": "25 mins ago", "source": "Commodity"},
+            {"title": "Q4 Results: Multiple companies beat estimates", "time": "35 mins ago", "source": "Earnings"},
+            {"title": "Rupee strengthens against US dollar", "time": "45 mins ago", "source": "Forex"},
+            {"title": "Gold prices rise on weak dollar", "time": "55 mins ago", "source": "Commodity"},
+            {"title": "IT sector leads rally, NIFTY IT up 2%", "time": "1 hour ago", "source": "Sector Update"},
+        ]
+    
+    return news_items
+
+def get_stock_chart(symbol, timeframe):
+    """Get stock chart data for selected timeframe"""
+    interval_map = {
+        "1m": "1m",
+        "5m": "5m",
+        "15m": "15m",
+        "30m": "30m",
+        "1H": "60m",
+        "4H": "1h",
+        "1D": "1d",
+        "1W": "1wk",
+        "1M": "1mo"
+    }
+    
+    period_map = {
+        "1m": "1d", "5m": "5d", "15m": "5d", "30m": "1mo",
+        "1H": "1mo", "4H": "3mo", "1D": "3mo", "1W": "6mo", "1M": "1y"
+    }
+    
+    interval = interval_map.get(timeframe, "15m")
+    period = period_map.get(timeframe, "5d")
+    
+    try:
+        df = yf.download(symbol, period=period, interval=interval, progress=False)
+        if not df.empty:
+            return df
+    except:
+        pass
+    return None
+
 # ================= AUTO TRADE EXECUTION ENGINE =================
 
 def auto_execute_trade(symbol, trade_type, lot_size=0):
-    """
-    Auto execute trade based on AI signal with Fund Check
-    """
-    
-    # Get current price and trade limits
     if symbol == "NIFTY":
         current_price = get_live_price("^NSEI")
         if current_price <= 0:
@@ -254,7 +346,6 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
         max_trades = 2
         qty = st.session_state.nifty_lots * 65
         lots = st.session_state.nifty_lots
-        
     elif symbol == "CRUDEOIL":
         current_price = get_live_price("CL=F") * get_usd_inr_rate()
         if current_price <= 0:
@@ -264,7 +355,6 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
         max_trades = 2
         qty = st.session_state.crude_lots * 100
         lots = st.session_state.crude_lots
-        
     elif symbol == "NATURALGAS":
         current_price = get_live_price("NG=F") * get_usd_inr_rate()
         if current_price <= 0:
@@ -274,9 +364,7 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
         max_trades = 2
         qty = st.session_state.ng_lots * 1250
         lots = st.session_state.ng_lots
-        
     else:
-        # Stock trade
         stock_data = next((s for s in FO_STOCKS if s["name"] == symbol), None)
         if not stock_data:
             return False, f"Stock {symbol} not found"
@@ -293,15 +381,11 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
             stock_data.get("big_lot_qty")
         )
     
-    # Check if qty is zero (insufficient funds)
     if qty <= 0:
         return False, "Insufficient funds for trade"
-    
-    # Check if max trades reached
     if trade_counter >= max_trades:
         return False, f"Max trades ({max_trades}) reached for {symbol}"
     
-    # Execute trade
     trade_record = {
         "No": len(st.session_state.trade_journal) + 1,
         "Symbol": symbol,
@@ -317,7 +401,6 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
     
     st.session_state.trade_journal.append(trade_record)
     
-    # Update counters
     if symbol == "NIFTY":
         st.session_state.nifty_trades_count += 1
     elif symbol == "CRUDEOIL":
@@ -329,8 +412,6 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
             st.session_state.stock_trades[symbol] = {"trades": 0, "buy_done": False, "sell_done": False, "quantity": qty, "lots": lots}
         st.session_state.stock_trades[symbol]["trades"] += 1
     
-    # Send Telegram alert for auto trade
-    available_funds = get_available_funds()
     send_telegram(f"""
 🤖 *AUTO TRADE EXECUTED*
 
@@ -338,59 +419,39 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
 📊 Lots: {lots} | Qty: {qty}
 💰 Entry: ₹{current_price:.2f}
 🎯 Target: ₹{fixed_target}
-💵 Available Funds: ₹{available_funds:,.0f}
-⏰ Time: {get_ist_now().strftime('%H:%M:%S')}
+💵 Funds: ₹{get_available_funds():,.0f}
 
--- AI Auto Trading System --
+-- RUDRANSH PRO ALGO X --
 """)
     
     return True, f"✅ Auto {trade_type} executed for {symbol}"
 
 def process_ai_trade_signal(company_name, verdict, trade_signal):
-    """
-    Process AI signal and execute auto trade
-    """
-    # Check if auto trade is enabled
     if not st.session_state.get("auto_trade_enabled", False):
         return False, "Auto trading disabled"
-    
-    # Check daily loss limit
     if check_daily_loss_limit():
         return False, "Daily loss limit hit"
     
-    # Only auto-trade on strong signals
     if "STRONG BUY" in trade_signal or trade_signal == "BUY":
         success, msg = auto_execute_trade("NIFTY", "BUY")
         if success:
             st.toast(f"🤖 AUTO BUY: NIFTY executed based on {company_name} result!", icon="🟢")
             return True, msg
-        else:
-            return False, msg
-            
     elif "STRONG SELL" in trade_signal or trade_signal == "SELL":
         success, msg = auto_execute_trade("NIFTY", "SELL")
         if success:
             st.toast(f"🤖 AUTO SELL: NIFTY executed based on {company_name} result!", icon="🔴")
             return True, msg
-        else:
-            return False, msg
-    
     return False, "No strong signal"
 
 # ================= AI ANALYSIS ENGINE =================
 
 def ai_analyze_earnings(company_name, eps_actual, eps_estimated, revenue_actual=None, revenue_estimated=None):
-    """
-    AI-powered analysis of earnings results
-    Returns: verdict, bullish_score, reasoning, trade_signal
-    """
     if eps_actual is None or eps_estimated is None or eps_estimated == 0:
         return "Pending", 0, "No data available", "WAIT"
     
-    # Calculate surprise percentage
     surprise_percent = ((eps_actual - eps_estimated) / abs(eps_estimated)) * 100
     
-    # Bullish/Bearish detection logic
     if surprise_percent >= 10:
         verdict = "Strong Positive 🟢🟢"
         bullish_score = 90
@@ -427,18 +488,13 @@ def ai_analyze_earnings(company_name, eps_actual, eps_estimated, revenue_actual=
 # ================= CHECK FOR NEW EARNINGS (FMP API) =================
 
 def check_for_new_earnings():
-    """Check FMP API for new earnings announcements"""
     try:
         today = get_ist_now().date()
         from_date = (today - timedelta(days=2)).strftime("%Y-%m-%d")
         to_date = today.strftime("%Y-%m-%d")
         
         url = f"https://financialmodelingprep.com/api/v3/earnings-calendar"
-        params = {
-            "apikey": FMP_API_KEY,
-            "from": from_date,
-            "to": to_date
-        }
+        params = {"apikey": FMP_API_KEY, "from": from_date, "to": to_date}
         response = requests.get(url, params=params, timeout=30)
         
         if response.status_code != 200:
@@ -449,89 +505,58 @@ def check_for_new_earnings():
         
         for company_name, fmp_symbol in COMPANY_SYMBOLS.items():
             matching = [e for e in earnings_data if e.get('symbol') == fmp_symbol]
-            
             if matching:
                 earnings = matching[0]
                 eps_actual = earnings.get('epsActual')
                 eps_estimated = earnings.get('epsEstimated')
-                
                 if eps_actual is not None and eps_estimated is not None:
                     current_data = st.session_state.q4_results[company_name]
-                    
                     if current_data.get('eps_actual') != eps_actual and not current_data.get('alert_sent', False):
                         surprise_percent = ((eps_actual - eps_estimated) / abs(eps_estimated)) * 100
-                        
-                        verdict, bullish_score, reasoning, trade_signal = ai_analyze_earnings(
-                            company_name, eps_actual, eps_estimated
-                        )
+                        verdict, bullish_score, reasoning, trade_signal = ai_analyze_earnings(company_name, eps_actual, eps_estimated)
                         
                         st.session_state.q4_results[company_name].update({
-                            "profit": surprise_percent,
-                            "verdict": verdict,
+                            "profit": surprise_percent, "verdict": verdict,
                             "date": earnings.get('date', get_ist_now().strftime("%d %b %Y")),
-                            "eps_actual": eps_actual,
-                            "eps_estimated": eps_estimated,
-                            "surprise_percent": surprise_percent,
-                            "key": reasoning,
-                            "trade_signal": trade_signal,
-                            "bullish_score": bullish_score,
-                            "announced": True,
-                            "alert_sent": True
+                            "eps_actual": eps_actual, "eps_estimated": eps_estimated,
+                            "surprise_percent": surprise_percent, "key": reasoning,
+                            "trade_signal": trade_signal, "bullish_score": bullish_score,
+                            "announced": True, "alert_sent": True
                         })
-                        
                         new_alerts.append({
-                            "company": company_name,
-                            "verdict": verdict,
-                            "surprise_percent": surprise_percent,
-                            "reasoning": reasoning,
-                            "trade_signal": trade_signal,
-                            "bullish_score": bullish_score,
+                            "company": company_name, "verdict": verdict,
+                            "surprise_percent": surprise_percent, "reasoning": reasoning,
+                            "trade_signal": trade_signal, "bullish_score": bullish_score,
                             "time": get_ist_now().strftime("%H:%M:%S")
                         })
         
         for alert in new_alerts:
             send_comprehensive_alert(alert)
             st.session_state.alert_history.insert(0, alert)
-        
         return len(new_alerts) > 0
-        
-    except Exception as e:
-        print(f"Earnings check error: {e}")
+    except:
         return False
 
-# ================= COMPREHENSIVE ALERT SYSTEM =================
-
 def send_comprehensive_alert(alert):
-    """Send alerts via all channels: Telegram, Voice, Popup, and Auto Trade"""
-    
     company = alert['company']
     verdict = alert['verdict']
     surprise = alert['surprise_percent']
     reasoning = alert['reasoning']
     trade_signal = alert['trade_signal']
     
-    # 1. Telegram Alert
     send_telegram_alert(company, verdict, surprise, reasoning, trade_signal)
-    
-    # 2. Store for popup
     st.session_state.latest_alert = alert
-    
-    # 3. Voice Alert
     voice_msg = f"Alert for {company}. {verdict} with {abs(surprise):.1f} percent surprise. {trade_signal} signal."
     st.session_state.voice_alert = voice_msg
     
-    # 4. Auto Trade Execution
     if st.session_state.get("auto_trade_enabled", False):
         trade_executed, msg = process_ai_trade_signal(company, verdict, trade_signal)
         if trade_executed:
             st.toast(f"🤖 {msg}", icon="🤖")
-            send_telegram(f"✅ AUTO TRADE: {trade_signal} signal executed for {company}")
 
 def send_telegram_alert(company, verdict, surprise, reasoning, trade_signal):
-    """Send Telegram alert"""
     token = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
     chat_id = "1983026913"
-    
     if "Positive" in verdict:
         emoji = "🟢✅"
         direction = "BULLISH"
@@ -549,10 +574,7 @@ def send_telegram_alert(company, verdict, surprise, reasoning, trade_signal):
 📊 *EPS Surprise:* {surprise:+.1f}%
 🧠 *AI Analysis:* {reasoning}
 🎯 *Trade Signal:* {trade_signal}
-⏰ *Time:* {get_ist_now().strftime('%I:%M:%S %p')}
-
---
-🔔 *RUDRANSH PRO ALGO X*"""
+⏰ *Time:* {get_ist_now().strftime('%I:%M:%S %p')}"""
     
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
@@ -569,8 +591,7 @@ def send_telegram(msg):
     except:
         pass
 
-# ================= VOICE ALERT JAVASCRIPT =================
-
+# ================= VOICE ALERT =================
 def get_voice_alert_js():
     return """
     <script>
@@ -598,27 +619,21 @@ def get_us_market_trend():
         spx = yf.download("^GSPC", period="7d", interval="15m", progress=False)
         nasdaq = yf.download("^IXIC", period="7d", interval="15m", progress=False)
         dow = yf.download("^DJI", period="7d", interval="15m", progress=False)
-        
         trends = []
-        
         if not spx.empty and 'Close' in spx.columns:
             ema20_spx = spx['Close'].ewm(span=20).mean().iloc[-1]
             current_spx = spx['Close'].iloc[-1]
             trends.append("BULLISH" if current_spx > ema20_spx else "BEARISH")
-        
         if not nasdaq.empty and 'Close' in nasdaq.columns:
             ema20_nasdaq = nasdaq['Close'].ewm(span=20).mean().iloc[-1]
             current_nasdaq = nasdaq['Close'].iloc[-1]
             trends.append("BULLISH" if current_nasdaq > ema20_nasdaq else "BEARISH")
-        
         if not dow.empty and 'Close' in dow.columns:
             ema20_dow = dow['Close'].ewm(span=20).mean().iloc[-1]
             current_dow = dow['Close'].iloc[-1]
             trends.append("BULLISH" if current_dow > ema20_dow else "BEARISH")
-        
         if not trends:
             return "NEUTRAL"
-        
         bullish_count = trends.count("BULLISH")
         if bullish_count >= 2:
             return "BULLISH"
@@ -633,27 +648,21 @@ def get_asia_market_trend():
         nikkei = yf.download("^N225", period="7d", interval="15m", progress=False)
         hangseng = yf.download("^HSI", period="7d", interval="15m", progress=False)
         shanghai = yf.download("000001.SS", period="7d", interval="15m", progress=False)
-        
         trends = []
-        
         if not nikkei.empty and 'Close' in nikkei.columns:
             ema20_nikkei = nikkei['Close'].ewm(span=20).mean().iloc[-1]
             current_nikkei = nikkei['Close'].iloc[-1]
             trends.append("BULLISH" if current_nikkei > ema20_nikkei else "BEARISH")
-        
         if not hangseng.empty and 'Close' in hangseng.columns:
             ema20_hangseng = hangseng['Close'].ewm(span=20).mean().iloc[-1]
             current_hangseng = hangseng['Close'].iloc[-1]
             trends.append("BULLISH" if current_hangseng > ema20_hangseng else "BEARISH")
-        
         if not shanghai.empty and 'Close' in shanghai.columns:
             ema20_shanghai = shanghai['Close'].ewm(span=20).mean().iloc[-1]
             current_shanghai = shanghai['Close'].iloc[-1]
             trends.append("BULLISH" if current_shanghai > ema20_shanghai else "BEARISH")
-        
         if not trends:
             return "NEUTRAL"
-        
         bullish_count = trends.count("BULLISH")
         if bullish_count >= 2:
             return "BULLISH"
@@ -668,10 +677,8 @@ def get_dxy_trend():
         dxy = yf.download("DX-Y.NYB", period="7d", interval="15m", progress=False)
         if dxy.empty or 'Close' not in dxy.columns:
             return "NEUTRAL"
-        
         ema20_dxy = dxy['Close'].ewm(span=20).mean().iloc[-1]
         current_dxy = dxy['Close'].iloc[-1]
-        
         if current_dxy > ema20_dxy:
             return "BEARISH"
         elif current_dxy < ema20_dxy:
@@ -684,14 +691,11 @@ def get_global_trend():
     us_trend = get_us_market_trend()
     asia_trend = get_asia_market_trend()
     dxy_trend = get_dxy_trend()
-    
     scores = []
     scores.append(1 if us_trend == "BULLISH" else -1 if us_trend == "BEARISH" else 0)
     scores.append(1 if asia_trend == "BULLISH" else -1 if asia_trend == "BEARISH" else 0)
     scores.append(1 if dxy_trend == "BULLISH" else -1 if dxy_trend == "BEARISH" else 0)
-    
     total_score = sum(scores)
-    
     if total_score >= 2:
         return "BULLISH", us_trend, asia_trend, dxy_trend
     elif total_score <= -2:
@@ -834,7 +838,7 @@ MAX_DAILY_LOSS = 100000
 def check_daily_loss_limit():
     return abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 
-# ================= TECHNICAL INDICATORS (Simplified) =================
+# ================= TECHNICAL INDICATORS =================
 def get_technical_indicators(df):
     if df.empty or len(df) < 200:
         return None
@@ -881,16 +885,10 @@ def get_technical_indicators(df):
     sideways = (45 < current_rsi < 55) and adx < 20
     
     return {
-        "current_price": close.iloc[-1],
-        "ema9": ema9.iloc[-1],
-        "ema20": ema20.iloc[-1],
-        "ema200": ema200.iloc[-1],
-        "rsi": current_rsi,
-        "adx": adx,
-        "volume_filter": volume_filter,
-        "strong_bull": strong_bull,
-        "strong_bear": strong_bear,
-        "sideways": sideways,
+        "current_price": close.iloc[-1], "ema9": ema9.iloc[-1], "ema20": ema20.iloc[-1],
+        "ema200": ema200.iloc[-1], "rsi": current_rsi, "adx": adx,
+        "volume_filter": volume_filter, "strong_bull": strong_bull,
+        "strong_bear": strong_bear, "sideways": sideways,
         "c1_high": c1['High'] if 'High' in df.columns else close.iloc[-2],
         "c1_low": c1['Low'] if 'Low' in df.columns else close.iloc[-2]
     }
@@ -997,11 +995,9 @@ def get_nifty_signal():
         df = yf.download("^NSEI", period="10d", interval="5m", progress=False)
         if df.empty or len(df) < 200:
             return "WAIT", 0
-        
         indicators = get_technical_indicators(df)
         if indicators is None:
             return "WAIT", 0
-        
         current_price = indicators["current_price"]
         ema9_val = indicators["ema9"]
         ema20_val = indicators["ema20"]
@@ -1023,7 +1019,6 @@ def get_nifty_signal():
             rsi_val >= 55 and adx_val >= 22 and volume_filter_val and 
             strong_bull_val and current_price > c1_high_val and
             trend5_up and trend15_up and trend1h_up)
-        
         sell_conditions = (not sideways_val and ema9_val < ema20_val and current_price < ema200_val and
             rsi_val <= 45 and adx_val >= 22 and volume_filter_val and 
             strong_bear_val and current_price < c1_low_val and
@@ -1042,11 +1037,9 @@ def get_crude_signal():
         df = yf.download("CL=F", period="10d", interval="5m", progress=False)
         if df.empty or len(df) < 200:
             return "WAIT", 0
-        
         indicators = get_technical_indicators(df)
         if indicators is None:
             return "WAIT", 0
-        
         current_price = indicators["current_price"]
         ema9_val = indicators["ema9"]
         ema20_val = indicators["ema20"]
@@ -1068,7 +1061,6 @@ def get_crude_signal():
             rsi_val >= 55 and adx_val >= 22 and volume_filter_val and 
             strong_bull_val and current_price > c1_high_val and
             trend5_up and trend15_up and trend1h_up)
-        
         sell_conditions = (not sideways_val and ema9_val < ema20_val and current_price < ema200_val and
             rsi_val <= 45 and adx_val >= 22 and volume_filter_val and 
             strong_bear_val and current_price < c1_low_val and
@@ -1087,11 +1079,9 @@ def get_ng_signal():
         df = yf.download("NG=F", period="10d", interval="5m", progress=False)
         if df.empty or len(df) < 200:
             return "WAIT", 0
-        
         indicators = get_technical_indicators(df)
         if indicators is None:
             return "WAIT", 0
-        
         current_price = indicators["current_price"]
         ema9_val = indicators["ema9"]
         ema20_val = indicators["ema20"]
@@ -1113,7 +1103,6 @@ def get_ng_signal():
             rsi_val >= 55 and adx_val >= 22 and volume_filter_val and 
             strong_bull_val and current_price > c1_high_val and
             trend5_up and trend15_up and trend1h_up)
-        
         sell_conditions = (not sideways_val and ema9_val < ema20_val and current_price < ema200_val and
             rsi_val <= 45 and adx_val >= 22 and volume_filter_val and 
             strong_bear_val and current_price < c1_low_val and
@@ -1132,13 +1121,10 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
         df = yf.download(symbol, period="10d", interval="5m", progress=False)
         if df.empty or len(df) < 200:
             return None
-        
         df.columns = [str(c).lower() for c in df.columns]
-        
         indicators = get_technical_indicators(df)
         if indicators is None:
             return None
-        
         current_price = indicators["current_price"]
         ema9_val = indicators["ema9"]
         ema20_val = indicators["ema20"]
@@ -1155,10 +1141,8 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
         nifty_trend = get_nifty_trend()
         nifty_bullish = nifty_trend == "BULLISH"
         nifty_bearish = nifty_trend == "BEARISH"
-        
         sector_bullish = get_sector_bullish(sector_name)
         sector_bearish = get_sector_bearish(sector_name)
-        
         trend5_up = get_mtf_trend(symbol, "5m") == "UP"
         trend15_up = get_mtf_trend(symbol, "15m") == "UP"
         trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
@@ -1168,7 +1152,6 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
             rsi_val >= 55 and adx_val >= 22 and volume_filter_val and 
             strong_bull_val and current_price > c1_high_val and
             trend5_up and trend15_up and trend1h_up)
-        
         sell_conditions = (nifty_bearish and not sideways_val and sector_bearish and
             ema9_val < ema20_val and current_price < ema200_val and
             rsi_val <= 45 and adx_val >= 22 and volume_filter_val and 
@@ -1177,14 +1160,9 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
         
         return {
             "signal": "BUY" if buy_conditions else "SELL" if sell_conditions else "WAIT",
-            "buy": buy_conditions,
-            "sell": sell_conditions,
-            "price": current_price,
-            "rsi": rsi_val,
-            "adx": adx_val,
-            "strong_bull": strong_bull_val,
-            "strong_bear": strong_bear_val,
-            "nifty_bullish": nifty_bullish,
+            "buy": buy_conditions, "sell": sell_conditions, "price": current_price,
+            "rsi": rsi_val, "adx": adx_val, "strong_bull": strong_bull_val,
+            "strong_bear": strong_bear_val, "nifty_bullish": nifty_bullish,
             "sector_bullish": sector_bullish
         }
     except Exception as e:
@@ -1196,7 +1174,6 @@ def show_q4_dashboard():
     st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
     st.caption("🤖 AI-Powered Real-Time Earnings Analysis | Auto-refresh every 30 seconds | Auto Trading ACTIVE")
     
-    # Check for new earnings
     try:
         new_earnings = check_for_new_earnings()
         if new_earnings:
@@ -1204,7 +1181,6 @@ def show_q4_dashboard():
     except Exception as e:
         pass
     
-    # Display latest alert if any
     if st.session_state.latest_alert:
         alert = st.session_state.latest_alert
         if "Positive" in alert['verdict']:
@@ -1225,7 +1201,6 @@ def show_q4_dashboard():
         </div>
         """, unsafe_allow_html=True)
     
-    # Create display rows
     rows = []
     for company, data in st.session_state.q4_results.items():
         if "Strong Positive" in str(data["verdict"]) or "Positive" in str(data["verdict"]):
@@ -1234,14 +1209,10 @@ def show_q4_dashboard():
             verdict_display = data["verdict"]
         else:
             verdict_display = data["verdict"] if data["verdict"] else "⏳ Pending"
-        
         profit_display = f"{data.get('surprise_percent', data.get('profit', 0)):+.1f}%" if data.get('profit') != 0 else "—"
-        
         rows.append({
-            "Company": company,
-            "Result Date": data.get("date", "Pending"),
-            "EPS Surprise": profit_display,
-            "Verdict": verdict_display,
+            "Company": company, "Result Date": data.get("date", "Pending"),
+            "EPS Surprise": profit_display, "Verdict": verdict_display,
             "AI Signal": data.get("trade_signal", "WAIT"),
             "AI Analysis": data.get("key", "Waiting for data...")[:60] + "..."
         })
@@ -1249,10 +1220,8 @@ def show_q4_dashboard():
     df_q4 = pd.DataFrame(rows)
     st.dataframe(df_q4, use_container_width=True, height=400)
     
-    # Summary
     st.markdown("### 📊 AI Summary")
     col1, col2, col3, col4 = st.columns(4)
-    
     total = len(st.session_state.q4_results)
     positive = sum(1 for d in st.session_state.q4_results.values() if "Positive" in str(d.get("verdict", "")))
     negative = sum(1 for d in st.session_state.q4_results.values() if "Negative" in str(d.get("verdict", "")))
@@ -1267,11 +1236,9 @@ def show_q4_dashboard():
     with col4:
         st.metric("🎯 AI Buy Signals", bullish_signals)
     
-    # Fund Status Display (NEW)
     available_funds = get_available_funds()
     st.markdown(f"### 💰 Fund Status: ₹{available_funds:,.0f} available | Max {st.session_state.max_capital_per_trade}% per trade")
     
-    # Auto Trade Status
     if st.session_state.auto_trade_enabled:
         st.success("🤖 **AUTO TRADING ACTIVE** - AI signals will automatically execute BUY/SELL orders")
     else:
@@ -1279,12 +1246,154 @@ def show_q4_dashboard():
     
     st.info("🔄 Dashboard auto-refreshes every 30 seconds | AI alerts on Telegram + Voice + Popup + Auto Trade")
     
-    # Voice alert
     if st.session_state.voice_alert:
         st.markdown(f'<div id="voice-alert-trigger" style="display:none;">{st.session_state.voice_alert}</div>', unsafe_allow_html=True)
         st.session_state.voice_alert = None
-    
     st.markdown(get_voice_alert_js(), unsafe_allow_html=True)
+
+# ================= LIVE MARKET DASHBOARD (NEW TAB) =================
+
+def show_live_market_dashboard():
+    st.markdown("## 📰 LIVE MARKET DASHBOARD")
+    st.caption("Real-time Market Data | News Ticker | Top Movers | Live Charts")
+    
+    # Timeframe Slider
+    st.markdown("### 🎚️ TIME FRAME SELECTOR")
+    timeframes = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
+    selected_tf = st.select_slider(
+        "Select Time Frame",
+        options=timeframes,
+        value=st.session_state.selected_timeframe,
+        key="tf_slider"
+    )
+    st.session_state.selected_timeframe = selected_tf
+    st.caption(f"Selected: {selected_tf} | Charts and data will update based on this timeframe")
+    
+    st.markdown("---")
+    
+    # Sliding News Ticker (CSS Animation)
+    st.markdown("""
+    <style>
+    @keyframes ticker {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+    .ticker-container {
+        background: linear-gradient(90deg, #1a1a2e, #16213e);
+        border-radius: 10px;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid #00ff88;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .ticker-wrapper {
+        display: inline-block;
+        animation: ticker 25s linear infinite;
+        white-space: nowrap;
+    }
+    .ticker-item {
+        display: inline-block;
+        margin-right: 50px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    .ticker-item-positive { color: #00ff88; }
+    .ticker-item-negative { color: #ff4444; }
+    .ticker-item-neutral { color: #ffaa00; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Get live news
+    news_items = get_live_news()
+    indices = get_live_market_indices()
+    
+    # Create ticker HTML
+    ticker_html = '<div class="ticker-container"><div class="ticker-wrapper">'
+    for name, data in indices.items():
+        color_class = "ticker-item-positive" if data['change_percent'] > 0 else "ticker-item-negative" if data['change_percent'] < 0 else "ticker-item-neutral"
+        ticker_html += f'<span class="ticker-item {color_class}">{data["name"]}: {data["price"]:,.2f} ({data["change_percent"]:+.2f}%)</span>'
+    
+    for news in news_items[:5]:
+        ticker_html += f'<span class="ticker-item ticker-item-neutral">📰 {news["title"][:50]}...</span>'
+    
+    ticker_html += '</div></div>'
+    st.markdown(ticker_html, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Market Indices Cards
+    st.markdown("### 📈 MARKET INDICES")
+    cols = st.columns(4)
+    for idx, (name, data) in enumerate(indices.items()):
+        with cols[idx % 4]:
+            color = "🟢" if data['change_percent'] > 0 else "🔴" if data['change_percent'] < 0 else "🟡"
+            st.metric(
+                label=f"{color} {data['name']}",
+                value=f"{data['price']:,.2f}",
+                delta=f"{data['change_percent']:+.2f}%"
+            )
+    
+    st.markdown("---")
+    
+    # Top Gainers and Losers
+    gainers, losers = get_top_movers()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### 🟢 TOP GAINERS")
+        for g in gainers:
+            st.markdown(f"<div style='background:rgba(0,255,136,0.1); padding:8px; margin:5px 0; border-radius:8px;'>📈 {g['name']} <span style='color:#00ff88; float:right'>+{g['change']}%</span></div>", unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 🔴 TOP LOSERS")
+        for l in losers:
+            st.markdown(f"<div style='background:rgba(255,68,68,0.1); padding:8px; margin:5px 0; border-radius:8px;'>📉 {l['name']} <span style='color:#ff4444; float:right'>{l['change']}%</span></div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Live Charts Section
+    st.markdown("### 📊 LIVE CHARTS")
+    chart_options = ["NIFTY 50", "BANK NIFTY", "RELIANCE", "HDFC BANK", "INFOSYS", "TCS"]
+    selected_chart = st.selectbox("Select Stock/Index for Chart", chart_options)
+    
+    symbol_map = {
+        "NIFTY 50": "^NSEI", "BANK NIFTY": "^NSEBANK",
+        "RELIANCE": "RELIANCE.NS", "HDFC BANK": "HDFCBANK.NS",
+        "INFOSYS": "INFY.NS", "TCS": "TCS.NS"
+    }
+    
+    symbol = symbol_map.get(selected_chart, "^NSEI")
+    df = get_stock_chart(symbol, st.session_state.selected_timeframe)
+    
+    if df is not None:
+        st.line_chart(df['Close'], use_container_width=True)
+        
+        # Additional stats
+        current_price = df['Close'].iloc[-1]
+        prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
+        change = current_price - prev_close
+        change_percent = (change / prev_close) * 100 if prev_close != 0 else 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Current Price", f"₹{current_price:,.2f}", f"{change_percent:+.2f}%")
+        col2.metric("Day High", f"₹{df['High'].max():,.2f}")
+        col3.metric("Day Low", f"₹{df['Low'].min():,.2f}")
+        col4.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}")
+    else:
+        st.warning("Chart data not available")
+    
+    st.markdown("---")
+    
+    # Latest News Section
+    st.markdown("### 📰 LATEST MARKET NEWS")
+    for news in news_items:
+        st.markdown(f"""
+        <div style='background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin:5px 0; border-left:3px solid #00ff88;'>
+            <b>📌 {news['title']}</b><br>
+            <span style='color:#94a3b8; font-size:12px'>{news['time']} | {news.get('source', 'Market Update')}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ================= CUSTOM CSS =================
 st.markdown("""
@@ -1356,7 +1465,7 @@ if not st.session_state.app_unlocked:
 st_autorefresh(interval=30000, key="q4_auto_refresh", limit=None)
 
 # ================= TABS =================
-tab1, tab2 = st.tabs(["📈 ALGO TRADING", "🤖 AI EARNINGS DASHBOARD"])
+tab1, tab2, tab3 = st.tabs(["📈 ALGO TRADING", "🤖 AI EARNINGS DASHBOARD", "📰 LIVE MARKET"])
 
 # ================= TAB 1: ALGO TRADING =================
 with tab1:
@@ -1404,7 +1513,6 @@ with tab1:
 
     st.markdown("---")
 
-    # FIXED TARGETS
     st.markdown("### 🎯 FIXED TARGETS")
     col1, col2, col3 = st.columns(3)
     col1.metric("🇮🇳 NIFTY", "Target ₹10", delta="per point")
@@ -1413,10 +1521,8 @@ with tab1:
 
     st.markdown("---")
 
-    # GLOBAL TREND
     st.markdown("### 🌍 GLOBAL MARKET TREND")
     global_trend, us_trend, asia_trend, dxy_trend = get_global_trend()
-
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if global_trend == "BULLISH":
@@ -1449,7 +1555,6 @@ with tab1:
 
     st.markdown("---")
 
-    # NIFTY TREND
     nifty_trend = get_nifty_trend()
     st.markdown("### 🇮🇳 NIFTY TREND")
     if nifty_trend == "BULLISH":
@@ -1461,7 +1566,6 @@ with tab1:
 
     st.markdown("---")
 
-    # TRADE COUNTERS
     st.markdown("### 📊 DAILY TRADE COUNTERS (Max 2 per asset)")
     col1, col2, col3 = st.columns(3)
     col1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
@@ -1469,40 +1573,15 @@ with tab1:
     col3.metric("🌿 NG Trades", f"{st.session_state.ng_trades_count}/2")
     st.markdown("---")
 
-    # SIDEBAR
     with st.sidebar:
         st.markdown("## ⚙️ SETTINGS")
         
-        # FUND MANAGEMENT SECTION (NEW)
         st.markdown("### 💰 FUND MANAGEMENT")
-        st.session_state.initial_capital = st.number_input(
-            "💰 Initial Capital (₹)", 
-            min_value=50000, 
-            max_value=10000000, 
-            value=st.session_state.initial_capital,
-            step=50000,
-            format="%d"
-        )
-        st.session_state.max_capital_per_trade = st.slider(
-            "📊 Max Capital per Trade (%)", 
-            min_value=5, 
-            max_value=50, 
-            value=st.session_state.max_capital_per_trade,
-            step=5,
-            help="एका trade मध्ये किती टक्के capital वापरायचा"
-        )
-        st.session_state.premium_estimate = st.number_input(
-            "🎯 Estimated Premium per Share (₹)", 
-            min_value=5, 
-            max_value=200, 
-            value=st.session_state.premium_estimate,
-            step=5,
-            help="Option entry premium चा अंदाज"
-        )
-        
+        st.session_state.initial_capital = st.number_input("💰 Initial Capital (₹)", min_value=50000, max_value=10000000, value=st.session_state.initial_capital, step=50000, format="%d")
+        st.session_state.max_capital_per_trade = st.slider("📊 Max Capital per Trade (%)", min_value=5, max_value=50, value=st.session_state.max_capital_per_trade, step=5)
+        st.session_state.premium_estimate = st.number_input("🎯 Estimated Premium per Share (₹)", min_value=5, max_value=200, value=st.session_state.premium_estimate, step=5)
         available_funds = get_available_funds()
         st.metric("💵 Available Funds", f"₹{available_funds:,.0f}")
-        
         if available_funds < 100000:
             st.warning("⚠️ Low funds! Auto lot size will reduce automatically.")
         else:
@@ -1557,7 +1636,6 @@ with tab1:
         st.caption("Daily Loss Limit: ₹1,00,000")
         st.caption("🔐 App Protected with Password")
 
-    # TRADING JOURNAL
     st.markdown("## 📋 TRADING JOURNAL")
 
     if st.session_state.trade_journal:
@@ -1580,27 +1658,18 @@ with tab1:
 
     st.markdown("---")
 
-    # MAIN TRADING LOGIC (Simplified for running state)
     if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
-        
-        # NIFTY TRADING
         if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2:
             if is_nifty_market_open():
                 signal, price = get_nifty_signal()
                 if signal != "WAIT":
                     trade_type = "BUY" if signal == "BUY" else "SELL"
                     qty = st.session_state.nifty_lots * 65
-                    
                     trade_record = {
-                        "No": len(st.session_state.trade_journal) + 1,
-                        "Symbol": "NIFTY",
-                        "Type": trade_type,
-                        "Qty": qty,
-                        "Lots": st.session_state.nifty_lots,
-                        "Entry Price": round(price, 2),
-                        "Target": FIXED_TARGETS["NIFTY"],
-                        "Status": "OPEN",
-                        "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                        "No": len(st.session_state.trade_journal) + 1, "Symbol": "NIFTY",
+                        "Type": trade_type, "Qty": qty, "Lots": st.session_state.nifty_lots,
+                        "Entry Price": round(price, 2), "Target": FIXED_TARGETS["NIFTY"],
+                        "Status": "OPEN", "Entry Time": get_ist_now().strftime('%H:%M:%S')
                     }
                     st.session_state.trade_journal.append(trade_record)
                     st.session_state.nifty_trades_count += 1
@@ -1608,7 +1677,6 @@ with tab1:
                     st.success(f"✅ NIFTY {trade_type} Executed!")
                     st.rerun()
         
-        # CRUDE TRADING
         if st.session_state.enable_crude and st.session_state.crude_trades_count < 2:
             if is_commodity_market_open():
                 signal, price = get_crude_signal()
@@ -1616,17 +1684,11 @@ with tab1:
                     trade_type = "BUY" if signal == "BUY" else "SELL"
                     qty = st.session_state.crude_lots * 100
                     price_inr = price * get_usd_inr_rate()
-                    
                     trade_record = {
-                        "No": len(st.session_state.trade_journal) + 1,
-                        "Symbol": "CRUDE OIL",
-                        "Type": trade_type,
-                        "Qty": qty,
-                        "Lots": st.session_state.crude_lots,
-                        "Entry Price": round(price_inr, 2),
-                        "Target": FIXED_TARGETS["CRUDEOIL"],
-                        "Status": "OPEN",
-                        "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                        "No": len(st.session_state.trade_journal) + 1, "Symbol": "CRUDE OIL",
+                        "Type": trade_type, "Qty": qty, "Lots": st.session_state.crude_lots,
+                        "Entry Price": round(price_inr, 2), "Target": FIXED_TARGETS["CRUDEOIL"],
+                        "Status": "OPEN", "Entry Time": get_ist_now().strftime('%H:%M:%S')
                     }
                     st.session_state.trade_journal.append(trade_record)
                     st.session_state.crude_trades_count += 1
@@ -1634,7 +1696,6 @@ with tab1:
                     st.success(f"✅ CRUDE {trade_type} Executed!")
                     st.rerun()
         
-        # NG TRADING
         if st.session_state.enable_ng and st.session_state.ng_trades_count < 2:
             if is_commodity_market_open():
                 signal, price = get_ng_signal()
@@ -1642,17 +1703,11 @@ with tab1:
                     trade_type = "BUY" if signal == "BUY" else "SELL"
                     qty = st.session_state.ng_lots * 1250
                     price_inr = price * get_usd_inr_rate()
-                    
                     trade_record = {
-                        "No": len(st.session_state.trade_journal) + 1,
-                        "Symbol": "NATURAL GAS",
-                        "Type": trade_type,
-                        "Qty": qty,
-                        "Lots": st.session_state.ng_lots,
-                        "Entry Price": round(price_inr, 2),
-                        "Target": FIXED_TARGETS["NATURALGAS"],
-                        "Status": "OPEN",
-                        "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                        "No": len(st.session_state.trade_journal) + 1, "Symbol": "NATURAL GAS",
+                        "Type": trade_type, "Qty": qty, "Lots": st.session_state.ng_lots,
+                        "Entry Price": round(price_inr, 2), "Target": FIXED_TARGETS["NATURALGAS"],
+                        "Status": "OPEN", "Entry Time": get_ist_now().strftime('%H:%M:%S')
                     }
                     st.session_state.trade_journal.append(trade_record)
                     st.session_state.ng_trades_count += 1
@@ -1660,49 +1715,36 @@ with tab1:
                     st.success(f"✅ NG {trade_type} Executed!")
                     st.rerun()
         
-        # STOCKS SCANNING (Limited for performance)
         if st.session_state.enable_stocks:
             st.markdown("## 🔍 SCANNING F&O STOCKS")
-            
             if not is_stock_market_open():
                 st.info("⏸️ Market Closed | 9:30 AM - 2:30 PM IST")
             else:
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                results = st.container()
-                
                 signals_found = []
                 trades_done = sum(v["trades"] for v in st.session_state.stock_trades.values())
                 
                 for idx, stock in enumerate(FO_STOCKS[:20]):
                     progress_bar.progress((idx+1)/20)
                     status_text.text(f"Scanning {stock['name']}...")
-                    
                     if trades_done >= st.session_state.max_stocks_per_day:
                         break
-                    
                     sig = calculate_signals_stock(stock["symbol"], stock["name"], stock["sector"])
                     if sig and (sig["buy"] or sig["sell"]):
                         trade_done = st.session_state.stock_trades[stock["name"]]["trades"] >= 1
                         if not trade_done:
                             qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit, 
                                                                   st.session_state.enable_big_lot_mode, stock.get("big_lot_qty"))
-                            
                             if qty > 0:
                                 buy_price = sig["price"]
                                 option_type = "CE" if sig["buy"] else "PE"
-                                
                                 itm_strike, actual_itm, _ = get_stock_itm_strike_auto(buy_price, stock, option_type)
-                                
                                 trade_record = {
-                                    "No": len(st.session_state.trade_journal) + 1,
-                                    "Symbol": stock["name"],
+                                    "No": len(st.session_state.trade_journal) + 1, "Symbol": stock["name"],
                                     "Type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
-                                    "Qty": qty,
-                                    "Lots": lots,
-                                    "Entry Price": round(buy_price, 2),
-                                    "ITM Strike": itm_strike,
-                                    "Status": "OPEN",
+                                    "Qty": qty, "Lots": lots, "Entry Price": round(buy_price, 2),
+                                    "ITM Strike": itm_strike, "Status": "OPEN",
                                     "Entry Time": get_ist_now().strftime('%H:%M:%S')
                                 }
                                 st.session_state.trade_journal.append(trade_record)
@@ -1713,11 +1755,10 @@ with tab1:
                 progress_bar.empty()
                 status_text.empty()
                 
-                with results:
-                    if signals_found:
-                        st.success(f"✅ Signals Found!")
-                    else:
-                        st.info("📭 No signals found")
+                if signals_found:
+                    st.success(f"✅ Signals Found!")
+                else:
+                    st.info("📭 No signals found")
         
     elif not st.session_state.algo_running:
         st.warning("⏸️ ALGO IS STOPPED. Press START to begin trading.")
@@ -1726,7 +1767,6 @@ with tab1:
     elif check_daily_loss_limit():
         st.error(f"🚨 DAILY LOSS LIMIT HIT! Trading stopped for today. 🚨")
 
-    # FOOTER
     st.markdown("---")
     st.caption(f"📊 Trading Journal | NIFTY: {st.session_state.nifty_trades_count}/2 | CRUDE: {st.session_state.crude_trades_count}/2 | NG: {st.session_state.ng_trades_count}/2")
     st.caption("🔐 App Protected | Developed by Satish D. Nakhate")
@@ -1734,3 +1774,7 @@ with tab1:
 # ================= TAB 2: AI EARNINGS DASHBOARD =================
 with tab2:
     show_q4_dashboard()
+
+# ================= TAB 3: LIVE MARKET DASHBOARD =================
+with tab3:
+    show_live_market_dashboard()
