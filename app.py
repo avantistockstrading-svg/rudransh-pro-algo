@@ -1,6 +1,6 @@
 # ============================================================
 # RUDRANSH PRO ALGO X - COMPLETE AUTO TRADING ECOSYSTEM
-# With AI Auto Buy/Sell, Real-time FMP API, Voice Alerts
+# With Fund Management, Dynamic Lot Sizing, AI Auto Trade
 # DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114
 # ============================================================
 
@@ -10,7 +10,6 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import time
-import json
 from streamlit_autorefresh import st_autorefresh
 
 # ================= PAGE CONFIG =================
@@ -30,6 +29,73 @@ if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
     st.session_state.app_password = "8055"
+
+# ================= FUND MANAGEMENT SYSTEM (NEW) =================
+if "initial_capital" not in st.session_state:
+    st.session_state.initial_capital = 1000000  # ₹10 Lakhs default
+if "premium_estimate" not in st.session_state:
+    st.session_state.premium_estimate = 30
+if "max_capital_per_trade" not in st.session_state:
+    st.session_state.max_capital_per_trade = 20  # 20% of capital per trade max
+
+def get_available_funds():
+    """उपलब्ध फंड मिळवा (Initial Capital + P&L)"""
+    total_pnl = 0
+    for trade in st.session_state.trade_journal:
+        if 'Profit/Loss' in trade:
+            total_pnl += trade.get('Profit/Loss', 0)
+    
+    available = st.session_state.initial_capital + total_pnl
+    return max(available, 0)
+
+def calculate_dynamic_quantity(lot_size, max_qty_limit, enable_big_lot_mode, big_lot_qty, available_funds, entry_premium_estimate=30):
+    """
+    Fund नुसार Dynamic Quantity Calculate करेल
+    """
+    # Big Lot Mode ची quantity
+    if enable_big_lot_mode and big_lot_qty:
+        suggested_qty = big_lot_qty
+        suggested_lots = big_lot_qty // lot_size
+    else:
+        max_lots = max_qty_limit // lot_size
+        if max_lots < 1:
+            max_lots = 1
+        suggested_qty = max_lots * lot_size
+        suggested_lots = max_lots
+    
+    # Max capital per trade limit
+    max_capital_this_trade = (available_funds * st.session_state.max_capital_per_trade) / 100
+    max_qty_by_capital = max_capital_this_trade // entry_premium_estimate
+    
+    # Fund required for this trade
+    required_funds = suggested_qty * entry_premium_estimate
+    
+    # Minimum funds required (at least 1 lot)
+    min_required = lot_size * entry_premium_estimate
+    
+    # Fund check with capital limit
+    if available_funds >= required_funds and suggested_qty <= max_qty_by_capital:
+        # Enough funds - use suggested quantity
+        return suggested_qty, suggested_lots, None, required_funds
+        
+    elif available_funds >= min_required:
+        # Partial funds - reduce lot size
+        max_possible_qty = min(max_qty_by_capital, available_funds // entry_premium_estimate)
+        max_possible_lots = max_possible_qty // lot_size
+        if max_possible_lots < 1:
+            max_possible_lots = 1
+        
+        final_qty = max_possible_lots * lot_size
+        final_lots = max_possible_lots
+        final_required = final_qty * entry_premium_estimate
+        
+        warning = f"⚠️ Fund limit! Reduced from {suggested_lots} lots to {final_lots} lots. Required: ₹{required_funds:,.0f}, Available: ₹{available_funds:,.0f}, Max per trade: {st.session_state.max_capital_per_trade}%"
+        return final_qty, final_lots, warning, final_required
+        
+    else:
+        # Not enough for even 1 lot - cannot trade
+        warning = f"❌ Insufficient funds! Required: ₹{min_required:,.0f}, Available: ₹{available_funds:,.0f}. Trade skipped."
+        return 0, 0, warning, 0
 
 # ================= COMPANY SYMBOLS =================
 COMPANY_SYMBOLS = {
@@ -69,7 +135,7 @@ if "latest_alert" not in st.session_state:
 if "voice_alert" not in st.session_state:
     st.session_state.voice_alert = None
 if "auto_trade_enabled" not in st.session_state:
-    st.session_state.auto_trade_enabled = True  # Auto trade ON by default
+    st.session_state.auto_trade_enabled = True
 
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
@@ -90,13 +156,28 @@ if "ng_trades_count" not in st.session_state:
 MAX_QTY_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500]
 
 def calculate_trade_quantity(lot_size, max_qty_limit, enable_big_lot_mode=False, big_lot_qty=None):
-    if enable_big_lot_mode and big_lot_qty:
-        return big_lot_qty, big_lot_qty // lot_size
-    max_lots = max_qty_limit // lot_size
-    if max_lots < 1:
-        max_lots = 1
-    quantity = max_lots * lot_size
-    return quantity, max_lots
+    """
+    Fund Check सह Dynamic Quantity Calculate करेल (UPDATED)
+    """
+    # Get available funds
+    available_funds = get_available_funds()
+    premium_estimate = st.session_state.get("premium_estimate", 30)
+    
+    # Calculate using dynamic function
+    final_qty, final_lots, warning, required = calculate_dynamic_quantity(
+        lot_size, 
+        max_qty_limit, 
+        enable_big_lot_mode, 
+        big_lot_qty,
+        available_funds,
+        premium_estimate
+    )
+    
+    # Show warning if any
+    if warning:
+        st.warning(warning)
+    
+    return final_qty, final_lots
 
 # ================= SYMBOLS =================
 SYMBOLS = {"NIFTY": "^NSEI", "CRUDEOIL": "CL=F", "NATURALGAS": "NG=F"}
@@ -160,9 +241,7 @@ def get_stock_itm_strike_auto(price, stock, option_type="CE", strike_offset=2):
 
 def auto_execute_trade(symbol, trade_type, lot_size=0):
     """
-    Auto execute trade based on AI signal
-    symbol: "NIFTY", "CRUDEOIL", "NATURALGAS", or stock name
-    trade_type: "BUY" or "SELL"
+    Auto execute trade based on AI signal with Fund Check
     """
     
     # Get current price and trade limits
@@ -214,6 +293,10 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
             stock_data.get("big_lot_qty")
         )
     
+    # Check if qty is zero (insufficient funds)
+    if qty <= 0:
+        return False, "Insufficient funds for trade"
+    
     # Check if max trades reached
     if trade_counter >= max_trades:
         return False, f"Max trades ({max_trades}) reached for {symbol}"
@@ -247,6 +330,7 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
         st.session_state.stock_trades[symbol]["trades"] += 1
     
     # Send Telegram alert for auto trade
+    available_funds = get_available_funds()
     send_telegram(f"""
 🤖 *AUTO TRADE EXECUTED*
 
@@ -254,6 +338,7 @@ def auto_execute_trade(symbol, trade_type, lot_size=0):
 📊 Lots: {lots} | Qty: {qty}
 💰 Entry: ₹{current_price:.2f}
 🎯 Target: ₹{fixed_target}
+💵 Available Funds: ₹{available_funds:,.0f}
 ⏰ Time: {get_ist_now().strftime('%H:%M:%S')}
 
 -- AI Auto Trading System --
@@ -275,7 +360,6 @@ def process_ai_trade_signal(company_name, verdict, trade_signal):
     
     # Only auto-trade on strong signals
     if "STRONG BUY" in trade_signal or trade_signal == "BUY":
-        # Trade NIFTY on strong earnings signals
         success, msg = auto_execute_trade("NIFTY", "BUY")
         if success:
             st.toast(f"🤖 AUTO BUY: NIFTY executed based on {company_name} result!", icon="🟢")
@@ -284,7 +368,6 @@ def process_ai_trade_signal(company_name, verdict, trade_signal):
             return False, msg
             
     elif "STRONG SELL" in trade_signal or trade_signal == "SELL":
-        # Auto sell on negative signals
         success, msg = auto_execute_trade("NIFTY", "SELL")
         if success:
             st.toast(f"🤖 AUTO SELL: NIFTY executed based on {company_name} result!", icon="🔴")
@@ -346,7 +429,6 @@ def ai_analyze_earnings(company_name, eps_actual, eps_estimated, revenue_actual=
 def check_for_new_earnings():
     """Check FMP API for new earnings announcements"""
     try:
-        # Fetch earnings calendar for recent dates
         today = get_ist_now().date()
         from_date = (today - timedelta(days=2)).strftime("%Y-%m-%d")
         to_date = today.strftime("%Y-%m-%d")
@@ -377,15 +459,12 @@ def check_for_new_earnings():
                     current_data = st.session_state.q4_results[company_name]
                     
                     if current_data.get('eps_actual') != eps_actual and not current_data.get('alert_sent', False):
-                        # New result detected!
                         surprise_percent = ((eps_actual - eps_estimated) / abs(eps_estimated)) * 100
                         
-                        # AI Analysis
                         verdict, bullish_score, reasoning, trade_signal = ai_analyze_earnings(
                             company_name, eps_actual, eps_estimated
                         )
                         
-                        # Update session state
                         st.session_state.q4_results[company_name].update({
                             "profit": surprise_percent,
                             "verdict": verdict,
@@ -410,7 +489,6 @@ def check_for_new_earnings():
                             "time": get_ist_now().strftime("%H:%M:%S")
                         })
         
-        # Process all new alerts
         for alert in new_alerts:
             send_comprehensive_alert(alert)
             st.session_state.alert_history.insert(0, alert)
@@ -435,19 +513,18 @@ def send_comprehensive_alert(alert):
     # 1. Telegram Alert
     send_telegram_alert(company, verdict, surprise, reasoning, trade_signal)
     
-    # 2. Store for popup (will be shown in dashboard)
+    # 2. Store for popup
     st.session_state.latest_alert = alert
     
-    # 3. Voice Alert (JavaScript will handle)
+    # 3. Voice Alert
     voice_msg = f"Alert for {company}. {verdict} with {abs(surprise):.1f} percent surprise. {trade_signal} signal."
     st.session_state.voice_alert = voice_msg
     
-    # 4. AUTO TRADE EXECUTION
+    # 4. Auto Trade Execution
     if st.session_state.get("auto_trade_enabled", False):
         trade_executed, msg = process_ai_trade_signal(company, verdict, trade_signal)
         if trade_executed:
             st.toast(f"🤖 {msg}", icon="🤖")
-            # Also send trade confirmation to Telegram
             send_telegram(f"✅ AUTO TRADE: {trade_signal} signal executed for {company}")
 
 def send_telegram_alert(company, verdict, surprise, reasoning, trade_signal):
@@ -475,8 +552,7 @@ def send_telegram_alert(company, verdict, surprise, reasoning, trade_signal):
 ⏰ *Time:* {get_ist_now().strftime('%I:%M:%S %p')}
 
 --
-🔔 *RUDRANSH PRO ALGO X*
-AI-Powered Real-Time Alerts"""
+🔔 *RUDRANSH PRO ALGO X*"""
     
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
@@ -496,7 +572,6 @@ def send_telegram(msg):
 # ================= VOICE ALERT JAVASCRIPT =================
 
 def get_voice_alert_js():
-    """JavaScript for voice alerts"""
     return """
     <script>
     function speakAlert(message) {
@@ -509,7 +584,6 @@ def get_voice_alert_js():
             window.speechSynthesis.speak(utterance);
         }
     }
-    
     const voiceAlertDiv = document.getElementById('voice-alert-trigger');
     if (voiceAlertDiv && voiceAlertDiv.innerText) {
         speakAlert(voiceAlertDiv.innerText);
@@ -760,7 +834,7 @@ MAX_DAILY_LOSS = 100000
 def check_daily_loss_limit():
     return abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
 
-# ================= HELPER FUNCTIONS =================
+# ================= TECHNICAL INDICATORS (Simplified) =================
 def get_technical_indicators(df):
     if df.empty or len(df) < 200:
         return None
@@ -1193,6 +1267,10 @@ def show_q4_dashboard():
     with col4:
         st.metric("🎯 AI Buy Signals", bullish_signals)
     
+    # Fund Status Display (NEW)
+    available_funds = get_available_funds()
+    st.markdown(f"### 💰 Fund Status: ₹{available_funds:,.0f} available | Max {st.session_state.max_capital_per_trade}% per trade")
+    
     # Auto Trade Status
     if st.session_state.auto_trade_enabled:
         st.success("🤖 **AUTO TRADING ACTIVE** - AI signals will automatically execute BUY/SELL orders")
@@ -1395,13 +1473,48 @@ with tab1:
     with st.sidebar:
         st.markdown("## ⚙️ SETTINGS")
         
+        # FUND MANAGEMENT SECTION (NEW)
+        st.markdown("### 💰 FUND MANAGEMENT")
+        st.session_state.initial_capital = st.number_input(
+            "💰 Initial Capital (₹)", 
+            min_value=50000, 
+            max_value=10000000, 
+            value=st.session_state.initial_capital,
+            step=50000,
+            format="%d"
+        )
+        st.session_state.max_capital_per_trade = st.slider(
+            "📊 Max Capital per Trade (%)", 
+            min_value=5, 
+            max_value=50, 
+            value=st.session_state.max_capital_per_trade,
+            step=5,
+            help="एका trade मध्ये किती टक्के capital वापरायचा"
+        )
+        st.session_state.premium_estimate = st.number_input(
+            "🎯 Estimated Premium per Share (₹)", 
+            min_value=5, 
+            max_value=200, 
+            value=st.session_state.premium_estimate,
+            step=5,
+            help="Option entry premium चा अंदाज"
+        )
+        
+        available_funds = get_available_funds()
+        st.metric("💵 Available Funds", f"₹{available_funds:,.0f}")
+        
+        if available_funds < 100000:
+            st.warning("⚠️ Low funds! Auto lot size will reduce automatically.")
+        else:
+            st.success(f"✅ Sufficient funds")
+        
+        st.markdown("---")
         st.markdown("### 🤖 AUTO TRADE")
         st.session_state.auto_trade_enabled = st.checkbox("🔮 Enable AI Auto Trading", value=st.session_state.auto_trade_enabled)
         if st.session_state.auto_trade_enabled:
-            st.success("✅ AUTO TRADING ACTIVE - Trades will execute automatically")
-            st.caption("BUY/SELL on STRONG signals only")
+            st.success("✅ AUTO TRADING ACTIVE")
         else:
-            st.info("⏸️ Manual mode - No auto trades")
+            st.info("⏸️ Manual mode")
         
         st.markdown("---")
         st.markdown("### 📌 ASSETS")
@@ -1429,7 +1542,7 @@ with tab1:
             st.session_state.max_qty_limit = st.selectbox("Max Qty per Trade", MAX_QTY_OPTIONS, index=14)
             st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE", value=st.session_state.enable_big_lot_mode)
             if st.session_state.enable_big_lot_mode:
-                st.success("✅ BIG LOT ACTIVE")
+                st.success("✅ BIG LOT ACTIVE - Auto reduces if funds low")
         
         st.markdown("---")
         st.markdown("### 📊 DAILY STATUS")
@@ -1467,7 +1580,7 @@ with tab1:
 
     st.markdown("---")
 
-    # MAIN TRADING LOGIC
+    # MAIN TRADING LOGIC (Simplified for running state)
     if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
         
         # NIFTY TRADING
@@ -1547,7 +1660,7 @@ with tab1:
                     st.success(f"✅ NG {trade_type} Executed!")
                     st.rerun()
         
-        # STOCKS SCANNING
+        # STOCKS SCANNING (Limited for performance)
         if st.session_state.enable_stocks:
             st.markdown("## 🔍 SCANNING F&O STOCKS")
             
@@ -1575,26 +1688,27 @@ with tab1:
                             qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit, 
                                                                   st.session_state.enable_big_lot_mode, stock.get("big_lot_qty"))
                             
-                            buy_price = sig["price"]
-                            option_type = "CE" if sig["buy"] else "PE"
-                            
-                            itm_strike, actual_itm, _ = get_stock_itm_strike_auto(buy_price, stock, option_type)
-                            
-                            trade_record = {
-                                "No": len(st.session_state.trade_journal) + 1,
-                                "Symbol": stock["name"],
-                                "Type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
-                                "Qty": qty,
-                                "Lots": lots,
-                                "Entry Price": round(buy_price, 2),
-                                "ITM Strike": itm_strike,
-                                "Status": "OPEN",
-                                "Entry Time": get_ist_now().strftime('%H:%M:%S')
-                            }
-                            st.session_state.trade_journal.append(trade_record)
-                            st.session_state.stock_trades[stock["name"]]["trades"] += 1
-                            trades_done += 1
-                            send_telegram(f"{'BUY' if sig['buy'] else 'SELL'} {stock['name']} {option_type} | Strike: {itm_strike}")
+                            if qty > 0:
+                                buy_price = sig["price"]
+                                option_type = "CE" if sig["buy"] else "PE"
+                                
+                                itm_strike, actual_itm, _ = get_stock_itm_strike_auto(buy_price, stock, option_type)
+                                
+                                trade_record = {
+                                    "No": len(st.session_state.trade_journal) + 1,
+                                    "Symbol": stock["name"],
+                                    "Type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
+                                    "Qty": qty,
+                                    "Lots": lots,
+                                    "Entry Price": round(buy_price, 2),
+                                    "ITM Strike": itm_strike,
+                                    "Status": "OPEN",
+                                    "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                                }
+                                st.session_state.trade_journal.append(trade_record)
+                                st.session_state.stock_trades[stock["name"]]["trades"] += 1
+                                trades_done += 1
+                                send_telegram(f"{'BUY' if sig['buy'] else 'SELL'} {stock['name']} {option_type} | Strike: {itm_strike}")
                 
                 progress_bar.empty()
                 status_text.empty()
