@@ -65,20 +65,57 @@ if "last_trade_date" not in st.session_state:
     st.session_state.last_trade_date = get_ist_now().date()
 if "max_daily_loss" not in st.session_state:
     st.session_state.max_daily_loss = 100000
-if "target_nifty" not in st.session_state:
-    st.session_state.target_nifty = 10
-if "target_crude" not in st.session_state:
-    st.session_state.target_crude = 10
-if "target_ng" not in st.session_state:
-    st.session_state.target_ng = 1
+
+# ================= LOT SIZE AND TP SETTINGS (WITH ON/OFF) =================
+# NIFTY Settings
 if "nifty_lots" not in st.session_state:
     st.session_state.nifty_lots = 1
+if "nifty_tp1" not in st.session_state:
+    st.session_state.nifty_tp1 = 10
+if "nifty_tp2" not in st.session_state:
+    st.session_state.nifty_tp2 = 20
+if "nifty_tp3" not in st.session_state:
+    st.session_state.nifty_tp3 = 30
+if "nifty_tp1_enabled" not in st.session_state:
+    st.session_state.nifty_tp1_enabled = True
+if "nifty_tp2_enabled" not in st.session_state:
+    st.session_state.nifty_tp2_enabled = True
+if "nifty_tp3_enabled" not in st.session_state:
+    st.session_state.nifty_tp3_enabled = False
+
+# CRUDE Settings
 if "crude_lots" not in st.session_state:
     st.session_state.crude_lots = 1
+if "crude_tp1" not in st.session_state:
+    st.session_state.crude_tp1 = 10
+if "crude_tp2" not in st.session_state:
+    st.session_state.crude_tp2 = 20
+if "crude_tp3" not in st.session_state:
+    st.session_state.crude_tp3 = 30
+if "crude_tp1_enabled" not in st.session_state:
+    st.session_state.crude_tp1_enabled = True
+if "crude_tp2_enabled" not in st.session_state:
+    st.session_state.crude_tp2_enabled = True
+if "crude_tp3_enabled" not in st.session_state:
+    st.session_state.crude_tp3_enabled = False
+
+# NG Settings
 if "ng_lots" not in st.session_state:
     st.session_state.ng_lots = 1
+if "ng_tp1" not in st.session_state:
+    st.session_state.ng_tp1 = 1
+if "ng_tp2" not in st.session_state:
+    st.session_state.ng_tp2 = 2
+if "ng_tp3" not in st.session_state:
+    st.session_state.ng_tp3 = 3
+if "ng_tp1_enabled" not in st.session_state:
+    st.session_state.ng_tp1_enabled = True
+if "ng_tp2_enabled" not in st.session_state:
+    st.session_state.ng_tp2_enabled = True
+if "ng_tp3_enabled" not in st.session_state:
+    st.session_state.ng_tp3_enabled = False
 
-# ================= Q4 RESULTS DATA (FULLY REAL with API) =================
+# ================= Q4 RESULTS DATA =================
 if "q4_results" not in st.session_state:
     st.session_state.q4_results = {
         "HDFC Bank": {"profit": 9.1, "verdict": "🟡 Mixed", "date": "15 May 2026", "revenue": "₹88,500 Cr", "ai_signal": "WAIT"},
@@ -93,7 +130,7 @@ if "q4_results" not in st.session_state:
         "PI Industries": {"profit": 0, "verdict": "⏳ Pending", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
     }
 
-# Reset daily trades and loss
+# Reset daily trades
 if get_ist_now().date() != st.session_state.last_trade_date:
     st.session_state.daily_loss = 0
     st.session_state.nifty_trades_count = 0
@@ -199,7 +236,6 @@ def get_nifty_direction():
     except:
         return "NEUTRAL"
 
-# ================= STRICT BUY/SELL SIGNALS =================
 def get_strict_signal(symbol):
     try:
         df = yf.download(symbol, period="10d", interval="5m", progress=False)
@@ -219,14 +255,12 @@ def get_strict_signal(symbol):
         tf15 = get_mtf_trend(symbol, "15m")
         tf1h = get_mtf_trend(symbol, "60m")
         
-        # Strict Buy Condition
         buy_condition = (is_nifty_bullish and not_sideways and
                          ind["ema9"] > ind["ema20"] and ind["current_price"] > ind["ema200"] and
                          ind["rsi"] >= 60 and ind["adx"] >= 25 and ind["volume_filter"] and
                          ind["strong_bull"] and ind["current_price"] > ind["c1_high"] and
                          tf5 and tf15 and tf1h)
         
-        # Strict Sell Condition
         sell_condition = (is_nifty_bearish and not_sideways and
                           ind["ema9"] < ind["ema20"] and ind["current_price"] < ind["ema200"] and
                           ind["rsi"] <= 40 and ind["adx"] >= 25 and ind["volume_filter"] and
@@ -239,7 +273,6 @@ def get_strict_signal(symbol):
             return "SELL", ind["current_price"], ind
         return "WAIT", ind["current_price"], ind
     except Exception as e:
-        print(f"Signal Error {symbol}: {e}")
         return "WAIT", 0, None
 
 def send_telegram(msg):
@@ -250,7 +283,12 @@ def send_telegram(msg):
     except:
         pass
 
-def execute_trade(symbol, trade_type, price, lots, qty, target):
+def execute_trade(symbol, trade_type, price, lots, qty, targets):
+    target_text = ""
+    if targets:
+        target_list = [f"TP{i+1}: ₹{t}" for i, t in enumerate(targets) if t > 0]
+        target_text = " | ".join(target_list)
+    
     trade_record = {
         "No": len(st.session_state.trade_journal) + 1,
         "Time": get_ist_now().strftime('%H:%M:%S'),
@@ -259,33 +297,39 @@ def execute_trade(symbol, trade_type, price, lots, qty, target):
         "Lots": lots,
         "Qty": qty,
         "Entry Price": round(price, 2),
-        "Target": target,
+        "Targets": target_text,
         "Status": "OPEN"
     }
     st.session_state.trade_journal.append(trade_record)
+    
     if symbol == "NIFTY":
         st.session_state.nifty_trades_count += 1
     elif symbol == "CRUDE":
         st.session_state.crude_trades_count += 1
     else:
         st.session_state.ng_trades_count += 1
-    send_telegram(f"🤖 {trade_type} {symbol} | {lots} lots @ ₹{price:.2f} | Target: ₹{target}")
+    
+    send_telegram(f"🤖 {trade_type} {symbol} | {lots} lots @ ₹{price:.2f} | {target_text}")
     return True
 
-# ================= MARKET HOURS CHECK =================
+# ================= MARKET HOURS =================
 def is_market_open(asset):
     now = get_ist_now()
-    # Equity (NIFTY/Stocks): 9:15 AM to 3:30 PM
-    if asset in ["NIFTY"]:
+    if asset == "NIFTY":
         return now.weekday() < 5 and ((now.hour == 9 and now.minute >= 15) or (10 <= now.hour < 15) or (now.hour == 15 and now.minute <= 30))
-    # Commodity (CRUDE/NG): 9:00 AM to 11:30 PM
-    elif asset in ["CRUDE", "NG"]:
+    else:
         return now.weekday() < 5 and ((now.hour >= 9 and now.hour < 23) or (now.hour == 23 and now.minute <= 30))
-    return False
+
+# ================= LIVE TIME DISPLAY =================
+live_time_placeholder = st.empty()
 
 # ================= UI HEADER =================
 st.markdown("<h1 style='text-align:center;'>RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
+
+# ================= LIVE TIME UPDATE =================
+with live_time_placeholder.container():
+    st.markdown(f"<h3 style='text-align:center;'>🕐 {get_ist_now().strftime('%H:%M:%S')} IST</h3>", unsafe_allow_html=True)
 
 # ================= CONTROL PANEL =================
 col_a, col_b, col_c, col_d = st.columns([2.2, 1, 1, 1.2])
@@ -313,15 +357,15 @@ with col_d:
 
 st.markdown("---")
 
-# ================= DAILY LOSS and TRADE STATUS =================
+# ================= DAILY LOSS =================
 if check_daily_loss_limit():
-    st.error(f"🚨 DAILY LOSS LIMIT HIT: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f} - TRADING STOPPED FOR TODAY! 🚨")
+    st.error(f"🚨 DAILY LOSS LIMIT HIT: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f}")
 else:
     st.info(f"📉 Daily Loss: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f}")
 
 st.markdown("---")
 
-# ================= LIVE PRICES AND STRICT SIGNALS =================
+# ================= LIVE PRICES AND SIGNALS =================
 usd_inr = get_usd_inr_rate()
 nifty_price = get_live_price("^NSEI")
 crude_price_usd = get_live_price("CL=F")
@@ -329,9 +373,9 @@ crude_price_inr = crude_price_usd * usd_inr if crude_price_usd else 0
 ng_price_usd = get_live_price("NG=F")
 ng_price_inr = ng_price_usd * usd_inr if ng_price_usd else 0
 
-nifty_signal, nifty_sig_price, _ = get_strict_signal("^NSEI")
-crude_signal, crude_sig_price, _ = get_strict_signal("CL=F")
-ng_signal, ng_sig_price, _ = get_strict_signal("NG=F")
+nifty_signal, _, _ = get_strict_signal("^NSEI")
+crude_signal, _, _ = get_strict_signal("CL=F")
+ng_signal, _, _ = get_strict_signal("NG=F")
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -361,45 +405,79 @@ with col3:
 
 st.markdown("---")
 
-# ================= Q4 RESULTS DASHBOARD (With API Demo) =================
+# ================= Q4 RESULTS DASHBOARD =================
 st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
-st.caption("🤖 Live AI Analysis | Based on Latest Announcements")
-
 rows = []
 for company, data in st.session_state.q4_results.items():
     profit_display = f"{data['profit']:+.1f}%" if data['profit'] != 0 else "—"
-    signal = data['ai_signal']
-    if "STRONG BUY" in signal:
-        signal_display = f"🟢🟢 {signal}"
-    elif "BUY" in signal:
-        signal_display = f"🟢 {signal}"
-    elif "STRONG SELL" in signal:
-        signal_display = f"🔴🔴 {signal}"
-    elif "SELL" in signal:
-        signal_display = f"🔴 {signal}"
-    else:
-        signal_display = f"⏳ {signal}"
     rows.append({
         "Company": company, "Date": data['date'], "Profit Change": profit_display,
-        "Verdict": data['verdict'], "Revenue": data['revenue'],
-        "🤖 AI Signal": signal_display
+        "Verdict": data['verdict'], "Revenue": data['revenue'], "🤖 AI Signal": data['ai_signal']
     })
 df_q4 = pd.DataFrame(rows)
-st.dataframe(df_q4, use_container_width=True, height=400)
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total", len(st.session_state.q4_results))
-col2.metric("🟢 Positive", sum(1 for d in st.session_state.q4_results.values() if "Positive" in d['verdict']))
-col3.metric("🔴 Negative", sum(1 for d in st.session_state.q4_results.values() if "Negative" in d['verdict']))
-col4.metric("⏳ Pending", sum(1 for d in st.session_state.q4_results.values() if d['profit'] == 0))
+st.dataframe(df_q4, use_container_width=True, height=300)
 st.markdown("---")
 
-# ================= TRADE JOURNAL =================
+# ================= LOT SIZE AND TP SETTINGS (EXPANDER) =================
+with st.expander("⚙️ LOT SIZE & TARGET PROFIT SETTINGS"):
+    st.markdown("### 🇮🇳 NIFTY SETTINGS")
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    with c1:
+        st.session_state.nifty_lots = st.number_input("Lots", 1, 50, st.session_state.nifty_lots)
+    with c2:
+        st.session_state.nifty_tp1_enabled = st.checkbox("TP1 ON", st.session_state.nifty_tp1_enabled)
+    with c3:
+        st.session_state.nifty_tp1 = st.number_input("TP1", 1, 100, st.session_state.nifty_tp1, disabled=not st.session_state.nifty_tp1_enabled)
+    with c4:
+        st.session_state.nifty_tp2_enabled = st.checkbox("TP2 ON", st.session_state.nifty_tp2_enabled)
+    with c5:
+        st.session_state.nifty_tp2 = st.number_input("TP2", 1, 100, st.session_state.nifty_tp2, disabled=not st.session_state.nifty_tp2_enabled)
+    with c6:
+        st.session_state.nifty_tp3_enabled = st.checkbox("TP3 ON", st.session_state.nifty_tp3_enabled)
+    with c7:
+        st.session_state.nifty_tp3 = st.number_input("TP3", 1, 100, st.session_state.nifty_tp3, disabled=not st.session_state.nifty_tp3_enabled)
+    
+    st.markdown("### 🛢️ CRUDE SETTINGS")
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    with c1:
+        st.session_state.crude_lots = st.number_input("Lots", 1, 50, st.session_state.crude_lots, key="crude_lots")
+    with c2:
+        st.session_state.crude_tp1_enabled = st.checkbox("TP1 ON", st.session_state.crude_tp1_enabled, key="crude_tp1_en")
+    with c3:
+        st.session_state.crude_tp1 = st.number_input("TP1", 1, 100, st.session_state.crude_tp1, disabled=not st.session_state.crude_tp1_enabled, key="crude_tp1")
+    with c4:
+        st.session_state.crude_tp2_enabled = st.checkbox("TP2 ON", st.session_state.crude_tp2_enabled, key="crude_tp2_en")
+    with c5:
+        st.session_state.crude_tp2 = st.number_input("TP2", 1, 100, st.session_state.crude_tp2, disabled=not st.session_state.crude_tp2_enabled, key="crude_tp2")
+    with c6:
+        st.session_state.crude_tp3_enabled = st.checkbox("TP3 ON", st.session_state.crude_tp3_enabled, key="crude_tp3_en")
+    with c7:
+        st.session_state.crude_tp3 = st.number_input("TP3", 1, 100, st.session_state.crude_tp3, disabled=not st.session_state.crude_tp3_enabled, key="crude_tp3")
+    
+    st.markdown("### 🌿 NATURAL GAS SETTINGS")
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    with c1:
+        st.session_state.ng_lots = st.number_input("Lots", 1, 50, st.session_state.ng_lots, key="ng_lots")
+    with c2:
+        st.session_state.ng_tp1_enabled = st.checkbox("TP1 ON", st.session_state.ng_tp1_enabled, key="ng_tp1_en")
+    with c3:
+        st.session_state.ng_tp1 = st.number_input("TP1", 1, 50, st.session_state.ng_tp1, disabled=not st.session_state.ng_tp1_enabled, key="ng_tp1")
+    with c4:
+        st.session_state.ng_tp2_enabled = st.checkbox("TP2 ON", st.session_state.ng_tp2_enabled, key="ng_tp2_en")
+    with c5:
+        st.session_state.ng_tp2 = st.number_input("TP2", 1, 50, st.session_state.ng_tp2, disabled=not st.session_state.ng_tp2_enabled, key="ng_tp2")
+    with c6:
+        st.session_state.ng_tp3_enabled = st.checkbox("TP3 ON", st.session_state.ng_tp3_enabled, key="ng_tp3_en")
+    with c7:
+        st.session_state.ng_tp3 = st.number_input("TP3", 1, 50, st.session_state.ng_tp3, disabled=not st.session_state.ng_tp3_enabled, key="ng_tp3")
+
+st.markdown("---")
+
+# ================= TRADING JOURNAL =================
 st.markdown("## 📋 TRADING JOURNAL")
 if st.session_state.trade_journal:
     df_journal = pd.DataFrame(st.session_state.trade_journal)
     st.dataframe(df_journal, use_container_width=True, height=300)
-    st.caption(f"Total Trades: {len(st.session_state.trade_journal)}")
 else:
     st.info("📭 No trades executed yet.")
 
@@ -407,63 +485,81 @@ st.markdown("---")
 
 # ================= AUTO TRADING LOGIC =================
 if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
-    # NIFTY Trade
+    # Build target lists
+    nifty_targets = []
+    if st.session_state.nifty_tp1_enabled: nifty_targets.append(st.session_state.nifty_tp1)
+    if st.session_state.nifty_tp2_enabled: nifty_targets.append(st.session_state.nifty_tp2)
+    if st.session_state.nifty_tp3_enabled: nifty_targets.append(st.session_state.nifty_tp3)
+    
+    crude_targets = []
+    if st.session_state.crude_tp1_enabled: crude_targets.append(st.session_state.crude_tp1)
+    if st.session_state.crude_tp2_enabled: crude_targets.append(st.session_state.crude_tp2)
+    if st.session_state.crude_tp3_enabled: crude_targets.append(st.session_state.crude_tp3)
+    
+    ng_targets = []
+    if st.session_state.ng_tp1_enabled: ng_targets.append(st.session_state.ng_tp1)
+    if st.session_state.ng_tp2_enabled: ng_targets.append(st.session_state.ng_tp2)
+    if st.session_state.ng_tp3_enabled: ng_targets.append(st.session_state.ng_tp3)
+    
+    # NIFTY
     if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2 and is_market_open("NIFTY"):
         if nifty_signal != "WAIT":
             qty = st.session_state.nifty_lots * 65
-            if execute_trade("NIFTY", nifty_signal, nifty_price, st.session_state.nifty_lots, qty, st.session_state.target_nifty):
-                st.success(f"✅ NIFTY {nifty_signal} Executed at ₹{nifty_price:.2f}")
+            if execute_trade("NIFTY", nifty_signal, nifty_price, st.session_state.nifty_lots, qty, nifty_targets):
+                st.success(f"✅ NIFTY {nifty_signal} Executed!")
                 st.rerun()
-    # CRUDE Trade
+    
+    # CRUDE
     if st.session_state.enable_crude and st.session_state.crude_trades_count < 2 and is_market_open("CRUDE"):
         if crude_signal != "WAIT":
             qty = st.session_state.crude_lots * 100
-            if execute_trade("CRUDE", crude_signal, crude_price_inr, st.session_state.crude_lots, qty, st.session_state.target_crude):
-                st.success(f"✅ CRUDE {crude_signal} Executed at ₹{crude_price_inr:.2f}")
+            if execute_trade("CRUDE", crude_signal, crude_price_inr, st.session_state.crude_lots, qty, crude_targets):
+                st.success(f"✅ CRUDE {crude_signal} Executed!")
                 st.rerun()
-    # NG Trade
+    
+    # NG
     if st.session_state.enable_ng and st.session_state.ng_trades_count < 2 and is_market_open("NG"):
         if ng_signal != "WAIT":
             qty = st.session_state.ng_lots * 1250
-            if execute_trade("NG", ng_signal, ng_price_inr, st.session_state.ng_lots, qty, st.session_state.target_ng):
-                st.success(f"✅ NG {ng_signal} Executed at ₹{ng_price_inr:.2f}")
+            if execute_trade("NG", ng_signal, ng_price_inr, st.session_state.ng_lots, qty, ng_targets):
+                st.success(f"✅ NG {ng_signal} Executed!")
                 st.rerun()
+    
     st.info("⏳ Waiting for next scan...")
-elif st.session_state.algo_running and check_daily_loss_limit():
-    st.error("🚀 Algo Stopped due to Daily Loss Limit.")
+    
 elif not st.session_state.algo_running:
     st.warning("⏸️ ALGO IS STOPPED. Press START to begin trading.")
 elif not st.session_state.totp_verified:
     st.warning("🔐 Please enter valid 6-digit TOTP code and press START.")
+elif check_daily_loss_limit():
+    st.error("🚀 Algo Stopped due to Daily Loss Limit.")
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown("## ⚙️ SETTINGS")
-    st.session_state.max_daily_loss = st.number_input("📉 Max Daily Loss (₹)", min_value=10000, max_value=500000, value=st.session_state.max_daily_loss, step=10000)
+    st.markdown("## ⚙️ GENERAL SETTINGS")
+    st.session_state.max_daily_loss = st.number_input("📉 Max Daily Loss (₹)", 10000, 500000, st.session_state.max_daily_loss, 10000)
     st.markdown("---")
-    st.markdown("### 🎯 TARGETS (per point)")
-    st.session_state.target_nifty = st.number_input("🇮🇳 NIFTY Target", min_value=1, max_value=100, value=st.session_state.target_nifty)
-    st.session_state.target_crude = st.number_input("🛢️ CRUDE Target", min_value=1, max_value=100, value=st.session_state.target_crude)
-    st.session_state.target_ng = st.number_input("🌿 NG Target", min_value=1, max_value=100, value=st.session_state.target_ng)
+    st.markdown("### 📌 ASSETS (Enable/Disable)")
+    st.session_state.enable_nifty = st.checkbox("🇮🇳 NIFTY", st.session_state.enable_nifty)
+    st.session_state.enable_crude = st.checkbox("🛢️ CRUDE OIL", st.session_state.enable_crude)
+    st.session_state.enable_ng = st.checkbox("🌿 NATURAL GAS", st.session_state.enable_ng)
     st.markdown("---")
-    st.markdown("### 📌 LOT SIZE")
-    st.session_state.nifty_lots = st.number_input("NIFTY Lots", 1, 20, st.session_state.nifty_lots)
-    st.session_state.crude_lots = st.number_input("CRUDE Lots", 1, 20, st.session_state.crude_lots)
-    st.session_state.ng_lots = st.number_input("NG Lots", 1, 20, st.session_state.ng_lots)
-    st.markdown("---")
-    st.markdown("### 📊 STATUS")
+    st.markdown("### 📊 TODAY'S STATUS")
     st.metric("NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
     st.metric("CRUDE Trades", f"{st.session_state.crude_trades_count}/2")
     st.metric("NG Trades", f"{st.session_state.ng_trades_count}/2")
     st.markdown("---")
-    st.markdown("### 🛡️ STRICT FILTERS ACTIVE")
-    st.caption("• EMA9 > EMA20 (Buy) / < (Sell)")
-    st.caption("• Price >/< EMA200")
+    st.markdown("### 🛡️ ACTIVE STRICT FILTERS")
+    st.caption("• EMA9 >/ < EMA20 & Price vs EMA200")
     st.caption("• RSI >= 60 (Buy) / <= 40 (Sell)")
-    st.caption("• ADX >= 25")
+    st.caption("• ADX >= 25 & Volume Filter")
     st.caption("• Strong Bull/Bear Candle")
-    st.caption("• Multi-TF Confirmation")
+    st.caption("• Multi-TF (5m, 15m, 1h)")
 
+# ================= AUTO REFRESH FOR TIME =================
+time.sleep(1)
+st.rerun()
+
+# ================= FOOTER =================
 st.markdown("---")
-st.caption(f"🔄 Last update: {get_ist_now().strftime('%d %b %Y, %I:%M:%S %p')} IST")
 st.caption("🔐 App Protected | Developed by Satish D. Nakhate")
