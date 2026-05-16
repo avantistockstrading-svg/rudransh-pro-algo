@@ -1,5 +1,5 @@
 # ============================================================
-# RUDRANSH PRO-ALGO X - COMPLETE TRADING SYSTEM
+# RUDRANSH PRO-ALGO X + Q4 RESULTS DASHBOARD
 # DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114
 # ============================================================
 
@@ -9,8 +9,6 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import time
-import plotly.graph_objects as go
-import plotly.express as px
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="RUDRANSH PRO-ALGO X", layout="wide", page_icon="🇮🇳")
@@ -20,6 +18,10 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 def get_ist_now():
     return datetime.now(IST)
+
+# ================= SESSION STATE FOR TAB =================
+if "selected_tab" not in st.session_state:
+    st.session_state.selected_tab = "ALGO TRADING"
 
 # ================= APP LOCK SESSION STATE =================
 if "app_unlocked" not in st.session_state:
@@ -58,7 +60,7 @@ FIXED_TARGETS = {
     "NATURALGAS": 1,
 }
 
-# ================= TRADE COUNTERS (Max 2 Trades per Asset) =================
+# ================= TRADE COUNTERS =================
 if "nifty_trades_count" not in st.session_state:
     st.session_state.nifty_trades_count = 0
 if "crude_trades_count" not in st.session_state:
@@ -759,6 +761,73 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
     except Exception as e:
         return None
 
+# ================= Q4 RESULTS DASHBOARD FUNCTION =================
+def show_q4_dashboard():
+    st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
+    
+    # Q4 Results Data
+    q4_data = {
+        "Company": ["HDFC Bank", "Reliance Industries", "Infosys", "Maruti Suzuki", "Tata Motors"],
+        "Net Profit Change (%)": [9.1, -12.5, 11.6, -6.5, -32.0],
+        "Verdict": ["Mixed 🟡", "Negative 🔴", "Cautious 🟡", "Negative 🔴", "Negative 🔴"],
+        "Revenue (Cr ₹)": [88500, 234000, 42000, 38500, 120000],
+        "Key Point": [
+            "Deposits grew 14.4%, but NII missed estimates",
+            "Retail strong, Energy business weak",
+            "Revenue declined 1.3% QoQ, weak guidance",
+            "Record sales but margin pressure",
+            "India PV strong, JLR weak"
+        ]
+    }
+    df_q4 = pd.DataFrame(q4_data)
+    
+    # Display Table
+    st.dataframe(df_q4, use_container_width=True)
+    
+    # Color coded cards
+    st.markdown("### 📈 Company-wise Performance")
+    for _, row in df_q4.iterrows():
+        if "Negative" in row["Verdict"]:
+            color = "#ff4444"
+            bg = "rgba(255,68,68,0.1)"
+        elif "Mixed" in row["Verdict"] or "Cautious" in row["Verdict"]:
+            color = "#ffaa00"
+            bg = "rgba(255,170,0,0.1)"
+        else:
+            color = "#00ff88"
+            bg = "rgba(0,255,136,0.1)"
+            
+        st.markdown(f"""
+        <div style='background:{bg}; padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid {color};'>
+            <b style='color:{color}; font-size:18px;'>{row['Company']}</b><br>
+            📊 Profit Change: <b>{row['Net Profit Change (%)']}%</b> | Verdict: {row['Verdict']}<br>
+            💰 Revenue: ₹{row['Revenue (Cr ₹)']:,} Cr<br>
+            📌 {row['Key Point']}
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Upcoming Results
+    st.markdown("### 🗓️ Tomorrow's Results (19 May 2026)")
+    upcoming = [
+        "🔵 **Bharat Electronics (BEL)** - Defence PSU",
+        "🔵 **BPCL** - Oil & Gas PSU",
+        "🔵 **Zydus Lifesciences** - Pharma",
+        "🔵 **Mankind Pharma** - Pharma",
+        "🔵 **PI Industries** - Agro Chemicals"
+    ]
+    for u in upcoming:
+        st.markdown(f"- {u}")
+    
+    # Summary Stats
+    st.markdown("### 📊 Summary")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Positive/Mixed", "2", delta="HDFC + Infosys")
+    with col2:
+        st.metric("Negative", "3", delta="RIL, Maruti, Tata")
+    with col3:
+        st.metric("Upcoming", "5", delta="Tomorrow")
+
 # ================= CUSTOM CSS =================
 st.markdown("""
 <style>
@@ -785,6 +854,20 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         font-weight: bold;
     }
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 8px 20px;
+        font-weight: bold;
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, #00ff88, #00bcd4);
+        color: black !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -792,369 +875,378 @@ st.markdown("""
 st.markdown("<h1 style='text-align:center;'>🇮🇳 RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
 
-# ================= ONE LINE CONTROL =================
-col_a, col_b, col_c, col_d = st.columns([2.2, 1, 1, 1.2])
+# ================= TABS =================
+tab1, tab2 = st.tabs(["📈 ALGO TRADING", "📊 Q4 RESULTS DASHBOARD"])
 
-with col_a:
-    totp = st.text_input("🔐 TOTP Code", type="password", placeholder="6-digit code", key="totp_main", label_visibility="collapsed")
+# ================= TAB 1: ALGO TRADING =================
+with tab1:
+    # ONE LINE CONTROL
+    col_a, col_b, col_c, col_d = st.columns([2.2, 1, 1, 1.2])
 
-with col_b:
-    if st.button("🟢 START", use_container_width=True):
-        if totp and len(totp) == 6:
-            st.session_state.algo_running = True
-            st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED")
+    with col_a:
+        totp = st.text_input("🔐 TOTP Code", type="password", placeholder="6-digit code", key="totp_main", label_visibility="collapsed")
+
+    with col_b:
+        if st.button("🟢 START", use_container_width=True):
+            if totp and len(totp) == 6:
+                st.session_state.algo_running = True
+                st.session_state.totp_verified = True
+                send_telegram("🚀 ALGO STARTED")
+                st.rerun()
+            else:
+                st.error("❌ Valid TOTP required!")
+
+    with col_c:
+        if st.button("🔴 STOP", use_container_width=True):
+            st.session_state.algo_running = False
+            send_telegram("🛑 ALGO STOPPED")
             st.rerun()
+
+    with col_d:
+        if st.session_state.algo_running:
+            st.markdown(f"""
+            <div style="background:linear-gradient(90deg,#00c853,#69f0ae); padding:10px; border-radius:18px; text-align:center; font-weight:bold; color:black; box-shadow:0 0 12px #00ff88; font-size:14px;">
+                🟢 RUNNING<br>{get_ist_now().strftime('%H:%M:%S')}
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.error("❌ Valid TOTP required!")
+            st.markdown(f"""
+            <div style="background:linear-gradient(90deg,#d50000,#ff5252); padding:10px; border-radius:18px; text-align:center; font-weight:bold; color:white; box-shadow:0 0 12px #ff0000; font-size:14px;">
+                🔴 STOPPED<br>{get_ist_now().strftime('%H:%M:%S')}
+            </div>
+            """, unsafe_allow_html=True)
 
-with col_c:
-    if st.button("🔴 STOP", use_container_width=True):
-        st.session_state.algo_running = False
-        send_telegram("🛑 ALGO STOPPED")
-        st.rerun()
+    st.markdown("---")
 
-with col_d:
-    if st.session_state.algo_running:
-        st.markdown(f"""
-        <div style="background:linear-gradient(90deg,#00c853,#69f0ae); padding:10px; border-radius:18px; text-align:center; font-weight:bold; color:black; box-shadow:0 0 12px #00ff88; font-size:14px;">
-            🟢 RUNNING<br>{get_ist_now().strftime('%H:%M:%S')}
-        </div>
-        """, unsafe_allow_html=True)
+    # DAILY LOSS LIMIT WARNING
+    if check_daily_loss_limit():
+        st.error(f"🚨 DAILY LOSS LIMIT HIT: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f} - TRADING STOPPED FOR TODAY! 🚨")
     else:
-        st.markdown(f"""
-        <div style="background:linear-gradient(90deg,#d50000,#ff5252); padding:10px; border-radius:18px; text-align:center; font-weight:bold; color:white; box-shadow:0 0 12px #ff0000; font-size:14px;">
-            🔴 STOPPED<br>{get_ist_now().strftime('%H:%M:%S')}
-        </div>
-        """, unsafe_allow_html=True)
+        st.info(f"📉 Daily Loss: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f} (Limit: ₹1,00,000)")
 
-st.markdown("---")
+    st.markdown("---")
 
-# ================= DAILY LOSS LIMIT WARNING =================
-if check_daily_loss_limit():
-    st.error(f"🚨 DAILY LOSS LIMIT HIT: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f} - TRADING STOPPED FOR TODAY! 🚨")
-else:
-    st.info(f"📉 Daily Loss: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f} (Limit: ₹1,00,000)")
+    # FIXED TARGETS DISPLAY
+    st.markdown("### 🎯 FIXED TARGETS")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🇮🇳 NIFTY", "Target ₹10", delta="per point")
+    col2.metric("🛢️ CRUDE OIL", "Target ₹10", delta="per point")
+    col3.metric("🌿 NATURAL GAS", "Target ₹1", delta="per point")
 
-st.markdown("---")
+    st.markdown("---")
 
-# ================= FIXED TARGETS DISPLAY =================
-st.markdown("### 🎯 FIXED TARGETS")
-col1, col2, col3 = st.columns(3)
-col1.metric("🇮🇳 NIFTY", "Target ₹10", delta="per point")
-col2.metric("🛢️ CRUDE OIL", "Target ₹10", delta="per point")
-col3.metric("🌿 NATURAL GAS", "Target ₹1", delta="per point")
+    # GLOBAL TREND DISPLAY
+    st.markdown("### 🌍 GLOBAL MARKET TREND")
+    global_trend, us_trend, asia_trend, dxy_trend = get_global_trend()
 
-st.markdown("---")
+    col1, col2, col3, col4 = st.columns(4)
 
-# ================= GLOBAL TREND DISPLAY =================
-st.markdown("### 🌍 GLOBAL MARKET TREND")
-global_trend, us_trend, asia_trend, dxy_trend = get_global_trend()
+    with col1:
+        if global_trend == "BULLISH":
+            st.success(f"🌏 GLOBAL\n🟢 {global_trend}")
+        elif global_trend == "BEARISH":
+            st.error(f"🌏 GLOBAL\n🔴 {global_trend}")
+        else:
+            st.warning(f"🌏 GLOBAL\n🟡 {global_trend}")
 
-col1, col2, col3, col4 = st.columns(4)
+    with col2:
+        if us_trend == "BULLISH":
+            st.success(f"🇺🇸 US MARKET\n🟢 {us_trend}")
+        elif us_trend == "BEARISH":
+            st.error(f"🇺🇸 US MARKET\n🔴 {us_trend}")
+        else:
+            st.warning(f"🇺🇸 US MARKET\n🟡 {us_trend}")
 
-with col1:
-    if global_trend == "BULLISH":
-        st.success(f"🌏 GLOBAL\n🟢 {global_trend}")
-    elif global_trend == "BEARISH":
-        st.error(f"🌏 GLOBAL\n🔴 {global_trend}")
+    with col3:
+        if asia_trend == "BULLISH":
+            st.success(f"🌏 ASIA MARKET\n🟢 {asia_trend}")
+        elif asia_trend == "BEARISH":
+            st.error(f"🌏 ASIA MARKET\n🔴 {asia_trend}")
+        else:
+            st.warning(f"🌏 ASIA MARKET\n🟡 {asia_trend}")
+
+    with col4:
+        if dxy_trend == "BULLISH":
+            st.success(f"💵 DOLLAR INDEX\n🟢 {dxy_trend} (Weak $)")
+        elif dxy_trend == "BEARISH":
+            st.error(f"💵 DOLLAR INDEX\n🔴 {dxy_trend} (Strong $)")
+        else:
+            st.warning(f"💵 DOLLAR INDEX\n🟡 {dxy_trend}")
+
+    st.markdown("---")
+
+    # NIFTY TREND
+    nifty_trend = get_nifty_trend()
+    st.markdown("### 🇮🇳 NIFTY TREND")
+    if nifty_trend == "BULLISH":
+        st.success("🟢 BULLISH")
+    elif nifty_trend == "BEARISH":
+        st.error("🔴 BEARISH")
     else:
-        st.warning(f"🌏 GLOBAL\n🟡 {global_trend}")
+        st.warning("🟡 SIDEWAYS")
 
-with col2:
-    if us_trend == "BULLISH":
-        st.success(f"🇺🇸 US MARKET\n🟢 {us_trend}")
-    elif us_trend == "BEARISH":
-        st.error(f"🇺🇸 US MARKET\n🔴 {us_trend}")
-    else:
-        st.warning(f"🇺🇸 US MARKET\n🟡 {us_trend}")
+    st.markdown("---")
 
-with col3:
-    if asia_trend == "BULLISH":
-        st.success(f"🌏 ASIA MARKET\n🟢 {asia_trend}")
-    elif asia_trend == "BEARISH":
-        st.error(f"🌏 ASIA MARKET\n🔴 {asia_trend}")
-    else:
-        st.warning(f"🌏 ASIA MARKET\n🟡 {asia_trend}")
+    # TRADE COUNTERS DISPLAY
+    st.markdown("### 📊 DAILY TRADE COUNTERS (Max 2 per asset)")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
+    col2.metric("🛢️ CRUDE Trades", f"{st.session_state.crude_trades_count}/2")
+    col3.metric("🌿 NG Trades", f"{st.session_state.ng_trades_count}/2")
+    st.markdown("---")
 
-with col4:
-    if dxy_trend == "BULLISH":
-        st.success(f"💵 DOLLAR INDEX\n🟢 {dxy_trend} (Weak $)")
-    elif dxy_trend == "BEARISH":
-        st.error(f"💵 DOLLAR INDEX\n🔴 {dxy_trend} (Strong $)")
-    else:
-        st.warning(f"💵 DOLLAR INDEX\n🟡 {dxy_trend}")
-
-st.markdown("---")
-
-# ================= NIFTY TREND =================
-nifty_trend = get_nifty_trend()
-st.markdown("### 🇮🇳 NIFTY TREND")
-if nifty_trend == "BULLISH":
-    st.success("🟢 BULLISH")
-elif nifty_trend == "BEARISH":
-    st.error("🔴 BEARISH")
-else:
-    st.warning("🟡 SIDEWAYS")
-
-st.markdown("---")
-
-# ================= TRADE COUNTERS DISPLAY =================
-st.markdown("### 📊 DAILY TRADE COUNTERS (Max 2 per asset)")
-col1, col2, col3 = st.columns(3)
-col1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
-col2.metric("🛢️ CRUDE Trades", f"{st.session_state.crude_trades_count}/2")
-col3.metric("🌿 NG Trades", f"{st.session_state.ng_trades_count}/2")
-st.markdown("---")
-
-# ================= SIDEBAR =================
-with st.sidebar:
-    st.markdown("## ⚙️ SETTINGS")
-    
-    st.markdown("### 📌 ASSETS")
-    st.session_state.enable_nifty = st.checkbox("🇮🇳 NIFTY", value=st.session_state.enable_nifty)
-    if st.session_state.enable_nifty:
-        st.session_state.nifty_lots = st.number_input("NIFTY Lots", min_value=1, max_value=50, value=st.session_state.nifty_lots, step=1)
-        st.caption(f"📦 Qty: {st.session_state.nifty_lots * 65}")
-    
-    st.session_state.enable_crude = st.checkbox("🛢️ CRUDE OIL", value=st.session_state.enable_crude)
-    if st.session_state.enable_crude:
-        st.session_state.crude_lots = st.number_input("CRUDE Lots", min_value=1, max_value=50, value=st.session_state.crude_lots, step=1)
-        st.caption(f"📦 Qty: {st.session_state.crude_lots * 100}")
-    
-    st.session_state.enable_ng = st.checkbox("🌿 NATURAL GAS", value=st.session_state.enable_ng)
-    if st.session_state.enable_ng:
-        st.session_state.ng_lots = st.number_input("NG Lots", min_value=1, max_value=50, value=st.session_state.ng_lots, step=1)
-        st.caption(f"📦 Qty: {st.session_state.ng_lots * 1250}")
-    
-    st.session_state.enable_stocks = st.checkbox("📈 F&O STOCKS (69)", value=st.session_state.enable_stocks)
-    
-    if st.session_state.enable_stocks:
+    # SIDEBAR SETTINGS
+    with st.sidebar:
+        st.markdown("## ⚙️ SETTINGS")
+        
+        st.markdown("### 📌 ASSETS")
+        st.session_state.enable_nifty = st.checkbox("🇮🇳 NIFTY", value=st.session_state.enable_nifty)
+        if st.session_state.enable_nifty:
+            st.session_state.nifty_lots = st.number_input("NIFTY Lots", min_value=1, max_value=50, value=st.session_state.nifty_lots, step=1)
+            st.caption(f"📦 Qty: {st.session_state.nifty_lots * 65}")
+        
+        st.session_state.enable_crude = st.checkbox("🛢️ CRUDE OIL", value=st.session_state.enable_crude)
+        if st.session_state.enable_crude:
+            st.session_state.crude_lots = st.number_input("CRUDE Lots", min_value=1, max_value=50, value=st.session_state.crude_lots, step=1)
+            st.caption(f"📦 Qty: {st.session_state.crude_lots * 100}")
+        
+        st.session_state.enable_ng = st.checkbox("🌿 NATURAL GAS", value=st.session_state.enable_ng)
+        if st.session_state.enable_ng:
+            st.session_state.ng_lots = st.number_input("NG Lots", min_value=1, max_value=50, value=st.session_state.ng_lots, step=1)
+            st.caption(f"📦 Qty: {st.session_state.ng_lots * 1250}")
+        
+        st.session_state.enable_stocks = st.checkbox("📈 F&O STOCKS (69)", value=st.session_state.enable_stocks)
+        
+        if st.session_state.enable_stocks:
+            st.markdown("---")
+            st.markdown("### 📊 STOCK SETTINGS")
+            st.session_state.max_stocks_per_day = st.number_input("Max Stocks/Day", 1, 69, 10)
+            st.session_state.max_qty_limit = st.selectbox("Max Qty per Trade", MAX_QTY_OPTIONS, index=14)
+            st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE", value=st.session_state.enable_big_lot_mode)
+            if st.session_state.enable_big_lot_mode:
+                st.success("✅ BIG LOT ACTIVE - ₹20k profit @ target")
+        
         st.markdown("---")
-        st.markdown("### 📊 STOCK SETTINGS")
-        st.session_state.max_stocks_per_day = st.number_input("Max Stocks/Day", 1, 69, 10)
-        st.session_state.max_qty_limit = st.selectbox("Max Qty per Trade", MAX_QTY_OPTIONS, index=14)
-        st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE", value=st.session_state.enable_big_lot_mode)
-        if st.session_state.enable_big_lot_mode:
-            st.success("✅ BIG LOT ACTIVE - ₹20k profit @ target")
-    
-    st.markdown("---")
-    st.markdown("### 📊 DAILY STATUS")
-    total_stocks_traded = sum(v["trades"] for v in st.session_state.stock_trades.values())
-    st.metric("Stocks Traded", f"{total_stocks_traded}/{st.session_state.max_stocks_per_day}")
-    st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f}")
-    
-    st.markdown("---")
-    st.markdown("### 🎯 RULES")
-    st.caption("NIFTY/CRUDE/NG: Max 2 trades/day (1 Buy + 1 Sell)")
-    st.caption("Stocks: Max stocks/day limit")
-    st.caption("Daily Loss Limit: ₹1,00,000")
-    st.caption("TP1=50% Book | TP2=50% Book")
-    st.caption("🔐 App Protected with Password")
-
-# ================= TRADING JOURNAL =================
-st.markdown("## 📋 TRADING JOURNAL")
-
-if st.session_state.trade_journal:
-    df_journal = pd.DataFrame(st.session_state.trade_journal)
-    st.dataframe(df_journal, use_container_width=True, height=400)
-    
-    if 'Profit/Loss' in df_journal.columns:
-        total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum() if len(df_journal[df_journal['Profit/Loss'] > 0]) > 0 else 0
-        total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum() if len(df_journal[df_journal['Profit/Loss'] < 0]) > 0 else 0
-        win_trades = len(df_journal[df_journal['Profit/Loss'] > 0])
-        loss_trades = len(df_journal[df_journal['Profit/Loss'] < 0])
+        st.markdown("### 📊 DAILY STATUS")
+        total_stocks_traded = sum(v["trades"] for v in st.session_state.stock_trades.values())
+        st.metric("Stocks Traded", f"{total_stocks_traded}/{st.session_state.max_stocks_per_day}")
+        st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f} / ₹{MAX_DAILY_LOSS:,.0f}")
         
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📊 Total Trades", len(df_journal))
-        col2.metric("✅ Win Trades", win_trades)
-        col3.metric("❌ Loss Trades", loss_trades)
-        col4.metric("💰 Net P&L", f"₹{total_profit + total_loss:,.2f}")
-else:
-    st.info("📭 No trades executed yet.")
+        st.markdown("---")
+        st.markdown("### 🎯 RULES")
+        st.caption("NIFTY/CRUDE/NG: Max 2 trades/day (1 Buy + 1 Sell)")
+        st.caption("Stocks: Max stocks/day limit")
+        st.caption("Daily Loss Limit: ₹1,00,000")
+        st.caption("TP1=50% Book | TP2=50% Book")
+        st.caption("🔐 App Protected with Password")
 
-st.markdown("---")
+    # TRADING JOURNAL
+    st.markdown("## 📋 TRADING JOURNAL")
 
-# ================= MAIN TRADING LOGIC (RUNNING STATE) =================
-if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
-    
-    # ================= NIFTY TRADING =================
-    if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2:
-        if is_nifty_market_open():
-            signal, price = get_nifty_signal()
-            st.write(f"🇮🇳 NIFTY Signal: {signal} at ₹{price:.2f}")
-            
-            if signal != "WAIT":
-                trade_type = "BUY" if signal == "BUY" else "SELL"
-                qty = st.session_state.nifty_lots * 65
-                
-                trade_record = {
-                    "No": len(st.session_state.trade_journal) + 1,
-                    "Symbol": "NIFTY",
-                    "Type": trade_type,
-                    "Qty": qty,
-                    "Lots": st.session_state.nifty_lots,
-                    "Entry Price": round(price, 2),
-                    "Target": FIXED_TARGETS["NIFTY"],
-                    "Status": "OPEN",
-                    "Entry Time": get_ist_now().strftime('%H:%M:%S')
-                }
-                st.session_state.trade_journal.append(trade_record)
-                st.session_state.nifty_trades_count += 1
-                send_telegram(f"🇮🇳 NIFTY {trade_type} | {st.session_state.nifty_lots} lots ({qty} qty) | Entry: ₹{price:.2f} | Target: ₹{FIXED_TARGETS['NIFTY']}")
-                st.success(f"✅ NIFTY {trade_type} Executed!")
-                st.rerun()
-    
-    # ================= CRUDE TRADING =================
-    if st.session_state.enable_crude and st.session_state.crude_trades_count < 2:
-        if is_commodity_market_open():
-            signal, price = get_crude_signal()
-            st.write(f"🛢️ CRUDE Signal: {signal} at ${price:.2f}")
-            
-            if signal != "WAIT":
-                trade_type = "BUY" if signal == "BUY" else "SELL"
-                qty = st.session_state.crude_lots * 100
-                price_inr = price * get_usd_inr_rate()
-                
-                trade_record = {
-                    "No": len(st.session_state.trade_journal) + 1,
-                    "Symbol": "CRUDE OIL",
-                    "Type": trade_type,
-                    "Qty": qty,
-                    "Lots": st.session_state.crude_lots,
-                    "Entry Price": round(price_inr, 2),
-                    "Target": FIXED_TARGETS["CRUDEOIL"],
-                    "Status": "OPEN",
-                    "Entry Time": get_ist_now().strftime('%H:%M:%S')
-                }
-                st.session_state.trade_journal.append(trade_record)
-                st.session_state.crude_trades_count += 1
-                send_telegram(f"🛢️ CRUDE {trade_type} | {st.session_state.crude_lots} lots ({qty} qty) | Entry: ₹{price_inr:.2f} | Target: ₹{FIXED_TARGETS['CRUDEOIL']}")
-                st.success(f"✅ CRUDE {trade_type} Executed!")
-                st.rerun()
-    
-    # ================= NG TRADING =================
-    if st.session_state.enable_ng and st.session_state.ng_trades_count < 2:
-        if is_commodity_market_open():
-            signal, price = get_ng_signal()
-            st.write(f"🌿 NG Signal: {signal} at ${price:.2f}")
-            
-            if signal != "WAIT":
-                trade_type = "BUY" if signal == "BUY" else "SELL"
-                qty = st.session_state.ng_lots * 1250
-                price_inr = price * get_usd_inr_rate()
-                
-                trade_record = {
-                    "No": len(st.session_state.trade_journal) + 1,
-                    "Symbol": "NATURAL GAS",
-                    "Type": trade_type,
-                    "Qty": qty,
-                    "Lots": st.session_state.ng_lots,
-                    "Entry Price": round(price_inr, 2),
-                    "Target": FIXED_TARGETS["NATURALGAS"],
-                    "Status": "OPEN",
-                    "Entry Time": get_ist_now().strftime('%H:%M:%S')
-                }
-                st.session_state.trade_journal.append(trade_record)
-                st.session_state.ng_trades_count += 1
-                send_telegram(f"🌿 NG {trade_type} | {st.session_state.ng_lots} lots ({qty} qty) | Entry: ₹{price_inr:.2f} | Target: ₹{FIXED_TARGETS['NATURALGAS']}")
-                st.success(f"✅ NG {trade_type} Executed!")
-                st.rerun()
-    
-    # ================= STOCKS TRADING =================
-    if st.session_state.enable_stocks:
-        st.markdown("## 🔍 SCANNING F&O STOCKS")
+    if st.session_state.trade_journal:
+        df_journal = pd.DataFrame(st.session_state.trade_journal)
+        st.dataframe(df_journal, use_container_width=True, height=400)
         
-        if not is_stock_market_open():
-            st.info("⏸️ Market Closed | 9:30 AM - 2:30 PM IST")
-        else:
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            results = st.container()
+        if 'Profit/Loss' in df_journal.columns:
+            total_profit = df_journal[df_journal['Profit/Loss'] > 0]['Profit/Loss'].sum() if len(df_journal[df_journal['Profit/Loss'] > 0]) > 0 else 0
+            total_loss = df_journal[df_journal['Profit/Loss'] < 0]['Profit/Loss'].sum() if len(df_journal[df_journal['Profit/Loss'] < 0]) > 0 else 0
+            win_trades = len(df_journal[df_journal['Profit/Loss'] > 0])
+            loss_trades = len(df_journal[df_journal['Profit/Loss'] < 0])
             
-            signals_found = []
-            trades_done = sum(v["trades"] for v in st.session_state.stock_trades.values())
-            
-            for idx, stock in enumerate(FO_STOCKS):
-                progress_bar.progress((idx+1)/len(FO_STOCKS))
-                status_text.text(f"Scanning {stock['name']}...")
-                
-                if trades_done >= st.session_state.max_stocks_per_day:
-                    status_text.text(f"Daily limit reached: {st.session_state.max_stocks_per_day}")
-                    break
-                
-                sig = calculate_signals_stock(stock["symbol"], stock["name"], stock["sector"])
-                if sig and (sig["buy"] or sig["sell"]):
-                    trade_done = st.session_state.stock_trades[stock["name"]]["trades"] >= 1
-                    if not trade_done:
-                        qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit, 
-                                                              st.session_state.enable_big_lot_mode, stock.get("big_lot_qty"))
-                        
-                        buy_price = sig["price"]
-                        option_type = "CE" if sig["buy"] else "PE"
-                        
-                        itm_strike, actual_itm, strike_interval = get_stock_itm_strike_auto(buy_price, stock, option_type, strike_offset=2)
-                        
-                        trade_record = {
-                            "No": len(st.session_state.trade_journal) + 1,
-                            "Symbol": stock["name"],
-                            "Type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
-                            "Qty": qty,
-                            "Lots": lots,
-                            "Entry Price": round(buy_price, 2),
-                            "ITM Strike": itm_strike,
-                            "TP1": stock["tp1"],
-                            "TP2": stock["tp2"],
-                            "Status": "OPEN",
-                            "Entry Time": get_ist_now().strftime('%H:%M:%S')
-                        }
-                        st.session_state.trade_journal.append(trade_record)
-                        
-                        signals_found.append({
-                            "stock": stock["name"],
-                            "type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
-                            "price": buy_price,
-                            "lots": lots,
-                            "qty": qty,
-                            "itm_strike": itm_strike,
-                            "itm_points": actual_itm,
-                            "tp1": stock["tp1"],
-                            "tp2": stock["tp2"],
-                            "rsi": sig["rsi"],
-                            "adx": sig["adx"]
-                        })
-                        st.session_state.stock_trades[stock["name"]]["trades"] += 1
-                        trades_done += 1
-                        send_telegram(f"{'🔵 BUY' if sig['buy'] else '🔴 SELL'} {stock['name']} {option_type} | Strike: {itm_strike} ({actual_itm} pts ITM) | {lots} lots ({qty} qty) | TP1: ₹{stock['tp1']} TP2: ₹{stock['tp2']}")
-            
-            progress_bar.empty()
-            status_text.empty()
-            
-            with results:
-                if signals_found:
-                    st.success(f"✅ {len(signals_found)} Signals Found!")
-                    for s in signals_found:
-                        st.markdown(f"""
-                        <div style='background:rgba(0,255,136,0.1); padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #00ff88;'>
-                            <b>{'🟢' if 'BUY' in s['type'] else '🔴'} {s['stock']}</b><br>
-                            Action: {s['type']}<br>
-                            🎯 ITM Strike: {s['itm_strike']} ({s['itm_points']} pts ITM)<br>
-                            Lots: {s['lots']} | Qty: {s['qty']}<br>
-                            TP1: ₹{s['tp1']} (50% Book) | TP2: ₹{s['tp2']} (50% Book)<br>
-                            📊 RSI: {s['rsi']:.0f} | ADX: {s['adx']:.0f}
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("📭 No signals found")
-    
-elif not st.session_state.algo_running:
-    st.warning("⏸️ ALGO IS STOPPED. Press START to begin trading.")
-elif not st.session_state.totp_verified:
-    st.warning("🔐 Please enter valid 6-digit TOTP code and press START.")
-elif check_daily_loss_limit():
-    st.error(f"🚨 DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. 🚨")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("📊 Total Trades", len(df_journal))
+            col2.metric("✅ Win Trades", win_trades)
+            col3.metric("❌ Loss Trades", loss_trades)
+            col4.metric("💰 Net P&L", f"₹{total_profit + total_loss:,.2f}")
+    else:
+        st.info("📭 No trades executed yet.")
 
-# ================= FOOTER =================
-st.markdown("---")
-st.caption(f"📊 Trading Journal | NIFTY: {st.session_state.nifty_trades_count}/2 | CRUDE: {st.session_state.crude_trades_count}/2 | NG: {st.session_state.ng_trades_count}/2 | Daily Loss Limit: ₹{MAX_DAILY_LOSS:,.0f}")
-st.caption("🔐 App Protected with Password | Developed by Satish D. Nakhate")
+    st.markdown("---")
+
+    # MAIN TRADING LOGIC (RUNNING STATE)
+    if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
+        
+        # NIFTY TRADING
+        if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2:
+            if is_nifty_market_open():
+                signal, price = get_nifty_signal()
+                st.write(f"🇮🇳 NIFTY Signal: {signal} at ₹{price:.2f}")
+                
+                if signal != "WAIT":
+                    trade_type = "BUY" if signal == "BUY" else "SELL"
+                    qty = st.session_state.nifty_lots * 65
+                    
+                    trade_record = {
+                        "No": len(st.session_state.trade_journal) + 1,
+                        "Symbol": "NIFTY",
+                        "Type": trade_type,
+                        "Qty": qty,
+                        "Lots": st.session_state.nifty_lots,
+                        "Entry Price": round(price, 2),
+                        "Target": FIXED_TARGETS["NIFTY"],
+                        "Status": "OPEN",
+                        "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                    }
+                    st.session_state.trade_journal.append(trade_record)
+                    st.session_state.nifty_trades_count += 1
+                    send_telegram(f"🇮🇳 NIFTY {trade_type} | {st.session_state.nifty_lots} lots ({qty} qty) | Entry: ₹{price:.2f} | Target: ₹{FIXED_TARGETS['NIFTY']}")
+                    st.success(f"✅ NIFTY {trade_type} Executed!")
+                    st.rerun()
+        
+        # CRUDE TRADING
+        if st.session_state.enable_crude and st.session_state.crude_trades_count < 2:
+            if is_commodity_market_open():
+                signal, price = get_crude_signal()
+                st.write(f"🛢️ CRUDE Signal: {signal} at ${price:.2f}")
+                
+                if signal != "WAIT":
+                    trade_type = "BUY" if signal == "BUY" else "SELL"
+                    qty = st.session_state.crude_lots * 100
+                    price_inr = price * get_usd_inr_rate()
+                    
+                    trade_record = {
+                        "No": len(st.session_state.trade_journal) + 1,
+                        "Symbol": "CRUDE OIL",
+                        "Type": trade_type,
+                        "Qty": qty,
+                        "Lots": st.session_state.crude_lots,
+                        "Entry Price": round(price_inr, 2),
+                        "Target": FIXED_TARGETS["CRUDEOIL"],
+                        "Status": "OPEN",
+                        "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                    }
+                    st.session_state.trade_journal.append(trade_record)
+                    st.session_state.crude_trades_count += 1
+                    send_telegram(f"🛢️ CRUDE {trade_type} | {st.session_state.crude_lots} lots ({qty} qty) | Entry: ₹{price_inr:.2f} | Target: ₹{FIXED_TARGETS['CRUDEOIL']}")
+                    st.success(f"✅ CRUDE {trade_type} Executed!")
+                    st.rerun()
+        
+        # NG TRADING
+        if st.session_state.enable_ng and st.session_state.ng_trades_count < 2:
+            if is_commodity_market_open():
+                signal, price = get_ng_signal()
+                st.write(f"🌿 NG Signal: {signal} at ${price:.2f}")
+                
+                if signal != "WAIT":
+                    trade_type = "BUY" if signal == "BUY" else "SELL"
+                    qty = st.session_state.ng_lots * 1250
+                    price_inr = price * get_usd_inr_rate()
+                    
+                    trade_record = {
+                        "No": len(st.session_state.trade_journal) + 1,
+                        "Symbol": "NATURAL GAS",
+                        "Type": trade_type,
+                        "Qty": qty,
+                        "Lots": st.session_state.ng_lots,
+                        "Entry Price": round(price_inr, 2),
+                        "Target": FIXED_TARGETS["NATURALGAS"],
+                        "Status": "OPEN",
+                        "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                    }
+                    st.session_state.trade_journal.append(trade_record)
+                    st.session_state.ng_trades_count += 1
+                    send_telegram(f"🌿 NG {trade_type} | {st.session_state.ng_lots} lots ({qty} qty) | Entry: ₹{price_inr:.2f} | Target: ₹{FIXED_TARGETS['NATURALGAS']}")
+                    st.success(f"✅ NG {trade_type} Executed!")
+                    st.rerun()
+        
+        # STOCKS TRADING
+        if st.session_state.enable_stocks:
+            st.markdown("## 🔍 SCANNING F&O STOCKS")
+            
+            if not is_stock_market_open():
+                st.info("⏸️ Market Closed | 9:30 AM - 2:30 PM IST")
+            else:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                results = st.container()
+                
+                signals_found = []
+                trades_done = sum(v["trades"] for v in st.session_state.stock_trades.values())
+                
+                for idx, stock in enumerate(FO_STOCKS):
+                    progress_bar.progress((idx+1)/len(FO_STOCKS))
+                    status_text.text(f"Scanning {stock['name']}...")
+                    
+                    if trades_done >= st.session_state.max_stocks_per_day:
+                        status_text.text(f"Daily limit reached: {st.session_state.max_stocks_per_day}")
+                        break
+                    
+                    sig = calculate_signals_stock(stock["symbol"], stock["name"], stock["sector"])
+                    if sig and (sig["buy"] or sig["sell"]):
+                        trade_done = st.session_state.stock_trades[stock["name"]]["trades"] >= 1
+                        if not trade_done:
+                            qty, lots = calculate_trade_quantity(stock["lot"], st.session_state.max_qty_limit, 
+                                                                  st.session_state.enable_big_lot_mode, stock.get("big_lot_qty"))
+                            
+                            buy_price = sig["price"]
+                            option_type = "CE" if sig["buy"] else "PE"
+                            
+                            itm_strike, actual_itm, strike_interval = get_stock_itm_strike_auto(buy_price, stock, option_type, strike_offset=2)
+                            
+                            trade_record = {
+                                "No": len(st.session_state.trade_journal) + 1,
+                                "Symbol": stock["name"],
+                                "Type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
+                                "Qty": qty,
+                                "Lots": lots,
+                                "Entry Price": round(buy_price, 2),
+                                "ITM Strike": itm_strike,
+                                "TP1": stock["tp1"],
+                                "TP2": stock["tp2"],
+                                "Status": "OPEN",
+                                "Entry Time": get_ist_now().strftime('%H:%M:%S')
+                            }
+                            st.session_state.trade_journal.append(trade_record)
+                            
+                            signals_found.append({
+                                "stock": stock["name"],
+                                "type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
+                                "price": buy_price,
+                                "lots": lots,
+                                "qty": qty,
+                                "itm_strike": itm_strike,
+                                "itm_points": actual_itm,
+                                "tp1": stock["tp1"],
+                                "tp2": stock["tp2"],
+                                "rsi": sig["rsi"],
+                                "adx": sig["adx"]
+                            })
+                            st.session_state.stock_trades[stock["name"]]["trades"] += 1
+                            trades_done += 1
+                            send_telegram(f"{'🔵 BUY' if sig['buy'] else '🔴 SELL'} {stock['name']} {option_type} | Strike: {itm_strike} ({actual_itm} pts ITM) | {lots} lots ({qty} qty) | TP1: ₹{stock['tp1']} TP2: ₹{stock['tp2']}")
+                
+                progress_bar.empty()
+                status_text.empty()
+                
+                with results:
+                    if signals_found:
+                        st.success(f"✅ {len(signals_found)} Signals Found!")
+                        for s in signals_found:
+                            st.markdown(f"""
+                            <div style='background:rgba(0,255,136,0.1); padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #00ff88;'>
+                                <b>{'🟢' if 'BUY' in s['type'] else '🔴'} {s['stock']}</b><br>
+                                Action: {s['type']}<br>
+                                🎯 ITM Strike: {s['itm_strike']} ({s['itm_points']} pts ITM)<br>
+                                Lots: {s['lots']} | Qty: {s['qty']}<br>
+                                TP1: ₹{s['tp1']} (50% Book) | TP2: ₹{s['tp2']} (50% Book)<br>
+                                📊 RSI: {s['rsi']:.0f} | ADX: {s['adx']:.0f}
+                            </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.info("📭 No signals found")
+        
+    elif not st.session_state.algo_running:
+        st.warning("⏸️ ALGO IS STOPPED. Press START to begin trading.")
+    elif not st.session_state.totp_verified:
+        st.warning("🔐 Please enter valid 6-digit TOTP code and press START.")
+    elif check_daily_loss_limit():
+        st.error(f"🚨 DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. 🚨")
+
+    # FOOTER
+    st.markdown("---")
+    st.caption(f"📊 Trading Journal | NIFTY: {st.session_state.nifty_trades_count}/2 | CRUDE: {st.session_state.crude_trades_count}/2 | NG: {st.session_state.ng_trades_count}/2 | Daily Loss Limit: ₹{MAX_DAILY_LOSS:,.0f}")
+    st.caption("🔐 App Protected with Password | Developed by Satish D. Nakhate")
+
+# ================= TAB 2: Q4 RESULTS DASHBOARD =================
+with tab2:
+    show_q4_dashboard()
