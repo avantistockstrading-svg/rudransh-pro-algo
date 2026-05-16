@@ -4,14 +4,6 @@
 VERSION: 3.0.0 (FINAL)
 DEVELOPED BY: SATISH D. NAKHATE
 LOCATION: TALWADE, PUNE - 412114
-
-FEATURES:
-- Wolf Order Book (CE/PE + 215+ Symbols)
-- FMP API Results Monitoring
-- GNews API (9+ News Sources)
-- Telegram Alerts
-- Voice Alerts
-- Professional UI
 """
 
 import streamlit as st
@@ -21,9 +13,11 @@ from datetime import datetime, timedelta, timezone
 import requests
 import time
 
-# ================= VERSION =================
+# ================= VERSION & INFO =================
 APP_VERSION = "3.0.0"
 APP_NAME = "RUDRANSH PRO ALGO X"
+APP_AUTHOR = "SATISH D. NAKHATE"
+APP_LOCATION = "TALWADE, PUNE - 412114"
 
 # ================= API KEYS =================
 FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"
@@ -288,7 +282,7 @@ def monitor_results():
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
     <h1>🐺 {APP_NAME}</h1>
-    <p style="color:#94a3b8;">DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114 | v{APP_VERSION}</p>
+    <p style="color:#94a3b8;">DEVELOPED BY {APP_AUTHOR}, {APP_LOCATION} | v{APP_VERSION}</p>
     <div style="height:2px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:300px; margin:0 auto;"></div>
 </div>
 """, unsafe_allow_html=True)
@@ -299,7 +293,11 @@ st.markdown("---")
 
 # Status Bar
 c1, c2, c3, c4, c5 = st.columns(5)
-with c1: st.markdown('<span class="badge-success">🟢 ' + ("RUNNING" if st.session_state.algo_running else "STOPPED") + '</span>', unsafe_allow_html=True)
+with c1: 
+    if st.session_state.algo_running:
+        st.markdown('<span class="badge-success">🟢 RUNNING</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge-danger">🔴 STOPPED</span>', unsafe_allow_html=True)
 with c2: st.markdown('<span class="badge-success">📊 FMP ACTIVE</span>', unsafe_allow_html=True)
 with c3: st.markdown('<span class="badge-success">📰 GNEWS ACTIVE</span>', unsafe_allow_html=True)
 with c4: st.markdown('<span class="badge-success">📱 TELEGRAM ACTIVE</span>', unsafe_allow_html=True)
@@ -361,7 +359,7 @@ with t1:
     
     pending = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
     if pending:
-        st.markdown("### ⏳ PENDING")
+        st.markdown("### ⏳ PENDING ORDERS")
         st.dataframe(pd.DataFrame([{
             'Symbol': o['symbol'], 'Option': o['option_type'], 'Strike': o['strike_price'],
             'Lots': o['qty'], 'Buy Above': o['buy_above'], 'SL': o['sl'], 'Target': o['target']
@@ -369,7 +367,7 @@ with t1:
     
     active = st.session_state.active_orders
     if active:
-        st.markdown("### 🔴 ACTIVE")
+        st.markdown("### 🔴 ACTIVE ORDERS")
         data = []
         for o in active:
             current = get_live_price(o['symbol'])
@@ -385,7 +383,7 @@ with t2:
     crude = get_live_price('CRUDE') * get_usd_inr_rate()
     with c3: st.metric("🛢️ CRUDE", f"₹{crude:,.2f}")
     ng = get_live_price('NATURALGAS') * get_usd_inr_rate()
-    with c4: st.metric("🌿 NG", f"₹{ng:,.2f}")
+    with c4: st.metric("🌿 NATURAL GAS", f"₹{ng:,.2f}")
 
 # TAB 3: NEWS
 with t3:
