@@ -1,9 +1,16 @@
+# ============================================================
+# RUDRANSH PRO-ALGO X - COMPLETE TRADING SYSTEM
+# DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114
+# ============================================================
+
 import streamlit as st
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import time
+import plotly.graph_objects as go
+import plotly.express as px
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="RUDRANSH PRO-ALGO X", layout="wide", page_icon="🇮🇳")
@@ -18,7 +25,7 @@ def get_ist_now():
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
-    st.session_state.app_password = "8055"  # तुमचा Password
+    st.session_state.app_password = "8055"
 
 # ================= APP LOCK SCREEN =================
 if not st.session_state.app_unlocked:
@@ -30,9 +37,6 @@ if not st.session_state.app_unlocked:
     
     password_input = st.text_input("Password", type="password", placeholder="Enter numeric password", key="app_lock_password")
     
-    if password_input:
-        st.caption(f"Debug: You entered '{password_input}', Expected: '{st.session_state.app_password}'")
-    
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         if st.button("🔓 UNLOCK", use_container_width=True):
@@ -43,10 +47,10 @@ if not st.session_state.app_unlocked:
                 st.session_state.app_unlocked = True
                 st.rerun()
             else:
-                st.error(f"❌ Wrong Password! Access Denied. (Entered: '{entered}', Expected: '{expected}')")
+                st.error(f"❌ Wrong Password! Access Denied.")
     
     st.stop()
-      
+
 # ================= FIXED TARGETS =================
 FIXED_TARGETS = {
     "NIFTY": 10,
@@ -115,17 +119,6 @@ def get_live_price_inr(symbol):
         return price_usd * usd_inr
     return 0.0
 
-def get_itm_strike_nifty(price, itm_points=100, strike_interval=50):
-    if price <= 0:
-        return 0, 0
-    target_strike = price - itm_points
-    rounded_strike = round(target_strike / strike_interval) * strike_interval
-    if rounded_strike < 100:
-        rounded_strike = 100
-    actual_itm = price - rounded_strike
-    return int(rounded_strike), actual_itm
-
-# ================= AUTO ITM STRIKE DETECTION =================
 def get_stock_itm_strike_auto(price, stock, option_type="CE", strike_offset=2):
     if price <= 0:
         return 0, 0, 50
@@ -266,7 +259,7 @@ def get_global_trend():
     else:
         return "NEUTRAL", us_trend, asia_trend, dxy_trend
 
-# ================= 69 F&O STOCKS (ALL EVEN LOTS) =================
+# ================= 69 F&O STOCKS =================
 FO_STOCKS = [
     {"symbol": "RELIANCE.NS", "lot": 500, "name": "RELIANCE", "sector": "ENERGY", "tp1": 5, "tp2": 5, "big_lot_qty": 4000, "big_lot_lots": 8},
     {"symbol": "TCS.NS", "lot": 174, "name": "TCS", "sector": "IT", "tp1": 4, "tp2": 4, "big_lot_qty": 5220, "big_lot_lots": 30},
@@ -396,7 +389,7 @@ if get_ist_now().date() != st.session_state.last_trade_date:
     st.session_state.ng_trades_count = 0
     st.session_state.last_trade_date = get_ist_now().date()
 
-MAX_DAILY_LOSS = 100000  # 1 Lakh
+MAX_DAILY_LOSS = 100000
 
 def check_daily_loss_limit():
     return abs(st.session_state.daily_loss) >= MAX_DAILY_LOSS
@@ -982,7 +975,7 @@ else:
 
 st.markdown("---")
 
-# ================= MAIN TRADING LOGIC =================
+# ================= MAIN TRADING LOGIC (RUNNING STATE) =================
 if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
     
     # ================= NIFTY TRADING =================
