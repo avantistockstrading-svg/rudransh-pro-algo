@@ -823,7 +823,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================= HEADER =================
-st.markdown("<h1>RUDRANSH PRO ALGO X</h1>, unsafe_allow_html=True)
+st.markdown("<h1>RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
 
 # ================= APP LOCK SCREEN =================
