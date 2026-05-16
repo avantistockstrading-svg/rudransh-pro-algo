@@ -6,16 +6,16 @@ import requests
 import time
 import threading
 
-# ================= PAGE CONFIG =================
+# ================= पेज कॉन्फिग =================
 st.set_page_config(page_title="RUDRANSH PRO ALGO X", layout="wide", page_icon="📈")
 
-# ================= IST Timezone =================
+# ================= IST टाइमझोन =================
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def get_ist_now():
     return datetime.now(IST)
 
-# ================= APP LOCK =================
+# ================= अॅप लॉक =================
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
@@ -25,25 +25,25 @@ if not st.session_state.app_unlocked:
     st.markdown("<h1 style='text-align:center;'>RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
     st.markdown("---")
-    st.markdown("<h3 style='text-align:center;'>🔐 APPLICATION LOCKED</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>Enter 4-6 Digit Numeric Password to Access</p>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center;'>🔐 अॅप्लिकेशन लॉक आहे</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>प्रवेशासाठी 4-6 अंकी पासवर्ड टाका</p>", unsafe_allow_html=True)
     
-    password_input = st.text_input("Password", type="password", placeholder="Enter numeric password", key="app_lock_password")
+    password_input = st.text_input("पासवर्ड", type="password", placeholder="अंकी पासवर्ड टाका", key="app_lock_password")
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
-        if st.button("🔓 UNLOCK", use_container_width=True):
+        if st.button("🔓 अनलॉक करा", use_container_width=True):
             entered = str(password_input).strip()
             expected = str(st.session_state.app_password).strip()
             if entered == expected:
                 st.session_state.app_unlocked = True
                 st.rerun()
             else:
-                st.error("❌ Wrong Password! Access Denied.")
+                st.error("❌ चुकीचा पासवर्ड! प्रवेश नाकारला.")
     st.stop()
 
-# ================= LIVE TIME UPDATE FUNCTION =================
+# ================= लाइव्ह वेळ दाखवण्यासाठी =================
 def update_live_time():
-    """Continuous time update using JavaScript"""
+    """जावास्क्रिप्ट वापरून सतत वेळ अपडेट"""
     return f"""
     <script>
     function updateTime() {{
@@ -60,7 +60,7 @@ def update_live_time():
     <div id="live-time" style="text-align:center; font-size:24px; font-weight:bold; color:#00ff88;"></div>
     """
     
-# ================= SESSION STATE =================
+# ================= सेशन स्टेट =================
 if "algo_running" not in st.session_state:
     st.session_state.algo_running = False
 if "totp_verified" not in st.session_state:
@@ -86,7 +86,7 @@ if "last_trade_date" not in st.session_state:
 if "max_daily_loss" not in st.session_state:
     st.session_state.max_daily_loss = 100000
 
-# ================= LOT SIZE AND TP SETTINGS (WITH ON/OFF) =================
+# ================= लॉट साइज आणि TP सेटिंग्ज =================
 # NIFTY
 if "nifty_lots" not in st.session_state:
     st.session_state.nifty_lots = 1
@@ -135,22 +135,22 @@ if "ng_tp2_enabled" not in st.session_state:
 if "ng_tp3_enabled" not in st.session_state:
     st.session_state.ng_tp3_enabled = False
 
-# ================= Q4 RESULTS DATA =================
+# ================= Q4 निकाल डेटा =================
 if "q4_results" not in st.session_state:
     st.session_state.q4_results = {
-        "HDFC Bank": {"profit": 9.1, "verdict": "🟡 Mixed", "date": "15 May 2026", "revenue": "₹88,500 Cr", "ai_signal": "WAIT"},
-        "Reliance": {"profit": -12.5, "verdict": "🔴 Negative", "date": "14 May 2026", "revenue": "₹2,34,000 Cr", "ai_signal": "SELL"},
-        "Infosys": {"profit": 11.6, "verdict": "🟠 Cautious", "date": "16 May 2026", "revenue": "₹42,000 Cr", "ai_signal": "CAUTIOUS BUY"},
-        "Maruti Suzuki": {"profit": -6.5, "verdict": "🔴 Negative", "date": "13 May 2026", "revenue": "₹38,500 Cr", "ai_signal": "SELL"},
-        "Tata Motors": {"profit": -32.0, "verdict": "🔴 Negative", "date": "12 May 2026", "revenue": "₹1,20,000 Cr", "ai_signal": "STRONG SELL"},
-        "Bharat Electronics": {"profit": 0, "verdict": "⏳ Pending", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
-        "BPCL": {"profit": 0, "verdict": "⏳ Pending", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
-        "Zydus Lifesciences": {"profit": 0, "verdict": "⏳ Pending", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
-        "Mankind Pharma": {"profit": 0, "verdict": "⏳ Pending", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
-        "PI Industries": {"profit": 0, "verdict": "⏳ Pending", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
+        "HDFC Bank": {"profit": 9.1, "verdict": "🟡 मिश्र", "date": "15 May 2026", "revenue": "₹88,500 Cr", "ai_signal": "WAIT"},
+        "Reliance": {"profit": -12.5, "verdict": "🔴 नकारात्मक", "date": "14 May 2026", "revenue": "₹2,34,000 Cr", "ai_signal": "SELL"},
+        "Infosys": {"profit": 11.6, "verdict": "🟠 सावधान", "date": "16 May 2026", "revenue": "₹42,000 Cr", "ai_signal": "CAUTIOUS BUY"},
+        "Maruti Suzuki": {"profit": -6.5, "verdict": "🔴 नकारात्मक", "date": "13 May 2026", "revenue": "₹38,500 Cr", "ai_signal": "SELL"},
+        "Tata Motors": {"profit": -32.0, "verdict": "🔴 नकारात्मक", "date": "12 May 2026", "revenue": "₹1,20,000 Cr", "ai_signal": "STRONG SELL"},
+        "Bharat Electronics": {"profit": 0, "verdict": "⏳ प्रलंबित", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
+        "BPCL": {"profit": 0, "verdict": "⏳ प्रलंबित", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
+        "Zydus Lifesciences": {"profit": 0, "verdict": "⏳ प्रलंबित", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
+        "Mankind Pharma": {"profit": 0, "verdict": "⏳ प्रलंबित", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
+        "PI Industries": {"profit": 0, "verdict": "⏳ प्रलंबित", "date": "19 May 2026", "revenue": "—", "ai_signal": "PENDING"},
     }
 
-# Reset daily trades
+# दररोज ट्रेड रीसेट
 if get_ist_now().date() != st.session_state.last_trade_date:
     st.session_state.daily_loss = 0
     st.session_state.nifty_trades_count = 0
@@ -161,7 +161,7 @@ if get_ist_now().date() != st.session_state.last_trade_date:
 def check_daily_loss_limit():
     return abs(st.session_state.daily_loss) >= st.session_state.max_daily_loss
 
-# ================= HELPER FUNCTIONS =================
+# ================= हेल्पर फंक्शन्स =================
 def get_usd_inr_rate():
     try:
         df = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
@@ -181,7 +181,7 @@ def get_live_price(symbol):
         pass
     return 0.0
 
-# ================= TUMCHA BUY/SELL LOGIC (JASA TASA) =================
+# ================= ट्रेडिंग सिग्नल लॉजिक =================
 def get_technical_indicators(df):
     if df.empty or len(df) < 200:
         return None
@@ -465,49 +465,49 @@ def is_commodity_market_open():
         return True
     return False
 
-# ================= UI HEADER =================
+# ================= UI हेडर =================
 st.markdown("<h1 style='text-align:center;'>RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
 
-# ================= LIVE TIME DISPLAY =================
+# ================= लाइव्ह वेळ दाखवा =================
 st.markdown(update_live_time(), unsafe_allow_html=True)
 st.markdown("---")
 
-# ================= CONTROL PANEL =================
+# ================= कंट्रोल पॅनेल =================
 col_a, col_b, col_c, col_d = st.columns([2.2, 1, 1, 1.2])
 with col_a:
-    totp = st.text_input("🔐 TOTP Code", type="password", placeholder="6-digit code", key="totp_main", label_visibility="collapsed")
+    totp = st.text_input("🔐 TOTP कोड", type="password", placeholder="6 अंकी कोड", key="totp_main", label_visibility="collapsed")
 with col_b:
-    if st.button("🟢 START", use_container_width=True):
+    if st.button("🟢 सुरू करा", use_container_width=True):
         if totp and len(totp) == 6:
             st.session_state.algo_running = True
             st.session_state.totp_verified = True
             send_telegram("🚀 ALGO STARTED")
             st.rerun()
         else:
-            st.error("❌ Valid TOTP required!")
+            st.error("❌ योग्य TOTP आवश्यक आहे!")
 with col_c:
-    if st.button("🔴 STOP", use_container_width=True):
+    if st.button("🔴 थांबवा", use_container_width=True):
         st.session_state.algo_running = False
         send_telegram("🛑 ALGO STOPPED")
         st.rerun()
 with col_d:
     if st.session_state.algo_running:
-        st.success(f"🟢 RUNNING | {get_ist_now().strftime('%H:%M:%S')}")
+        st.success(f"🟢 चालू आहे | {get_ist_now().strftime('%H:%M:%S')}")
     else:
-        st.error(f"🔴 STOPPED | {get_ist_now().strftime('%H:%M:%S')}")
+        st.error(f"🔴 थांबवले आहे | {get_ist_now().strftime('%H:%M:%S')}")
 
 st.markdown("---")
 
-# ================= DAILY LOSS =================
+# ================= दररोजचा तोटा =================
 if check_daily_loss_limit():
-    st.error(f"🚨 DAILY LOSS LIMIT HIT: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f}")
+    st.error(f"🚨 दररोजची तोटा मर्यादा पूर्ण झाली: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f}")
 else:
-    st.info(f"📉 Daily Loss: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f}")
+    st.info(f"📉 आजचा तोटा: ₹{abs(st.session_state.daily_loss):,.0f} / ₹{st.session_state.max_daily_loss:,.0f}")
 
 st.markdown("---")
 
-# ================= LIVE PRICES AND SIGNALS =================
+# ================= लाइव्ह किमती आणि सिग्नल =================
 usd_inr = get_usd_inr_rate()
 nifty_price = get_live_price("^NSEI")
 crude_price_usd = get_live_price("CL=F")
@@ -521,114 +521,126 @@ ng_signal, ng_price_sig = get_ng_signal()
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("🇮🇳 NIFTY 50", f"₹{nifty_price:,.2f}" if nifty_price else "Loading...")
+    st.metric("🇮🇳 निफ्टी 50", f"₹{nifty_price:,.2f}" if nifty_price else "लोड होत आहे...")
     if nifty_signal == "BUY":
-        st.success(f"🟢 SIGNAL: {nifty_signal}")
+        st.success(f"🟢 सिग्नल: {nifty_signal}")
     elif nifty_signal == "SELL":
-        st.error(f"🔴 SIGNAL: {nifty_signal}")
+        st.error(f"🔴 सिग्नल: {nifty_signal}")
     else:
-        st.warning(f"⏳ SIGNAL: {nifty_signal}")
+        st.warning(f"⏳ सिग्नल: {nifty_signal}")
 with col2:
-    st.metric("🛢️ CRUDE OIL", f"₹{crude_price_inr:,.2f}" if crude_price_inr else "Loading...")
+    st.metric("🛢️ क्रूड ऑइल", f"₹{crude_price_inr:,.2f}" if crude_price_inr else "लोड होत आहे...")
     if crude_signal == "BUY":
-        st.success(f"🟢 SIGNAL: {crude_signal}")
+        st.success(f"🟢 सिग्नल: {crude_signal}")
     elif crude_signal == "SELL":
-        st.error(f"🔴 SIGNAL: {crude_signal}")
+        st.error(f"🔴 सिग्नल: {crude_signal}")
     else:
-        st.warning(f"⏳ SIGNAL: {crude_signal}")
+        st.warning(f"⏳ सिग्नल: {crude_signal}")
 with col3:
-    st.metric("🌿 NATURAL GAS", f"₹{ng_price_inr:,.2f}" if ng_price_inr else "Loading...")
+    st.metric("🌿 नॅचरल गॅस", f"₹{ng_price_inr:,.2f}" if ng_price_inr else "लोड होत आहे...")
     if ng_signal == "BUY":
-        st.success(f"🟢 SIGNAL: {ng_signal}")
+        st.success(f"🟢 सिग्नल: {ng_signal}")
     elif ng_signal == "SELL":
-        st.error(f"🔴 SIGNAL: {ng_signal}")
+        st.error(f"🔴 सिग्नल: {ng_signal}")
     else:
-        st.warning(f"⏳ SIGNAL: {ng_signal}")
+        st.warning(f"⏳ सिग्नल: {ng_signal}")
 
 st.markdown("---")
 
-# ================= Q4 RESULTS DASHBOARD =================
-st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
+# ================= Q4 निकाल डॅशबोर्ड =================
+st.markdown("## 📊 Q4 FY26 निकाल डॅशबोर्ड")
 rows = []
 for company, data in st.session_state.q4_results.items():
     profit_display = f"{data['profit']:+.1f}%" if data['profit'] != 0 else "—"
     rows.append({
-        "Company": company, "Date": data['date'], "Profit Change": profit_display,
-        "Verdict": data['verdict'], "Revenue": data['revenue'], "🤖 AI Signal": data['ai_signal']
+        "कंपनी": company, "तारीख": data['date'], "नफा बदल": profit_display,
+        "निकाल": data['verdict'], "महसूल": data['revenue'], "🤖 AI सिग्नल": data['ai_signal']
     })
 df_q4 = pd.DataFrame(rows)
 st.dataframe(df_q4, use_container_width=True, height=300)
 st.markdown("---")
 
-# ================= LOT SIZE AND TP SETTINGS =================
-with st.expander("⚙️ LOT SIZE & TARGET PROFIT SETTINGS"):
-    st.markdown("### 🇮🇳 NIFTY SETTINGS")
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    with c1:
-        st.session_state.nifty_lots = st.number_input("Lots", 1, 50, st.session_state.nifty_lots)
-    with c2:
-        st.session_state.nifty_tp1_enabled = st.checkbox("TP1 ON", st.session_state.nifty_tp1_enabled)
-    with c3:
-        st.session_state.nifty_tp1 = st.number_input("TP1", 1, 100, st.session_state.nifty_tp1, disabled=not st.session_state.nifty_tp1_enabled)
-    with c4:
-        st.session_state.nifty_tp2_enabled = st.checkbox("TP2 ON", st.session_state.nifty_tp2_enabled)
-    with c5:
-        st.session_state.nifty_tp2 = st.number_input("TP2", 1, 100, st.session_state.nifty_tp2, disabled=not st.session_state.nifty_tp2_enabled)
-    with c6:
-        st.session_state.nifty_tp3_enabled = st.checkbox("TP3 ON", st.session_state.nifty_tp3_enabled)
-    with c7:
-        st.session_state.nifty_tp3 = st.number_input("TP3", 1, 100, st.session_state.nifty_tp3, disabled=not st.session_state.nifty_tp3_enabled)
+# ================= लॉट साइज आणि TP सेटिंग्ज (सुधारित) =================
+with st.expander("⚙️ लॉट साइज आणि टार्गेट प्रॉफिट सेटिंग्ज"):
     
-    st.markdown("### 🛢️ CRUDE SETTINGS")
+    st.markdown("### 🇮🇳 निफ्टी सेटिंग्ज")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     with c1:
-        st.session_state.crude_lots = st.number_input("Lots", 1, 50, st.session_state.crude_lots, key="crude_lots")
+        st.number_input("लॉट", min_value=1, max_value=50, value=st.session_state.nifty_lots, key="nifty_lots")
     with c2:
-        st.session_state.crude_tp1_enabled = st.checkbox("TP1 ON", st.session_state.crude_tp1_enabled, key="crude_tp1_en")
+        st.checkbox("TP1 चालू", value=st.session_state.nifty_tp1_enabled, key="nifty_tp1_en")
     with c3:
-        st.session_state.crude_tp1 = st.number_input("TP1", 1, 100, st.session_state.crude_tp1, disabled=not st.session_state.crude_tp1_enabled, key="crude_tp1")
+        st.number_input("TP1", min_value=1, max_value=100, value=st.session_state.nifty_tp1, 
+                       disabled=not st.session_state.nifty_tp1_enabled, key="nifty_tp1")
     with c4:
-        st.session_state.crude_tp2_enabled = st.checkbox("TP2 ON", st.session_state.crude_tp2_enabled, key="crude_tp2_en")
+        st.checkbox("TP2 चालू", value=st.session_state.nifty_tp2_enabled, key="nifty_tp2_en")
     with c5:
-        st.session_state.crude_tp2 = st.number_input("TP2", 1, 100, st.session_state.crude_tp2, disabled=not st.session_state.crude_tp2_enabled, key="crude_tp2")
+        st.number_input("TP2", min_value=1, max_value=100, value=st.session_state.nifty_tp2, 
+                       disabled=not st.session_state.nifty_tp2_enabled, key="nifty_tp2")
     with c6:
-        st.session_state.crude_tp3_enabled = st.checkbox("TP3 ON", st.session_state.crude_tp3_enabled, key="crude_tp3_en")
+        st.checkbox("TP3 चालू", value=st.session_state.nifty_tp3_enabled, key="nifty_tp3_en")
     with c7:
-        st.session_state.crude_tp3 = st.number_input("TP3", 1, 100, st.session_state.crude_tp3, disabled=not st.session_state.crude_tp3_enabled, key="crude_tp3")
+        st.number_input("TP3", min_value=1, max_value=100, value=st.session_state.nifty_tp3, 
+                       disabled=not st.session_state.nifty_tp3_enabled, key="nifty_tp3")
     
-    st.markdown("### 🌿 NATURAL GAS SETTINGS")
+    st.markdown("### 🛢️ क्रूड सेटिंग्ज")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     with c1:
-        st.session_state.ng_lots = st.number_input("Lots", 1, 50, st.session_state.ng_lots, key="ng_lots")
+        # ✅ योग्य - assignment काढून टाकला
+        st.number_input("लॉट", min_value=1, max_value=50, key="crude_lots")
     with c2:
-        st.session_state.ng_tp1_enabled = st.checkbox("TP1 ON", st.session_state.ng_tp1_enabled, key="ng_tp1_en")
+        st.checkbox("TP1 चालू", value=st.session_state.crude_tp1_enabled, key="crude_tp1_en")
     with c3:
-        st.session_state.ng_tp1 = st.number_input("TP1", 1, 50, st.session_state.ng_tp1, disabled=not st.session_state.ng_tp1_enabled, key="ng_tp1")
+        st.number_input("TP1", min_value=1, max_value=100, value=st.session_state.crude_tp1, 
+                       disabled=not st.session_state.crude_tp1_enabled, key="crude_tp1")
     with c4:
-        st.session_state.ng_tp2_enabled = st.checkbox("TP2 ON", st.session_state.ng_tp2_enabled, key="ng_tp2_en")
+        st.checkbox("TP2 चालू", value=st.session_state.crude_tp2_enabled, key="crude_tp2_en")
     with c5:
-        st.session_state.ng_tp2 = st.number_input("TP2", 1, 50, st.session_state.ng_tp2, disabled=not st.session_state.ng_tp2_enabled, key="ng_tp2")
+        st.number_input("TP2", min_value=1, max_value=100, value=st.session_state.crude_tp2, 
+                       disabled=not st.session_state.crude_tp2_enabled, key="crude_tp2")
     with c6:
-        st.session_state.ng_tp3_enabled = st.checkbox("TP3 ON", st.session_state.ng_tp3_enabled, key="ng_tp3_en")
+        st.checkbox("TP3 चालू", value=st.session_state.crude_tp3_enabled, key="crude_tp3_en")
     with c7:
-        st.session_state.ng_tp3 = st.number_input("TP3", 1, 50, st.session_state.ng_tp3, disabled=not st.session_state.ng_tp3_enabled, key="ng_tp3")
+        st.number_input("TP3", min_value=1, max_value=100, value=st.session_state.crude_tp3, 
+                       disabled=not st.session_state.crude_tp3_enabled, key="crude_tp3")
+    
+    st.markdown("### 🌿 नॅचरल गॅस सेटिंग्ज")
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    with c1:
+        # ✅ योग्य - assignment काढून टाकला
+        st.number_input("लॉट", min_value=1, max_value=50, key="ng_lots")
+    with c2:
+        st.checkbox("TP1 चालू", value=st.session_state.ng_tp1_enabled, key="ng_tp1_en")
+    with c3:
+        st.number_input("TP1", min_value=1, max_value=50, value=st.session_state.ng_tp1, 
+                       disabled=not st.session_state.ng_tp1_enabled, key="ng_tp1")
+    with c4:
+        st.checkbox("TP2 चालू", value=st.session_state.ng_tp2_enabled, key="ng_tp2_en")
+    with c5:
+        st.number_input("TP2", min_value=1, max_value=50, value=st.session_state.ng_tp2, 
+                       disabled=not st.session_state.ng_tp2_enabled, key="ng_tp2")
+    with c6:
+        st.checkbox("TP3 चालू", value=st.session_state.ng_tp3_enabled, key="ng_tp3_en")
+    with c7:
+        st.number_input("TP3", min_value=1, max_value=50, value=st.session_state.ng_tp3, 
+                       disabled=not st.session_state.ng_tp3_enabled, key="ng_tp3")
 
 st.markdown("---")
 
-# ================= TRADING JOURNAL =================
-st.markdown("## 📋 TRADING JOURNAL")
+# ================= ट्रेडिंग जर्नल =================
+st.markdown("## 📋 ट्रेडिंग जर्नल")
 if st.session_state.trade_journal:
     df_journal = pd.DataFrame(st.session_state.trade_journal)
     st.dataframe(df_journal, use_container_width=True, height=300)
 else:
-    st.info("📭 No trades executed yet.")
+    st.info("📭 अजून कोणतेही ट्रेड झाले नाहीत.")
 
 st.markdown("---")
 
-# ================= AUTO TRADING LOGIC =================
+# ================= ऑटो ट्रेडिंग लॉजिक =================
 if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
     
-    # Build target lists
+    # टार्गेट लिस्ट बनवा
     nifty_targets = []
     if st.session_state.nifty_tp1_enabled: nifty_targets.append(st.session_state.nifty_tp1)
     if st.session_state.nifty_tp2_enabled: nifty_targets.append(st.session_state.nifty_tp2)
@@ -644,17 +656,17 @@ if st.session_state.algo_running and st.session_state.totp_verified and not chec
     if st.session_state.ng_tp2_enabled: ng_targets.append(st.session_state.ng_tp2)
     if st.session_state.ng_tp3_enabled: ng_targets.append(st.session_state.ng_tp3)
     
-    # NIFTY
+    # निफ्टी
     if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2:
         if is_nifty_market_open():
             signal, price = get_nifty_signal()
             if signal != "WAIT":
                 qty = st.session_state.nifty_lots * 65
                 if execute_trade("NIFTY", signal, price, st.session_state.nifty_lots, qty, nifty_targets):
-                    st.success(f"✅ NIFTY {signal} Executed at ₹{price:.2f}")
+                    st.success(f"✅ निफ्टी {signal} ₹{price:.2f} ला कार्यान्वित झाला")
                     st.rerun()
     
-    # CRUDE
+    # क्रूड
     if st.session_state.enable_crude and st.session_state.crude_trades_count < 2:
         if is_commodity_market_open():
             signal, price_usd = get_crude_signal()
@@ -662,10 +674,10 @@ if st.session_state.algo_running and st.session_state.totp_verified and not chec
                 price_inr = price_usd * get_usd_inr_rate()
                 qty = st.session_state.crude_lots * 100
                 if execute_trade("CRUDE", signal, price_inr, st.session_state.crude_lots, qty, crude_targets):
-                    st.success(f"✅ CRUDE {signal} Executed at ₹{price_inr:.2f}")
+                    st.success(f"✅ क्रूड {signal} ₹{price_inr:.2f} ला कार्यान्वित झाला")
                     st.rerun()
     
-    # NG
+    # एनजी
     if st.session_state.enable_ng and st.session_state.ng_trades_count < 2:
         if is_commodity_market_open():
             signal, price_usd = get_ng_signal()
@@ -673,45 +685,45 @@ if st.session_state.algo_running and st.session_state.totp_verified and not chec
                 price_inr = price_usd * get_usd_inr_rate()
                 qty = st.session_state.ng_lots * 1250
                 if execute_trade("NG", signal, price_inr, st.session_state.ng_lots, qty, ng_targets):
-                    st.success(f"✅ NG {signal} Executed at ₹{price_inr:.2f}")
+                    st.success(f"✅ एनजी {signal} ₹{price_inr:.2f} ला कार्यान्वित झाला")
                     st.rerun()
     
-    st.info("⏳ Waiting for next scan cycle...")
+    st.info("⏳ पुढील स्कॅनची प्रतीक्षा करत आहे...")
     
 elif not st.session_state.algo_running:
-    st.warning("⏸️ ALGO IS STOPPED. Press START to begin trading.")
+    st.warning("⏸️ ALGO थांबवले आहे. ट्रेडिंग सुरू करण्यासाठी START दाबा.")
 elif not st.session_state.totp_verified:
-    st.warning("🔐 Please enter valid 6-digit TOTP code and press START.")
+    st.warning("🔐 कृपया योग्य 6-अंकी TOTP कोड टाका आणि START दाबा.")
 elif check_daily_loss_limit():
-    st.error(f"🚨 DAILY LOSS LIMIT HIT (₹{st.session_state.max_daily_loss:,.0f})! Trading stopped.")
+    st.error(f"🚨 दररोजची तोटा मर्यादा (₹{st.session_state.max_daily_loss:,.0f}) पूर्ण झाली! ट्रेडिंग थांबवले.")
 
-# ================= SIDEBAR =================
+# ================= साइडबार =================
 with st.sidebar:
-    st.markdown("## ⚙️ GENERAL SETTINGS")
-    st.session_state.max_daily_loss = st.number_input("📉 Max Daily Loss (₹)", 10000, 500000, st.session_state.max_daily_loss, 10000)
+    st.markdown("## ⚙️ सामान्य सेटिंग्ज")
+    st.session_state.max_daily_loss = st.number_input("📉 कमाल दररोज तोटा (₹)", 10000, 500000, st.session_state.max_daily_loss, 10000)
     st.markdown("---")
-    st.markdown("### 📌 ASSETS")
-    st.session_state.enable_nifty = st.checkbox("🇮🇳 NIFTY", st.session_state.enable_nifty)
-    st.session_state.enable_crude = st.checkbox("🛢️ CRUDE OIL", st.session_state.enable_crude)
-    st.session_state.enable_ng = st.checkbox("🌿 NATURAL GAS", st.session_state.enable_ng)
+    st.markdown("### 📌 मालमत्ता")
+    st.session_state.enable_nifty = st.checkbox("🇮🇳 निफ्टी", st.session_state.enable_nifty)
+    st.session_state.enable_crude = st.checkbox("🛢️ क्रूड ऑइल", st.session_state.enable_crude)
+    st.session_state.enable_ng = st.checkbox("🌿 नॅचरल गॅस", st.session_state.enable_ng)
     st.markdown("---")
-    st.markdown("### 📊 TODAY'S STATUS")
-    st.metric("NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
-    st.metric("CRUDE Trades", f"{st.session_state.crude_trades_count}/2")
-    st.metric("NG Trades", f"{st.session_state.ng_trades_count}/2")
+    st.markdown("### 📊 आजची स्थिती")
+    st.metric("निफ्टी ट्रेड", f"{st.session_state.nifty_trades_count}/2")
+    st.metric("क्रूड ट्रेड", f"{st.session_state.crude_trades_count}/2")
+    st.metric("एनजी ट्रेड", f"{st.session_state.ng_trades_count}/2")
     st.markdown("---")
-    st.markdown("### 🛡️ ACTIVE CONDITIONS")
+    st.markdown("### 🛡️ सक्रिय अटी")
     st.caption("• EMA9 >/ < EMA20")
-    st.caption("• Price >/< EMA200")
-    st.caption("• RSI >= 55 (BUY) / <= 45 (SELL)")
+    st.caption("• किंमत >/< EMA200")
+    st.caption("• RSI >= 55 (खरेदी) / <= 45 (विक्री)")
     st.caption("• ADX >= 22")
-    st.caption("• Strong Bull/Bear Candle")
-    st.caption("• Multi-TF (5m, 15m, 1h)")
+    st.caption("• मजबूत बुल/बेअर मेणबत्ती")
+    st.caption("• मल्टी-टीएफ (5m, 15m, 1h)")
 
-# ================= AUTO REFRESH FOR LIVE TIME =================
+# ================= लाइव्ह वेळेसाठी ऑटो रिफ्रेश =================
 time.sleep(1)
 st.rerun()
 
-# ================= FOOTER =================
+# ================= फूटर =================
 st.markdown("---")
-st.caption("🔐 App Protected | Developed by Satish D. Nakhate")
+st.caption("🔐 अॅप संरक्षित | विकसक: सतीश डी. नाखाते, तळवडे, पुणे - 412114")
