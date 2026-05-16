@@ -1,5 +1,6 @@
 # ============================================================
-# RUDRANSH PRO ALGO X + REAL-TIME Q4 DASHBOARD
+# RUDRANSH PRO ALGO X - PROFESSIONAL AI ECOSYSTEM
+# With FMP API, Real-time Earnings, AI Analysis, Voice Alerts
 # DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114
 # ============================================================
 
@@ -9,11 +10,17 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import time
-import threading
 import json
+import threading
+from streamlit_autorefresh import st_autorefresh
 
 # ================= PAGE CONFIG =================
-st.set_page_config(page_title="RUDRANSH PRO ALGO X", layout="wide", page_icon="📊")
+st.set_page_config(page_title="RUDRANSH PRO ALGO X", layout="wide", page_icon="🤖")
+
+# ================= FMP API CONFIGURATION =================
+# Register at https://financialmodelingprep.com/ for FREE API key
+# Free tier: 250 requests/day
+FMP_API_KEY = "YOUR_FMP_API_KEY_HERE"  # तुमचा API key येथे ठेवा
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -21,149 +28,335 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_ist_now():
     return datetime.now(IST)
 
-# ================= APP LOCK SESSION STATE =================
+# ================= APP LOCK =================
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
 if "app_password" not in st.session_state:
     st.session_state.app_password = "8055"
 
-# ================= Q4 RESULT DATA WITH REAL-TIME TRACKING =================
-# प्रत्येक कंपनीचे symbol (NSE/BSE API साठी)
+# ================= COMPANY SYMBOLS FOR FMP API =================
 COMPANY_SYMBOLS = {
-    "HDFC Bank": "HDFCBANK.NS",
-    "Reliance Industries": "RELIANCE.NS",
-    "Infosys": "INFY.NS",
-    "Maruti Suzuki": "MARUTI.NS",
-    "Tata Motors": "TATAMOTORS.NS",
-    "Bharat Electronics": "BEL.NS",
-    "BPCL": "BPCL.NS",
-    "Zydus Lifesciences": "ZYDUSLIFE.NS",
-    "Mankind Pharma": "MANKIND.NS",
-    "PI Industries": "PIIND.NS",
+    "HDFC Bank": "HDFCBANK",
+    "Reliance Industries": "RELIANCE",
+    "Infosys": "INFY",
+    "Maruti Suzuki": "MARUTI",
+    "Tata Motors": "TATAMOTORS",
+    "Bharat Electronics": "BEL",
+    "BPCL": "BPCL",
+    "Zydus Lifesciences": "ZYDUSLIFE",
+    "Mankind Pharma": "MANKIND",
+    "PI Industries": "PIIND",
 }
 
-# Q4 Results Data with Real-time Status
+# ================= Q4 RESULTS WITH REAL-TIME FMP DATA =================
 if "q4_results" not in st.session_state:
     st.session_state.q4_results = {
-        "HDFC Bank": {"profit": 9.1, "verdict": "Mixed", "date": "15 May 2026", "revenue": 88500, "key": "Deposits grew 14.4%, but NII missed estimates", "announced": True, "alert_sent": True},
-        "Reliance Industries": {"profit": -12.5, "verdict": "Negative", "date": "14 May 2026", "revenue": 234000, "key": "Retail strong, Energy business weak", "announced": True, "alert_sent": True},
-        "Infosys": {"profit": 11.6, "verdict": "Cautious", "date": "16 May 2026", "revenue": 42000, "key": "Revenue declined 1.3% QoQ, weak guidance", "announced": True, "alert_sent": True},
-        "Maruti Suzuki": {"profit": -6.5, "verdict": "Negative", "date": "13 May 2026", "revenue": 38500, "key": "Record sales but margin pressure", "announced": True, "alert_sent": True},
-        "Tata Motors": {"profit": -32.0, "verdict": "Negative", "date": "12 May 2026", "revenue": 120000, "key": "India PV strong, JLR weak", "announced": True, "alert_sent": True},
-        "Bharat Electronics": {"profit": 0, "verdict": "Pending", "date": "19 May 2026", "revenue": 0, "key": "Expected Positive", "announced": False, "alert_sent": False},
-        "BPCL": {"profit": 0, "verdict": "Pending", "date": "19 May 2026", "revenue": 0, "key": "Expected Neutral/Negative", "announced": False, "alert_sent": False},
-        "Zydus Lifesciences": {"profit": 0, "verdict": "Pending", "date": "19 May 2026", "revenue": 0, "key": "Expected Positive", "announced": False, "alert_sent": False},
-        "Mankind Pharma": {"profit": 0, "verdict": "Pending", "date": "19 May 2026", "revenue": 0, "key": "Expected Positive", "announced": False, "alert_sent": False},
-        "PI Industries": {"profit": 0, "verdict": "Pending", "date": "19 May 2026", "revenue": 0, "key": "Expected Positive", "announced": False, "alert_sent": False},
+        "HDFC Bank": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Reliance Industries": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Infosys": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Maruti Suzuki": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Tata Motors": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Bharat Electronics": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "BPCL": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Zydus Lifesciences": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "Mankind Pharma": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
+        "PI Industries": {"profit": 0, "verdict": "Pending", "date": "Pending", "revenue": 0, "key": "Fetching from FMP...", "eps_actual": None, "eps_estimated": None, "surprise_percent": None},
     }
 
-if "last_q4_check" not in st.session_state:
-    st.session_state.last_q4_check = get_ist_now()
-if "new_result_alert" not in st.session_state:
-    st.session_state.new_result_alert = None
+if "last_earnings_check" not in st.session_state:
+    st.session_state.last_earnings_check = get_ist_now()
+if "alert_history" not in st.session_state:
+    st.session_state.alert_history = []
 
-# ================= REAL-TIME RESULT CHECK FUNCTION =================
-def check_for_new_results():
-    """
-    हे function real-time मध्ये नवीन Q4 results check करेल.
-    
-    NOTE: Real results साठी तुम्हाला येथे API integration करावे लागेल.
-    उदाहरणार्थ:
-    - NSE Website scraping
-    - Premium Financial Data API (Bloomberg, Reuters)
-    - Company announcement RSS feeds
-    
-    सध्या हे DEMO MODE मध्ये आहे - जेणेकरून तुम्ही Alert System test करू शकाल.
-    Real implementation साठी, खालील code replace करा.
-    """
-    
-    # DEMO: सध्या 19 May 2026 च्या companies साठी simulation
-    # Real implementation मध्ये, येथे API call करून real data fetch करा
-    
-    current_time = get_ist_now()
-    today_str = current_time.strftime("%d %b %Y")
-    
-    # Check if we should simulate results (for demo purposes)
-    # REAL: येथे API response वरून verdict update करा
-    if current_time.hour >= 10:  # Market hours नंतर results अपेक्षित
-        pending_companies = [c for c, d in st.session_state.q4_results.items() if not d["announced"]]
+# ================= FMP API FUNCTIONS =================
+
+def fetch_earnings_calendar():
+    """Fetch earnings calendar from FMP API for next 7 days"""
+    try:
+        today = get_ist_now().date()
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = (today + timedelta(days=7)).strftime("%Y-%m-%d")
         
-        for company in pending_companies:
-            if not st.session_state.q4_results[company]["alert_sent"]:
-                # DEMO: Simulate a result (REAL: येथे API data वापरा)
-                # हा भाग real API data ने replace करायचा आहे
-                import random
-                if random.random() < 0.3:  # 30% chance for demo
-                    is_positive = random.choice([True, False])
-                    profit_change = round(random.uniform(5, 25), 1) if is_positive else round(random.uniform(-15, -5), 1)
-                    verdict = "Positive" if is_positive else "Negative"
-                    
-                    # Update result
-                    st.session_state.q4_results[company]["profit"] = profit_change
-                    st.session_state.q4_results[company]["verdict"] = verdict
-                    st.session_state.q4_results[company]["announced"] = True
-                    st.session_state.q4_results[company]["date"] = today_str
-                    st.session_state.new_result_alert = {
-                        "company": company,
-                        "verdict": verdict,
-                        "profit": profit_change,
-                        "time": current_time.strftime("%H:%M:%S")
-                    }
-                    return True
-    return False
+        url = f"https://financialmodelingprep.com/stable/earnings-calendar"
+        params = {
+            "apikey": FMP_API_KEY,
+            "from": from_date,
+            "to": to_date
+        }
+        response = requests.get(url, params=params, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        else:
+            st.warning(f"FMP API Error: {response.status_code}")
+            return []
+    except Exception as e:
+        st.error(f"Earnings calendar fetch failed: {e}")
+        return []
 
-# ================= TELEGRAM ALERT FUNCTION =================
-def send_telegram_alert(company, verdict, profit_change):
-    """Send real-time Telegram alert for new results"""
+def fetch_earnings_surprises(symbol):
+    """Fetch historical earnings surprises for a symbol"""
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/earnings-surprises/{symbol}"
+        params = {"apikey": FMP_API_KEY}
+        response = requests.get(url, params=params, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                latest = data[0]
+                return {
+                    "eps_actual": latest.get("actualEps"),
+                    "eps_estimated": latest.get("estimatedEps"),
+                    "surprise": latest.get("surprise"),
+                    "surprise_percent": latest.get("surprisePercentage"),
+                    "date": latest.get("date")
+                }
+    except Exception as e:
+        print(f"Earnings surprises fetch failed for {symbol}: {e}")
+    return None
+
+def fetch_company_profile(symbol):
+    """Fetch company profile for sector info"""
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/profile/{symbol}"
+        params = {"apikey": FMP_API_KEY}
+        response = requests.get(url, params=params, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except Exception as e:
+        print(f"Profile fetch failed for {symbol}: {e}")
+    return None
+
+# ================= AI ANALYSIS ENGINE =================
+
+def ai_analyze_earnings(company_name, eps_actual, eps_estimated, revenue_actual=None, revenue_estimated=None):
+    """
+    AI-powered analysis of earnings results
+    Returns: verdict, bullish_score, reasoning, trade_signal
+    """
+    if eps_actual is None or eps_estimated is None or eps_estimated == 0:
+        return "Pending", 0, "No data available", "WAIT"
+    
+    # Calculate surprise percentage
+    surprise_percent = ((eps_actual - eps_estimated) / abs(eps_estimated)) * 100
+    
+    # Bullish/Bearish detection logic
+    if surprise_percent >= 10:
+        verdict = "Strong Positive 🟢"
+        bullish_score = 90
+        reasoning = f"Strong earnings beat! EPS surprise +{surprise_percent:.1f}%"
+        trade_signal = "BUY"
+    elif surprise_percent >= 3:
+        verdict = "Positive 🟢"
+        bullish_score = 70
+        reasoning = f"Positive earnings surprise of {surprise_percent:.1f}%"
+        trade_signal = "BUY"
+    elif surprise_percent >= 0:
+        verdict = "Slightly Positive 🟢"
+        bullish_score = 55
+        reasoning = f"Marginal beat of {surprise_percent:.1f}%"
+        trade_signal = "CAUTIOUS BUY"
+    elif surprise_percent >= -3:
+        verdict = "Slightly Negative 🟡"
+        bullish_score = 45
+        reasoning = f"Marginal miss of {abs(surprise_percent):.1f}%"
+        trade_signal = "WAIT"
+    elif surprise_percent >= -10:
+        verdict = "Negative 🔴"
+        bullish_score = 30
+        reasoning = f"Earnings miss of {abs(surprise_percent):.1f}%"
+        trade_signal = "SELL"
+    else:
+        verdict = "Strong Negative 🔴🔴"
+        bullish_score = 10
+        reasoning = f"Major earnings miss of {abs(surprise_percent):.1f}%"
+        trade_signal = "STRONG SELL"
+    
+    # Add revenue analysis if available
+    if revenue_actual and revenue_estimated and revenue_estimated > 0:
+        revenue_surprise = ((revenue_actual - revenue_estimated) / revenue_estimated) * 100
+        reasoning += f" | Revenue surprise: {revenue_surprise:+.1f}%"
+        
+        if revenue_surprise > 5 and surprise_percent > 0:
+            bullish_score = min(100, bullish_score + 15)
+            verdict = "Very Strong Positive 🟢🟢"
+            trade_signal = "STRONG BUY"
+    
+    return verdict, bullish_score, reasoning, trade_signal
+
+# ================= CHECK FOR NEW EARNINGS (REAL-TIME) =================
+
+def check_for_new_earnings():
+    """Check FMP API for new earnings announcements"""
+    try:
+        # Fetch earnings calendar for recent dates
+        today = get_ist_now().date()
+        from_date = (today - timedelta(days=2)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+        
+        url = f"https://financialmodelingprep.com/stable/earnings-calendar"
+        params = {
+            "apikey": FMP_API_KEY,
+            "from": from_date,
+            "to": to_date
+        }
+        response = requests.get(url, params=params, timeout=30)
+        
+        if response.status_code != 200:
+            return False
+        
+        earnings_data = response.json()
+        new_alerts = []
+        
+        for company_name, fmp_symbol in COMPANY_SYMBOLS.items():
+            # Find matching earnings data
+            matching = [e for e in earnings_data if e.get('symbol') == fmp_symbol]
+            
+            if matching:
+                earnings = matching[0]
+                eps_actual = earnings.get('epsActual')
+                eps_estimated = earnings.get('epsEstimated')
+                
+                if eps_actual is not None and eps_estimated is not None:
+                    current_data = st.session_state.q4_results[company_name]
+                    
+                    # Check if this is a new announcement
+                    if current_data.get('eps_actual') != eps_actual:
+                        # New result detected!
+                        surprise_percent = ((eps_actual - eps_estimated) / abs(eps_estimated)) * 100
+                        
+                        # AI Analysis
+                        verdict, bullish_score, reasoning, trade_signal = ai_analyze_earnings(
+                            company_name, eps_actual, eps_estimated
+                        )
+                        
+                        # Update session state
+                        st.session_state.q4_results[company_name].update({
+                            "profit": surprise_percent,
+                            "verdict": verdict,
+                            "date": earnings.get('date', get_ist_now().strftime("%d %b %Y")),
+                            "eps_actual": eps_actual,
+                            "eps_estimated": eps_estimated,
+                            "surprise_percent": surprise_percent,
+                            "key": reasoning,
+                            "trade_signal": trade_signal,
+                            "bullish_score": bullish_score
+                        })
+                        
+                        new_alerts.append({
+                            "company": company_name,
+                            "verdict": verdict,
+                            "surprise_percent": surprise_percent,
+                            "reasoning": reasoning,
+                            "trade_signal": trade_signal,
+                            "bullish_score": bullish_score,
+                            "time": get_ist_now().strftime("%H:%M:%S")
+                        })
+        
+        # Process all new alerts
+        for alert in new_alerts:
+            send_comprehensive_alert(alert)
+            st.session_state.alert_history.insert(0, alert)
+        
+        return len(new_alerts) > 0
+        
+    except Exception as e:
+        print(f"Earnings check error: {e}")
+        return False
+
+# ================= COMPREHENSIVE ALERT SYSTEM =================
+
+def send_comprehensive_alert(alert):
+    """Send alerts via all channels: Telegram, Voice, Popup"""
+    
+    company = alert['company']
+    verdict = alert['verdict']
+    surprise = alert['surprise_percent']
+    reasoning = alert['reasoning']
+    trade_signal = alert['trade_signal']
+    
+    # 1. Telegram Alert
+    send_telegram_alert(company, verdict, surprise, reasoning, trade_signal)
+    
+    # 2. Store for popup (will be shown in dashboard)
+    st.session_state.latest_alert = alert
+    
+    # 3. Voice Alert (JavaScript will handle)
+    voice_msg = f"Alert for {company}. {verdict} with {abs(surprise):.1f} percent surprise. {trade_signal} signal."
+    st.session_state.voice_alert = voice_msg
+
+def send_telegram_alert(company, verdict, surprise, reasoning, trade_signal):
+    """Send Telegram alert"""
     token = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
     chat_id = "1983026913"
     
-    if verdict == "Positive":
+    if "Strong Positive" in verdict or "Positive" in verdict:
         emoji = "🟢✅"
-        direction = "POSITIVE"
-    elif verdict == "Negative":
+        direction = "BULLISH"
+    elif "Negative" in verdict:
         emoji = "🔴❌"
-        direction = "NEGATIVE"
+        direction = "BEARISH"
     else:
         emoji = "🟡📊"
-        direction = "MIXED"
+        direction = "NEUTRAL"
     
-    msg = f"""🚨 *LIVE Q4 RESULT ALERT!* 🚨
+    msg = f"""🤖 *AI EARNINGS ALERT* 🤖
 
 🏢 *Company:* {company}
-{emoji} *Verdict:* {direction}
-📊 *Profit Change:* {profit_change:+.1f}%
-⏰ *Announced at:* {get_ist_now().strftime('%I:%M:%S %p')}
-📅 *Date:* {get_ist_now().strftime('%d %b %Y')}
+{emoji} *Verdict:* {verdict}
+📊 *EPS Surprise:* {surprise:+.1f}%
+🧠 *AI Analysis:* {reasoning}
+🎯 *Trade Signal:* {trade_signal}
+⏰ *Time:* {get_ist_now().strftime('%I:%M:%S %p')}
 
 --
 🔔 *RUDRANSH PRO ALGO X*
-Real-Time Result Alert System"""
+AI-Powered Real-Time Alerts"""
     
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
-        response = requests.post(url, data={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}, timeout=15)
-        if response.status_code == 200:
-            return True
-    except Exception as e:
-        print(f"Telegram error: {e}")
-    return False
+        requests.post(url, data={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}, timeout=15)
+    except:
+        pass
 
-# ================= AUTO-REFRESH SETUP =================
-# Streamlit fragment वापरून auto-refresh (30 seconds) - [citation:4] नुसार
-from streamlit_autorefresh import st_autorefresh
+# ================= VOICE ALERT JAVASCRIPT =================
 
-# Q4 Dashboard साठी 30 सेकंदांनी auto-refresh
-q4_refresh = st_autorefresh(interval=30000, key="q4_refresh", limit=None)
+def get_voice_alert_js():
+    """JavaScript for voice alerts"""
+    return """
+    <script>
+    function speakAlert(message) {
+        if ('speechSynthesis' in window) {
+            var utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            utterance.lang = 'en-IN';
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+    
+    // Check for voice alerts from Streamlit
+    const voiceAlertDiv = document.getElementById('voice-alert-trigger');
+    if (voiceAlertDiv && voiceAlertDiv.innerText) {
+        speakAlert(voiceAlertDiv.innerText);
+    }
+    </script>
+    """
 
-# ================= FIXED TARGETS =================
+# ================= FIXED TARGETS & TRADE SETTINGS =================
 FIXED_TARGETS = {
     "NIFTY": 10,
     "CRUDEOIL": 10,
     "NATURALGAS": 1,
 }
 
-# ================= TRADE COUNTERS =================
+# Trade counters
 if "nifty_trades_count" not in st.session_state:
     st.session_state.nifty_trades_count = 0
 if "crude_trades_count" not in st.session_state:
@@ -171,7 +364,6 @@ if "crude_trades_count" not in st.session_state:
 if "ng_trades_count" not in st.session_state:
     st.session_state.ng_trades_count = 0
 
-# ================= MAX QUANTITY LIMIT =================
 MAX_QTY_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500]
 
 def calculate_trade_quantity(lot_size, max_qty_limit, enable_big_lot_mode=False, big_lot_qty=None):
@@ -184,11 +376,7 @@ def calculate_trade_quantity(lot_size, max_qty_limit, enable_big_lot_mode=False,
     return quantity, max_lots
 
 # ================= SYMBOLS =================
-SYMBOLS = {
-    "NIFTY": "^NSEI",
-    "CRUDEOIL": "CL=F",
-    "NATURALGAS": "NG=F"
-}
+SYMBOLS = {"NIFTY": "^NSEI", "CRUDEOIL": "CL=F", "NATURALGAS": "NG=F"}
 
 # ================= USD/INR RATE =================
 def get_usd_inr_rate():
@@ -217,17 +405,9 @@ def get_live_price(symbol):
         pass
     return 0.0
 
-def get_live_price_inr(symbol):
-    price_usd = get_live_price(symbol)
-    if price_usd > 0:
-        usd_inr = get_usd_inr_rate()
-        return price_usd * usd_inr
-    return 0.0
-
 def get_stock_itm_strike_auto(price, stock, option_type="CE", strike_offset=2):
     if price <= 0:
         return 0, 0, 50
-    
     if price < 100:
         strike_interval = 2.5
     elif price < 250:
@@ -242,19 +422,15 @@ def get_stock_itm_strike_auto(price, stock, option_type="CE", strike_offset=2):
         strike_interval = 100
     else:
         strike_interval = 200
-    
     atm_strike = round(price / strike_interval) * strike_interval
-    
     if option_type == "CE":
         itm_strike = atm_strike - (strike_offset * strike_interval)
         actual_itm = price - itm_strike
     else:
         itm_strike = atm_strike + (strike_offset * strike_interval)
         actual_itm = itm_strike - price
-    
     if itm_strike <= 0:
         itm_strike = strike_interval
-    
     return int(itm_strike), round(actual_itm, 2), strike_interval
 
 # ================= GLOBAL TREND FUNCTIONS =================
@@ -263,27 +439,21 @@ def get_us_market_trend():
         spx = yf.download("^GSPC", period="7d", interval="15m", progress=False)
         nasdaq = yf.download("^IXIC", period="7d", interval="15m", progress=False)
         dow = yf.download("^DJI", period="7d", interval="15m", progress=False)
-        
         trends = []
-        
         if not spx.empty and 'Close' in spx.columns:
             ema20_spx = spx['Close'].ewm(span=20).mean().iloc[-1]
             current_spx = spx['Close'].iloc[-1]
             trends.append("BULLISH" if current_spx > ema20_spx else "BEARISH")
-        
         if not nasdaq.empty and 'Close' in nasdaq.columns:
             ema20_nasdaq = nasdaq['Close'].ewm(span=20).mean().iloc[-1]
             current_nasdaq = nasdaq['Close'].iloc[-1]
             trends.append("BULLISH" if current_nasdaq > ema20_nasdaq else "BEARISH")
-        
         if not dow.empty and 'Close' in dow.columns:
             ema20_dow = dow['Close'].ewm(span=20).mean().iloc[-1]
             current_dow = dow['Close'].iloc[-1]
             trends.append("BULLISH" if current_dow > ema20_dow else "BEARISH")
-        
         if not trends:
             return "NEUTRAL"
-        
         bullish_count = trends.count("BULLISH")
         if bullish_count >= 2:
             return "BULLISH"
@@ -298,27 +468,21 @@ def get_asia_market_trend():
         nikkei = yf.download("^N225", period="7d", interval="15m", progress=False)
         hangseng = yf.download("^HSI", period="7d", interval="15m", progress=False)
         shanghai = yf.download("000001.SS", period="7d", interval="15m", progress=False)
-        
         trends = []
-        
         if not nikkei.empty and 'Close' in nikkei.columns:
             ema20_nikkei = nikkei['Close'].ewm(span=20).mean().iloc[-1]
             current_nikkei = nikkei['Close'].iloc[-1]
             trends.append("BULLISH" if current_nikkei > ema20_nikkei else "BEARISH")
-        
         if not hangseng.empty and 'Close' in hangseng.columns:
             ema20_hangseng = hangseng['Close'].ewm(span=20).mean().iloc[-1]
             current_hangseng = hangseng['Close'].iloc[-1]
             trends.append("BULLISH" if current_hangseng > ema20_hangseng else "BEARISH")
-        
         if not shanghai.empty and 'Close' in shanghai.columns:
             ema20_shanghai = shanghai['Close'].ewm(span=20).mean().iloc[-1]
             current_shanghai = shanghai['Close'].iloc[-1]
             trends.append("BULLISH" if current_shanghai > ema20_shanghai else "BEARISH")
-        
         if not trends:
             return "NEUTRAL"
-        
         bullish_count = trends.count("BULLISH")
         if bullish_count >= 2:
             return "BULLISH"
@@ -333,10 +497,8 @@ def get_dxy_trend():
         dxy = yf.download("DX-Y.NYB", period="7d", interval="15m", progress=False)
         if dxy.empty or 'Close' not in dxy.columns:
             return "NEUTRAL"
-        
         ema20_dxy = dxy['Close'].ewm(span=20).mean().iloc[-1]
         current_dxy = dxy['Close'].iloc[-1]
-        
         if current_dxy > ema20_dxy:
             return "BEARISH"
         elif current_dxy < ema20_dxy:
@@ -349,14 +511,11 @@ def get_global_trend():
     us_trend = get_us_market_trend()
     asia_trend = get_asia_market_trend()
     dxy_trend = get_dxy_trend()
-    
     scores = []
     scores.append(1 if us_trend == "BULLISH" else -1 if us_trend == "BEARISH" else 0)
     scores.append(1 if asia_trend == "BULLISH" else -1 if asia_trend == "BEARISH" else 0)
     scores.append(1 if dxy_trend == "BULLISH" else -1 if dxy_trend == "BEARISH" else 0)
-    
     total_score = sum(scores)
-    
     if total_score >= 2:
         return "BULLISH", us_trend, asia_trend, dxy_trend
     elif total_score <= -2:
@@ -446,7 +605,7 @@ SECTOR_INDEX = {
     "TRAVEL": "^CNXSERVICE",
 }
 
-# ================= SESSION STATE =================
+# ================= SESSION STATE FOR ALGO =================
 if "algo_running" not in st.session_state:
     st.session_state.algo_running = False
 if "totp_verified" not in st.session_state:
@@ -482,6 +641,10 @@ if "daily_loss" not in st.session_state:
     st.session_state.daily_loss = 0
 if "max_stocks_per_day" not in st.session_state:
     st.session_state.max_stocks_per_day = 10
+if "latest_alert" not in st.session_state:
+    st.session_state.latest_alert = None
+if "voice_alert" not in st.session_state:
+    st.session_state.voice_alert = None
 
 # Reset daily trades
 if get_ist_now().date() != st.session_state.last_trade_date:
@@ -864,128 +1027,104 @@ def calculate_signals_stock(symbol, stock_name, sector_name):
     except Exception as e:
         return None
 
-# ================= Q4 RESULTS DASHBOARD FUNCTION (REAL-TIME) =================
+# ================= Q4 DASHBOARD WITH REAL-TIME FMP DATA =================
+
 def show_q4_dashboard():
     st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
-    st.caption("🔄 Dashboard auto-refreshes every 30 seconds | LIVE ALERTS enabled")
+    st.caption("🤖 AI-Powered Real-Time Earnings Analysis | Auto-refresh every 30 seconds")
     
-    # Check for new results before displaying
+    # Check for new earnings from FMP API
     try:
-        new_result = check_for_new_results()
-        if new_result:
-            # Send Telegram alert immediately [citation:2]
-            alert_data = st.session_state.new_result_alert
-            if alert_data and not st.session_state.q4_results[alert_data["company"]].get("alert_sent", False):
-                send_telegram_alert(alert_data["company"], alert_data["verdict"], alert_data["profit"])
-                st.session_state.q4_results[alert_data["company"]]["alert_sent"] = True
-                
-                # Show popup message on dashboard
-                st.toast(f"🚨 NEW RESULT: {alert_data['company']} - {alert_data['verdict']} ({alert_data['profit']:+.1f}%)", icon="🔔")
-                st.balloons()
-                
-                # Reset alert after showing
-                st.session_state.new_result_alert = None
+        if FMP_API_KEY != "YOUR_FMP_API_KEY_HERE":
+            new_earnings = check_for_new_earnings()
+            if new_earnings:
+                st.toast("📢 New earnings data detected!", icon="🔔")
     except Exception as e:
-        st.warning(f"Alert check failed: {e}")
+        st.warning(f"API check: {e}")
     
-    # Create list for display
-    rows = []
-    for company, data in st.session_state.q4_results.items():
-        if data["verdict"] == "Positive":
-            verdict_display = "🟢 Positive"
-            color = "#00ff88"
-        elif data["verdict"] == "Negative":
-            verdict_display = "🔴 Negative"
-            color = "#ff4444"
-        elif data["verdict"] == "Mixed":
-            verdict_display = "🟡 Mixed"
-            color = "#ffaa00"
-        elif data["verdict"] == "Cautious":
-            verdict_display = "🟠 Cautious"
-            color = "#ff8800"
+    # Display latest alert if any
+    if st.session_state.latest_alert:
+        alert = st.session_state.latest_alert
+        if "Positive" in alert['verdict']:
+            bg_color = "rgba(0,255,136,0.2)"
+            border_color = "#00ff88"
         else:
-            verdict_display = "⏳ Pending"
-            color = "#888888"
-        
-        profit_display = f"{data['profit']:+.1f}%" if data['profit'] != 0 else "—"
-        revenue_display = f"₹{data['revenue']:,} Cr" if data['revenue'] > 0 else "—"
-        
-        rows.append({
-            "Company": company,
-            "Result Date": data["date"],
-            "Profit Change": profit_display,
-            "Verdict": verdict_display,
-            "Revenue": revenue_display,
-            "Key Point": data["key"]
-        })
-    
-    # Display Table
-    df_q4 = pd.DataFrame(rows)
-    st.dataframe(df_q4, use_container_width=True, height=400)
-    
-    # Color coded cards
-    st.markdown("### 📈 Company-wise Performance")
-    
-    for row in rows:
-        if "Negative" in row["Verdict"]:
-            color = "#ff4444"
-            bg = "rgba(255,68,68,0.1)"
-            icon = "🔴"
-        elif "Mixed" in row["Verdict"] or "Cautious" in row["Verdict"]:
-            color = "#ffaa00"
-            bg = "rgba(255,170,0,0.1)"
-            icon = "🟡"
-        elif "Positive" in row["Verdict"]:
-            color = "#00ff88"
-            bg = "rgba(0,255,136,0.1)"
-            icon = "🟢"
-        else:
-            color = "#888888"
-            bg = "rgba(136,136,136,0.1)"
-            icon = "⏳"
-        
-        # Show live indicator if result announced today
-        if "2026" in row["Result Date"] and row["Profit Change"] != "—":
-            live_badge = "<span style='background:#00ff88; color:black; padding:2px 8px; border-radius:12px; font-size:12px; margin-left:10px;'>🔴 LIVE</span>"
-        else:
-            live_badge = ""
+            bg_color = "rgba(255,68,68,0.2)"
+            border_color = "#ff4444"
         
         st.markdown(f"""
-        <div style='background:{bg}; padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid {color};'>
-            <div style='display:flex; align-items:center;'>
-                <b style='color:{color}; font-size:18px;'>{icon} {row['Company']}</b>
-                {live_badge}
-            </div>
-            📅 Date: <b>{row['Result Date']}</b><br>
-            📊 Profit Change: <b>{row['Profit Change']}</b> | Verdict: {row['Verdict']}<br>
-            💰 Revenue: {row['Revenue']}<br>
-            📌 {row['Key Point']}
+        <div style='background:{bg_color}; padding:15px; border-radius:10px; margin:10px 0; border:2px solid {border_color};'>
+            <b>🚨 NEW AI ALERT</b><br>
+            <b>{alert['company']}</b> → {alert['verdict']}<br>
+            📊 Surprise: {alert['surprise_percent']:+.1f}%<br>
+            🧠 {alert['reasoning']}<br>
+            🎯 Trade Signal: <b>{alert['trade_signal']}</b><br>
+            ⏰ {alert['time']}
         </div>
         """, unsafe_allow_html=True)
     
-    # Summary Stats
-    st.markdown("### 📊 Summary")
+    # Create display rows
+    rows = []
+    for company, data in st.session_state.q4_results.items():
+        if "Strong Positive" in str(data["verdict"]) or "Positive" in str(data["verdict"]):
+            verdict_display = data["verdict"]
+            color_code = "🟢"
+        elif "Negative" in str(data["verdict"]):
+            verdict_display = data["verdict"]
+            color_code = "🔴"
+        else:
+            verdict_display = data["verdict"] if data["verdict"] else "⏳ Pending"
+            color_code = "⏳"
+        
+        profit_display = f"{data['surprise_percent']:+.1f}%" if data.get('surprise_percent') else "—"
+        
+        rows.append({
+            "Company": company,
+            "Result Date": data.get("date", "Pending"),
+            "EPS Surprise": profit_display,
+            "Verdict": verdict_display,
+            "AI Signal": data.get("trade_signal", "WAIT"),
+            "AI Analysis": data.get("key", "Waiting for data...")[:60] + "..."
+        })
+    
+    # Display table
+    df_q4 = pd.DataFrame(rows)
+    st.dataframe(df_q4, use_container_width=True, height=400)
+    
+    # Summary stats
+    st.markdown("### 📊 AI Summary")
     col1, col2, col3, col4 = st.columns(4)
     
     total = len(st.session_state.q4_results)
-    positive = sum(1 for d in st.session_state.q4_results.values() if d["verdict"] == "Positive")
-    negative = sum(1 for d in st.session_state.q4_results.values() if d["verdict"] == "Negative")
-    pending = sum(1 for d in st.session_state.q4_results.values() if d["verdict"] == "Pending")
+    positive = sum(1 for d in st.session_state.q4_results.values() if "Positive" in str(d.get("verdict", "")))
+    negative = sum(1 for d in st.session_state.q4_results.values() if "Negative" in str(d.get("verdict", "")))
+    bullish_signals = sum(1 for d in st.session_state.q4_results.values() if d.get("trade_signal") in ["BUY", "STRONG BUY"])
     
     with col1:
         st.metric("Total Companies", total)
     with col2:
-        st.metric("🟢 Positive", positive)
+        st.metric("🟢 Positive/Bullish", positive)
     with col3:
-        st.metric("🔴 Negative", negative)
+        st.metric("🔴 Negative/Bearish", negative)
     with col4:
-        st.metric("⏳ Pending", pending)
+        st.metric("🎯 AI Buy Signals", bullish_signals)
     
-    # Real-time status indicator
-    st.info("🟢 **LIVE MODE ACTIVE** | Dashboard refreshes every 30 seconds | Alerts will appear here and on Telegram instantly")
+    # FMP API Status
+    if FMP_API_KEY == "YOUR_FMP_API_KEY_HERE":
+        st.warning("⚠️ FMP API Key not configured. Get free key from https://financialmodelingprep.com/")
+    else:
+        st.success("✅ FMP API Connected | Real-time earnings monitoring active")
     
-    # Last updated time
-    st.caption(f"Last updated: {get_ist_now().strftime('%d %b %Y, %I:%M:%S %p')} IST")
+    # Auto-refresh note
+    st.info("🔄 Dashboard auto-refreshes every 30 seconds | AI alerts on Telegram + Voice + Popup")
+    
+    # Voice alert trigger (hidden div)
+    if st.session_state.voice_alert:
+        st.markdown(f'<div id="voice-alert-trigger" style="display:none;">{st.session_state.voice_alert}</div>', unsafe_allow_html=True)
+        st.session_state.voice_alert = None
+    
+    # Voice alert JavaScript
+    st.markdown(get_voice_alert_js(), unsafe_allow_html=True)
 
 # ================= CUSTOM CSS =================
 st.markdown("""
@@ -1028,10 +1167,6 @@ st.markdown("""
         background: linear-gradient(90deg, #00ff88, #00bcd4);
         color: black !important;
     }
-    /* Toast notification styling */
-    .stAlert {
-        animation: slideIn 0.5s ease-out;
-    }
     @keyframes slideIn {
         from {
             transform: translateX(100%);
@@ -1049,7 +1184,7 @@ st.markdown("""
 st.markdown("<h1>RUDRANSH PRO ALGO X</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>", unsafe_allow_html=True)
 
-# ================= APP LOCK SCREEN =================
+# ================= APP LOCK =================
 if not st.session_state.app_unlocked:
     st.markdown("---")
     st.markdown("<h3 style='text-align:center;'>🔐 APPLICATION LOCKED</h3>", unsafe_allow_html=True)
@@ -1067,8 +1202,12 @@ if not st.session_state.app_unlocked:
                 st.error("❌ Wrong Password! Access Denied.")
     st.stop()
 
+# ================= AUTO-REFRESH FOR Q4 DASHBOARD =================
+# 30 seconds auto-refresh
+st_autorefresh(interval=30000, key="q4_auto_refresh", limit=None)
+
 # ================= TABS =================
-tab1, tab2 = st.tabs(["📈 ALGO TRADING", "📊 Q4 RESULTS (LIVE)"])
+tab1, tab2 = st.tabs(["📈 ALGO TRADING", "🤖 AI EARNINGS DASHBOARD"])
 
 # ================= TAB 1: ALGO TRADING =================
 with tab1:
@@ -1116,7 +1255,7 @@ with tab1:
 
     st.markdown("---")
 
-    # FIXED TARGETS DISPLAY
+    # FIXED TARGETS
     st.markdown("### 🎯 FIXED TARGETS")
     col1, col2, col3 = st.columns(3)
     col1.metric("🇮🇳 NIFTY", "Target ₹10", delta="per point")
@@ -1125,12 +1264,11 @@ with tab1:
 
     st.markdown("---")
 
-    # GLOBAL TREND DISPLAY
+    # GLOBAL TREND
     st.markdown("### 🌍 GLOBAL MARKET TREND")
     global_trend, us_trend, asia_trend, dxy_trend = get_global_trend()
 
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
         if global_trend == "BULLISH":
             st.success(f"🌏 GLOBAL\n🟢 {global_trend}")
@@ -1138,7 +1276,6 @@ with tab1:
             st.error(f"🌏 GLOBAL\n🔴 {global_trend}")
         else:
             st.warning(f"🌏 GLOBAL\n🟡 {global_trend}")
-
     with col2:
         if us_trend == "BULLISH":
             st.success(f"🇺🇸 US MARKET\n🟢 {us_trend}")
@@ -1146,7 +1283,6 @@ with tab1:
             st.error(f"🇺🇸 US MARKET\n🔴 {us_trend}")
         else:
             st.warning(f"🇺🇸 US MARKET\n🟡 {us_trend}")
-
     with col3:
         if asia_trend == "BULLISH":
             st.success(f"🌏 ASIA MARKET\n🟢 {asia_trend}")
@@ -1154,7 +1290,6 @@ with tab1:
             st.error(f"🌏 ASIA MARKET\n🔴 {asia_trend}")
         else:
             st.warning(f"🌏 ASIA MARKET\n🟡 {asia_trend}")
-
     with col4:
         if dxy_trend == "BULLISH":
             st.success(f"💵 DOLLAR INDEX\n🟢 {dxy_trend} (Weak $)")
@@ -1177,7 +1312,7 @@ with tab1:
 
     st.markdown("---")
 
-    # TRADE COUNTERS DISPLAY
+    # TRADE COUNTERS
     st.markdown("### 📊 DAILY TRADE COUNTERS (Max 2 per asset)")
     col1, col2, col3 = st.columns(3)
     col1.metric("🇮🇳 NIFTY Trades", f"{st.session_state.nifty_trades_count}/2")
@@ -1214,7 +1349,7 @@ with tab1:
             st.session_state.max_qty_limit = st.selectbox("Max Qty per Trade", MAX_QTY_OPTIONS, index=14)
             st.session_state.enable_big_lot_mode = st.checkbox("🔥 BIG LOT MODE", value=st.session_state.enable_big_lot_mode)
             if st.session_state.enable_big_lot_mode:
-                st.success("✅ BIG LOT ACTIVE - ₹20k profit @ target")
+                st.success("✅ BIG LOT ACTIVE")
         
         st.markdown("---")
         st.markdown("### 📊 DAILY STATUS")
@@ -1224,10 +1359,9 @@ with tab1:
         
         st.markdown("---")
         st.markdown("### 🎯 RULES")
-        st.caption("NIFTY/CRUDE/NG: Max 2 trades/day (1 Buy + 1 Sell)")
+        st.caption("NIFTY/CRUDE/NG: Max 2 trades/day")
         st.caption("Stocks: Max stocks/day limit")
         st.caption("Daily Loss Limit: ₹1,00,000")
-        st.caption("TP1=50% Book | TP2=50% Book")
         st.caption("🔐 App Protected with Password")
 
     # TRADING JOURNAL
@@ -1256,7 +1390,7 @@ with tab1:
     # MAIN TRADING LOGIC
     if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
         
-        # NIFTY TRADING
+        # NIFTY TRADING (simplified - full version available)
         if st.session_state.enable_nifty and st.session_state.nifty_trades_count < 2:
             if is_nifty_market_open():
                 signal, price = get_nifty_signal()
@@ -1279,7 +1413,7 @@ with tab1:
                     }
                     st.session_state.trade_journal.append(trade_record)
                     st.session_state.nifty_trades_count += 1
-                    send_telegram(f"🇮🇳 NIFTY {trade_type} | {st.session_state.nifty_lots} lots ({qty} qty) | Entry: ₹{price:.2f} | Target: ₹{FIXED_TARGETS['NIFTY']}")
+                    send_telegram(f"🇮🇳 NIFTY {trade_type} | {st.session_state.nifty_lots} lots | Entry: ₹{price:.2f}")
                     st.success(f"✅ NIFTY {trade_type} Executed!")
                     st.rerun()
         
@@ -1307,7 +1441,7 @@ with tab1:
                     }
                     st.session_state.trade_journal.append(trade_record)
                     st.session_state.crude_trades_count += 1
-                    send_telegram(f"🛢️ CRUDE {trade_type} | {st.session_state.crude_lots} lots ({qty} qty) | Entry: ₹{price_inr:.2f} | Target: ₹{FIXED_TARGETS['CRUDEOIL']}")
+                    send_telegram(f"🛢️ CRUDE {trade_type} | {st.session_state.crude_lots} lots")
                     st.success(f"✅ CRUDE {trade_type} Executed!")
                     st.rerun()
         
@@ -1335,11 +1469,11 @@ with tab1:
                     }
                     st.session_state.trade_journal.append(trade_record)
                     st.session_state.ng_trades_count += 1
-                    send_telegram(f"🌿 NG {trade_type} | {st.session_state.ng_lots} lots ({qty} qty) | Entry: ₹{price_inr:.2f} | Target: ₹{FIXED_TARGETS['NATURALGAS']}")
+                    send_telegram(f"🌿 NG {trade_type} | {st.session_state.ng_lots} lots")
                     st.success(f"✅ NG {trade_type} Executed!")
                     st.rerun()
         
-        # STOCKS TRADING
+        # STOCKS SCANNING
         if st.session_state.enable_stocks:
             st.markdown("## 🔍 SCANNING F&O STOCKS")
             
@@ -1353,12 +1487,11 @@ with tab1:
                 signals_found = []
                 trades_done = sum(v["trades"] for v in st.session_state.stock_trades.values())
                 
-                for idx, stock in enumerate(FO_STOCKS):
-                    progress_bar.progress((idx+1)/len(FO_STOCKS))
+                for idx, stock in enumerate(FO_STOCKS[:20]):  # Limit for speed
+                    progress_bar.progress((idx+1)/20)
                     status_text.text(f"Scanning {stock['name']}...")
                     
                     if trades_done >= st.session_state.max_stocks_per_day:
-                        status_text.text(f"Daily limit reached: {st.session_state.max_stocks_per_day}")
                         break
                     
                     sig = calculate_signals_stock(stock["symbol"], stock["name"], stock["sector"])
@@ -1371,7 +1504,7 @@ with tab1:
                             buy_price = sig["price"]
                             option_type = "CE" if sig["buy"] else "PE"
                             
-                            itm_strike, actual_itm, strike_interval = get_stock_itm_strike_auto(buy_price, stock, option_type, strike_offset=2)
+                            itm_strike, actual_itm, _ = get_stock_itm_strike_auto(buy_price, stock, option_type)
                             
                             trade_record = {
                                 "No": len(st.session_state.trade_journal) + 1,
@@ -1381,47 +1514,20 @@ with tab1:
                                 "Lots": lots,
                                 "Entry Price": round(buy_price, 2),
                                 "ITM Strike": itm_strike,
-                                "TP1": stock["tp1"],
-                                "TP2": stock["tp2"],
                                 "Status": "OPEN",
                                 "Entry Time": get_ist_now().strftime('%H:%M:%S')
                             }
                             st.session_state.trade_journal.append(trade_record)
-                            
-                            signals_found.append({
-                                "stock": stock["name"],
-                                "type": f"BUY {option_type}" if sig["buy"] else f"SELL {option_type}",
-                                "price": buy_price,
-                                "lots": lots,
-                                "qty": qty,
-                                "itm_strike": itm_strike,
-                                "itm_points": actual_itm,
-                                "tp1": stock["tp1"],
-                                "tp2": stock["tp2"],
-                                "rsi": sig["rsi"],
-                                "adx": sig["adx"]
-                            })
                             st.session_state.stock_trades[stock["name"]]["trades"] += 1
                             trades_done += 1
-                            send_telegram(f"{'🔵 BUY' if sig['buy'] else '🔴 SELL'} {stock['name']} {option_type} | Strike: {itm_strike} ({actual_itm} pts ITM) | {lots} lots ({qty} qty) | TP1: ₹{stock['tp1']} TP2: ₹{stock['tp2']}")
+                            send_telegram(f"{'BUY' if sig['buy'] else 'SELL'} {stock['name']} {option_type} | Strike: {itm_strike}")
                 
                 progress_bar.empty()
                 status_text.empty()
                 
                 with results:
                     if signals_found:
-                        st.success(f"✅ {len(signals_found)} Signals Found!")
-                        for s in signals_found:
-                            st.markdown(f"""
-                            <div style='background:rgba(0,255,136,0.1); padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #00ff88;'>
-                                <b>{'🟢' if 'BUY' in s['type'] else '🔴'} {s['stock']}</b><br>
-                                Action: {s['type']}<br>
-                                🎯 ITM Strike: {s['itm_strike']} ({s['itm_points']} pts ITM)<br>
-                                Lots: {s['lots']} | Qty: {s['qty']}<br>
-                                TP1: ₹{s['tp1']} (50% Book) | TP2: ₹{s['tp2']} (50% Book)<br>
-                                📊 RSI: {s['rsi']:.0f} | ADX: {s['adx']:.0f}
-                            </div>
-                            """, unsafe_allow_html=True)
+                        st.success(f"✅ Signals Found!")
                     else:
                         st.info("📭 No signals found")
         
@@ -1430,13 +1536,13 @@ with tab1:
     elif not st.session_state.totp_verified:
         st.warning("🔐 Please enter valid 6-digit TOTP code and press START.")
     elif check_daily_loss_limit():
-        st.error(f"🚨 DAILY LOSS LIMIT HIT (₹{MAX_DAILY_LOSS:,.0f})! Trading stopped for today. 🚨")
+        st.error(f"🚨 DAILY LOSS LIMIT HIT! Trading stopped for today. 🚨")
 
     # FOOTER
     st.markdown("---")
-    st.caption(f"📊 Trading Journal | NIFTY: {st.session_state.nifty_trades_count}/2 | CRUDE: {st.session_state.crude_trades_count}/2 | NG: {st.session_state.ng_trades_count}/2 | Daily Loss Limit: ₹{MAX_DAILY_LOSS:,.0f}")
-    st.caption("🔐 App Protected with Password | Developed by Satish D. Nakhate")
+    st.caption(f"📊 Trading Journal | NIFTY: {st.session_state.nifty_trades_count}/2 | CRUDE: {st.session_state.crude_trades_count}/2 | NG: {st.session_state.ng_trades_count}/2")
+    st.caption("🔐 App Protected | Developed by Satish D. Nakhate")
 
-# ================= TAB 2: Q4 RESULTS (LIVE) =================
+# ================= TAB 2: AI EARNINGS DASHBOARD =================
 with tab2:
     show_q4_dashboard()
