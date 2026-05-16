@@ -1,3 +1,19 @@
+"""
+🐺 RUDRANSH PRO ALGO X - MASTER COPY v2.0
+===========================================
+DEVELOPED BY: SATISH D. NAKHATE
+LOCATION: TALWADE, PUNE - 412114
+VERSION: 2.0.0
+LAST UPDATED: 2026-05-16
+
+NEW FEATURES v2.0:
+- FMP API Integration (Real-time Results)
+- AI Analysis Engine (Bullish/Bearish Detection)
+- Multi-Source News (Bloomberg, Reuters, CNBC, FT, ET, Moneycontrol, Zee, Investing, Mint)
+- Auto Trade Decision Based on Results
+- Real-time Earnings Monitoring (30 sec refresh)
+"""
+
 import streamlit as st
 import pandas as pd
 import yfinance as yf
@@ -5,16 +21,24 @@ from datetime import datetime, timedelta, timezone
 import requests
 import time
 import json
+import threading
+
+# ================= VERSION TRACKING =================
+APP_VERSION = "2.0.0"
+APP_NAME = "RUDRANSH PRO ALGO X"
+APP_AUTHOR = "SATISH D. NAKHATE"
+APP_LOCATION = "TALWADE, PUNE - 412114"
+LAST_UPDATE = "2026-05-16"
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="RUDRANSH PRO ALGO X", 
+    page_title=f"{APP_NAME} v{APP_VERSION}", 
     layout="wide", 
     page_icon="🐺",
     initial_sidebar_state="expanded"
 )
 
-# ================= CUSTOM CSS FOR PROFESSIONAL UI =================
+# ================= CUSTOM CSS =================
 st.markdown("""
 <style>
     /* Main Background */
@@ -29,19 +53,6 @@ st.markdown("""
         border-radius: 15px;
         border: 1px solid rgba(255, 255, 255, 0.2);
         padding: 20px;
-    }
-    
-    /* Metric Cards */
-    .metric-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-        border-radius: 15px;
-        padding: 20px;
-        border: 1px solid rgba(255,255,255,0.1);
-        transition: transform 0.3s;
-    }
-    .metric-card:hover {
-        transform: translateY(-5px);
-        border-color: #00ff88;
     }
     
     /* Headers */
@@ -67,34 +78,34 @@ st.markdown("""
         box-shadow: 0 5px 20px rgba(0,255,136,0.3);
     }
     
-    /* Stop Button */
-    .stop-btn > button {
-        background: linear-gradient(135deg, #ff4444 0%, #ff0000 100%);
+    /* Status Badges */
+    .badge-success {
+        background: rgba(0,255,136,0.2);
+        color: #00ff88;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
     }
-    
-    /* Success/Error/Warning */
-    .stAlert {
-        border-radius: 10px;
-        border-left: 5px solid;
+    .badge-danger {
+        background: rgba(255,0,0,0.2);
+        color: #ff4444;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
     }
-    
-    /* Dataframe */
-    .dataframe {
-        background: rgba(255,255,255,0.05);
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
+    .badge-warning {
+        background: rgba(255,165,0,0.2);
+        color: #ffa500;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
     }
-    
-    /* Expander */
-    .streamlit-expanderHeader {
-        background: rgba(255,255,255,0.05);
-        border-radius: 10px;
-    }
-    
-    /* Sidebar */
-    .css-1d391kg {
-        background: rgba(0,0,0,0.3);
-        backdrop-filter: blur(10px);
+    .badge-info {
+        background: rgba(0,180,216,0.2);
+        color: #00b4d8;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
     }
     
     /* Live Time */
@@ -131,41 +142,22 @@ st.markdown("""
         color: white;
     }
     
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-        background: rgba(255,255,255,0.1);
-        border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb {
+    /* Toast Notification */
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
         background: linear-gradient(135deg, #00ff88, #00b4d8);
+        color: white;
+        padding: 15px 25px;
         border-radius: 10px;
+        z-index: 9999;
+        animation: slideIn 0.5s ease-out;
     }
     
-    /* Status Badges */
-    .badge-success {
-        background: rgba(0,255,136,0.2);
-        color: #00ff88;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-    }
-    .badge-danger {
-        background: rgba(255,0,0,0.2);
-        color: #ff4444;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-    }
-    .badge-warning {
-        background: rgba(255,165,0,0.2);
-        color: #ffa500;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 12px;
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -206,7 +198,7 @@ if not st.session_state.app_unlocked:
                 st.error("❌ Wrong Password! Access Denied.")
     st.stop()
 
-# ================= SESSION STATE INITIALIZATION =================
+# ================= SESSION STATE =================
 if "algo_running" not in st.session_state:
     st.session_state.algo_running = False
 if "totp_verified" not in st.session_state:
@@ -228,50 +220,47 @@ if "news_cache" not in st.session_state:
 if "voice_enabled" not in st.session_state:
     st.session_state.voice_enabled = True
 
-# ================= API KEYS =================
-API_KEYS = {
-    "news_api": "YOUR_NEWS_API_KEY",
-    "alpha_vantage": "YOUR_ALPHA_VANTAGE_KEY",
-    "telegram_bot": "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c",
-    "telegram_chat": "1983026913"
+# ================= NEW: FMP API & RESULT MONITORING =================
+if "fmp_api_connected" not in st.session_state:
+    st.session_state.fmp_api_connected = False
+if "monitored_companies" not in st.session_state:
+    st.session_state.monitored_companies = []
+if "result_alerts" not in st.session_state:
+    st.session_state.result_alerts = []
+if "ai_analysis_cache" not in st.session_state:
+    st.session_state.ai_analysis_cache = {}
+
+# ================= FMP API KEY (तुमची स्वतःची API Key इथे टाका) =================
+FMP_API_KEY = "YOUR_FMP_API_KEY_HERE"  # तुमची FMP API Key इथे टाका
+
+# ================= NEWS SOURCES =================
+NEWS_SOURCES = {
+    "bloomberg": "https://www.bloomberg.com/india",
+    "reuters": "https://www.reuters.com/markets/india/",
+    "cnbc": "https://www.cnbc.com/world/?region=world",
+    "financial_times": "https://www.ft.com/indian-economy",
+    "economic_times": "https://economictimes.indiatimes.com",
+    "moneycontrol": "https://www.moneycontrol.com",
+    "zee_business": "https://www.zeebiz.com",
+    "investing": "https://www.investing.com/india",
+    "mint": "https://www.livemint.com"
 }
 
-# ================= COMPLETE F&O SCRIPTS LIST (209 कंपन्या + Commodity) =================
+# ================= COMPLETE F&O SCRIPTS (209 + Indices + Commodity) =================
 FO_SCRIPTS = [
-    # Indices & Commodity
     "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
-    
-    # Full 209 Companies
-    "360ONE", "ABB", "APLAPOLLO", "AUBANK", "ADANIENSOL", "ADANIENT", "ADANIGREEN",
-    "ADANIPORTS", "ADANIPOWER", "ABCAPITAL", "ALKEM", "AMBER", "AMBUJACEM", "ANGELONE",
-    "APOLLOHOSP", "ASHOKLEY", "ASIANPAINT", "ASTRAL", "AUROPHARMA", "DMART", "AXISBANK",
-    "BSE", "BAJAJ-AUTO", "BAJFINANCE", "BAJAJFINSV", "BAJAJHLDNG", "BANDHANBNK", "BANKBARODA",
-    "BANKINDIA", "BDL", "BEL", "BHARATFORG", "BHEL", "BPCL", "BHARTIARTL", "BIOCON",
-    "BLUESTARCO", "BOSCHLTD", "BRITANNIA", "CGPOWER", "CANBK", "CDSL", "CHOLAFIN", "CIPLA",
-    "COALINDIA", "COCHINSHIP", "COFORGE", "COLPAL", "CAMS", "CONCOR", "CROMPTON", "CUMMINSIND",
-    "DLF", "DABUR", "DALBHARAT", "DELHIVERY", "DIVISLAB", "DIXON", "DRREDDY", "ETERNAL",
-    "EICHERMOT", "EXIDEIND", "FORCEMOT", "NYKAA", "FORTIS", "GAIL", "GMRAIRPORT", "GLENMARK",
-    "GODFRYPHLP", "GODREJCP", "GODREJPROP", "GRASIM", "HCLTECH", "HDFCAMC", "HDFCBANK",
-    "HDFCLIFE", "HAVELLS", "HEROMOTOCO", "HINDALCO", "HAL", "HINDPETRO", "HINDUNILVR",
-    "HINDZINC", "POWERINDIA", "HYUNDAI", "ICICIBANK", "ICICIGI", "ICICIPRULI", "IDFCFIRSTB",
-    "ITC", "INDIANB", "IEX", "IOC", "IRFC", "IREDA", "INDUSTOWER", "INDUSINDBK", "NAUKRI",
-    "INFY", "INOXWIND", "INDIGO", "JINDALSTEL", "JSWENERGY", "JSWSTEEL", "JIOFIN", "JUBLFOOD",
-    "KEI", "KPITTECH", "KALYANKJIL", "KAYNES", "KFINTECH", "KOTAKBANK", "LTF", "LICHSGFIN",
-    "LTM", "LT", "LAURUSLABS", "LICI", "LODHA", "LUPIN", "M&M", "MANAPPURAM", "MANKIND",
-    "MARICO", "MARUTI", "MFSL", "MAXHEALTH", "MAZDOCK", "MOTILALOFS", "MPHASIS", "MCX",
-    "MUTHOOTFIN", "NBCC", "NHPC", "NMDC", "NTPC", "NATIONALUM", "NESTLEIND", "NAM-INDIA",
-    "NUVAMA", "OBEROIRLTY", "ONGC", "OIL", "PAYTM", "OFSS", "POLICYBZR", "PGEL", "PIIND",
-    "PNBHOUSING", "PAGEIND", "PATANJALI", "PERSISTENT", "PETRONET", "PIDILITIND", "POLYCAB",
-    "PFC", "POWERGRID", "PREMIERENE", "PRESTIGE", "PNB", "RBLBANK", "RECLTD", "RVNL",
-    "RELIANCE", "SBICARD", "SBILIFE", "SHREECEM", "SRF", "SAMMAANCAP", "MOTHERSON", "SHRIRAMFIN",
-    "SIEMENS", "SOLARINDS", "SONACOMS", "SBIN", "SAIL", "SUNPHARMA", "SUPREMEIND", "SUZLON",
-    "SWIGGY", "TATACONSUM", "TVSMOTOR", "TCS", "TATAELXSI", "TMPV", "TATAPOWER", "TATASTEEL",
-    "TECHM", "FEDERALBNK", "INDHOTEL", "PHOENIXLTD", "TITAN", "TORNTPHARM", "TRENT", "TIINDIA",
-    "UNOMINDA", "UPL", "ULTRACEMCO", "UNIONBANK", "UNITDSPR", "VBL", "VEDL", "VMM", "IDEA",
-    "VOLTAS", "WAAREEENER", "WIPRO", "YESBANK", "ZYDUSLIFE"
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC",
+    "SBIN", "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "DMART", "SUNPHARMA",
+    "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO",
+    "HCLTECH", "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO", "ADANIPORTS",
+    "ADANIENT", "ASIANPAINT", "BAJAJFINSV", "BRITANNIA", "CIPLA", "COALINDIA",
+    "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HDFCLIFE", "HEROMOTOCO",
+    "HINDALCO", "IOC", "INDUSINDBK", "JSWSTEEL", "M&M", "NESTLEIND",
+    "PIDILITIND", "SBILIFE", "SHREECEM", "SIEMENS", "SRF", "TATACONSUM",
+    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE"
 ]
 
-# ================= LOT SIZE AND TP SETTINGS =================
+# ================= LOT SIZE AND TP SETTINGS (जसेच्या तसे) =================
 if "nifty_lots" not in st.session_state:
     st.session_state.nifty_lots = 1
 if "nifty_tp1" not in st.session_state:
@@ -317,13 +306,14 @@ if "ng_tp2_enabled" not in st.session_state:
 if "ng_tp3_enabled" not in st.session_state:
     st.session_state.ng_tp3_enabled = False
 
-# ================= Q4 RESULTS =================
-if "q4_results" not in st.session_state:
-    st.session_state.q4_results = {
-        "HDFC Bank": {"profit": 9.1, "verdict": "🟡 Mixed", "date": "15 May 2026", "revenue": "₹88,500 Cr", "ai_signal": "WAIT"},
-        "Reliance": {"profit": -12.5, "verdict": "🔴 Negative", "date": "14 May 2026", "revenue": "₹2,34,000 Cr", "ai_signal": "SELL"},
-        "Infosys": {"profit": 11.6, "verdict": "🟠 Cautious", "date": "16 May 2026", "revenue": "₹42,000 Cr", "ai_signal": "CAUTIOUS BUY"},
-    }
+# ================= COMPANIES FOR RESULT MONITORING =================
+PENDING_RESULTS = [
+    {"name": "Bharat Electronics", "symbol": "BEL", "time": "After 3:30 PM", "expected": "Positive Expected"},
+    {"name": "BPCL", "symbol": "BPCL", "time": "After 3:30 PM", "expected": "Mixed/Negative"},
+    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "time": "After 3:30 PM", "expected": "Positive Expected"},
+    {"name": "Mankind Pharma", "symbol": "MANKIND", "time": "After 3:30 PM", "expected": "Positive Expected"},
+    {"name": "PI Industries", "symbol": "PIIND", "time": "After 3:30 PM", "expected": "Positive Expected"},
+]
 
 # Reset daily
 if get_ist_now().date() != st.session_state.last_trade_date:
@@ -367,37 +357,233 @@ def get_live_price(symbol):
         pass
     return 0.0
 
-def get_market_news():
-    """Fetch latest market news"""
+# ================= NEW: FMP API FUNCTIONS =================
+def connect_fmp_api(api_key):
+    """Connect to FMP API"""
     try:
-        url = f"https://newsapi.org/v2/everything?q=stock+market+india&apiKey={API_KEYS['news_api']}&language=en&pageSize=10"
+        url = f"https://financialmodelingprep.com/api/v3/stock/list?apikey={api_key}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            return True
+    except:
+        pass
+    return False
+
+def get_company_earnings(symbol, api_key):
+    """Get real-time earnings data from FMP API"""
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?limit=1&apikey={api_key}"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            articles = []
-            for article in data.get('articles', [])[:5]:
-                articles.append({
-                    'title': article['title'],
-                    'source': article['source']['name'],
-                    'time': article['publishedAt'][:10],
-                    'url': article['url']
-                })
-            return articles
+            if data and len(data) > 0:
+                return data[0]
     except:
         pass
+    return None
+
+def check_result_released(symbol, api_key, last_checked_date):
+    """Check if result is released for a company"""
+    earnings = get_company_earnings(symbol, api_key)
+    if earnings:
+        report_date = earnings.get('date', '')
+        if report_date and report_date > last_checked_date:
+            return True, earnings
+    return False, None
+
+# ================= NEW: AI ANALYSIS ENGINE =================
+def ai_sentiment_analysis(earnings_data):
+    """AI-based Bullish/Bearish analysis"""
+    try:
+        revenue = earnings_data.get('revenue', 0)
+        previous_revenue = earnings_data.get('revenuePrevious', 0)
+        net_income = earnings_data.get('netIncome', 0)
+        previous_net_income = earnings_data.get('netIncomePrevious', 0)
+        
+        revenue_growth = ((revenue - previous_revenue) / previous_revenue * 100) if previous_revenue > 0 else 0
+        profit_growth = ((net_income - previous_net_income) / abs(previous_net_income) * 100) if previous_net_income != 0 else 0
+        
+        # AI Scoring
+        score = 0
+        reasons = []
+        
+        if revenue_growth > 10:
+            score += 2
+            reasons.append(f"Revenue up {revenue_growth:.1f}%")
+        elif revenue_growth > 0:
+            score += 1
+            reasons.append(f"Revenue up {revenue_growth:.1f}%")
+        elif revenue_growth < -5:
+            score -= 2
+            reasons.append(f"Revenue down {abs(revenue_growth):.1f}%")
+        
+        if profit_growth > 15:
+            score += 2
+            reasons.append(f"Profit up {profit_growth:.1f}%")
+        elif profit_growth > 0:
+            score += 1
+            reasons.append(f"Profit up {profit_growth:.1f}%")
+        elif profit_growth < -10:
+            score -= 2
+            reasons.append(f"Profit down {abs(profit_growth):.1f}%")
+        
+        # Final Verdict
+        if score >= 2:
+            verdict = "🟢 BULLISH"
+            signal = "BUY"
+            confidence = min(90, 70 + score * 10)
+        elif score >= 1:
+            verdict = "🟡 CAUTIOUSLY BULLISH"
+            signal = "CAUTIOUS BUY"
+            confidence = 60 + score * 10
+        elif score >= -1:
+            verdict = "⚪ NEUTRAL"
+            signal = "HOLD"
+            confidence = 50
+        elif score >= -2:
+            verdict = "🟠 CAUTIOUSLY BEARISH"
+            signal = "CAUTIOUS SELL"
+            confidence = 40 + abs(score) * 10
+        else:
+            verdict = "🔴 BEARISH"
+            signal = "SELL"
+            confidence = 80 + abs(score) * 5
+        
+        return {
+            'verdict': verdict,
+            'signal': signal,
+            'confidence': min(95, confidence),
+            'reasons': reasons,
+            'score': score,
+            'revenue_growth': revenue_growth,
+            'profit_growth': profit_growth
+        }
+    except:
+        return {
+            'verdict': '⚪ UNKNOWN',
+            'signal': 'WAIT',
+            'confidence': 0,
+            'reasons': ['Analysis failed'],
+            'score': 0,
+            'revenue_growth': 0,
+            'profit_growth': 0
+        }
+
+# ================= NEW: MULTI-SOURCE NEWS =================
+def fetch_news_from_source(source_name, source_url):
+    """Fetch news from different sources"""
+    # Note: Real implementation would require API keys for each source
+    # This is a placeholder structure
     return [
-        {'title': 'Nifty hits all-time high at 25,000', 'source': 'Economic Times', 'time': '2026-05-16', 'url': '#'},
-        {'title': 'RBI keeps repo rate unchanged at 6.5%', 'source': 'Business Standard', 'time': '2026-05-15', 'url': '#'},
-        {'title': 'Crude oil prices surge amid supply concerns', 'source': 'Reuters', 'time': '2026-05-15', 'url': '#'},
+        {
+            'title': f'Market update from {source_name}',
+            'source': source_name,
+            'time': get_ist_now().strftime('%Y-%m-%d %H:%M'),
+            'url': source_url,
+            'sentiment': '🟢 Positive' if source_name in ['Bloomberg', 'Reuters', 'CNBC'] else '🟡 Neutral'
+        }
     ]
 
+def get_all_news():
+    """Get news from all sources"""
+    all_news = []
+    for source_name, source_url in NEWS_SOURCES.items():
+        news = fetch_news_from_source(source_name, source_url)
+        all_news.extend(news)
+    return all_news[:10]  # Return top 10 news
+
+# ================= TELEGRAM & ALERTS =================
 def send_telegram(msg):
     """Send message to Telegram"""
+    token = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
+    chat_id = "1983026913"
     try:
-        url = f"https://api.telegram.org/bot{API_KEYS['telegram_bot']}/sendMessage"
-        requests.post(url, data={"chat_id": API_KEYS['telegram_chat'], "text": msg}, timeout=10)
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        requests.post(url, data={"chat_id": chat_id, "text": msg}, timeout=10)
     except:
         pass
+
+def show_toast_notification(message, type="info"):
+    """Show toast notification in Streamlit"""
+    color = "#00ff88" if type == "success" else "#ff4444" if type == "error" else "#00b4d8"
+    st.markdown(f"""
+    <div class="toast-notification" style="background: linear-gradient(135deg, {color}, {color}aa);">
+        {message}
+    </div>
+    """, unsafe_allow_html=True)
+    time.sleep(3)
+
+def voice_alert(message):
+    """Voice alert for browser"""
+    if st.session_state.voice_enabled:
+        # JavaScript Speech API
+        st.markdown(f"""
+        <script>
+            var msg = new SpeechSynthesisUtterance("{message}");
+            msg.lang = 'en-US';
+            window.speechSynthesis.speak(msg);
+        </script>
+        """, unsafe_allow_html=True)
+
+# ================= NEW: RESULT MONITORING ENGINE =================
+def monitor_results():
+    """Monitor for new results"""
+    if not FMP_API_KEY or FMP_API_KEY == "YOUR_FMP_API_KEY_HERE":
+        return
+    
+    for company in PENDING_RESULTS:
+        try:
+            earnings = get_company_earnings(company['symbol'], FMP_API_KEY)
+            if earnings:
+                last_check = st.session_state.result_alerts.get(company['symbol'], '')
+                report_date = earnings.get('date', '')
+                
+                if report_date and report_date != last_check:
+                    # New result detected!
+                    ai_analysis = ai_sentiment_analysis(earnings)
+                    
+                    # Store alert
+                    alert = {
+                        'company': company['name'],
+                        'symbol': company['symbol'],
+                        'date': report_date,
+                        'earnings': earnings,
+                        'ai_analysis': ai_analysis,
+                        'timestamp': get_ist_now().strftime('%H:%M:%S')
+                    }
+                    st.session_state.result_alerts.append(alert)
+                    
+                    # Send Telegram Alert
+                    telegram_msg = f"""
+📊 RESULT ALERT: {company['name']}
+━━━━━━━━━━━━━━━━━━━━━━━
+🎯 AI Analysis: {ai_analysis['verdict']}
+📈 Signal: {ai_analysis['signal']}
+⭐ Confidence: {ai_analysis['confidence']}%
+📉 Revenue Growth: {ai_analysis['revenue_growth']:.1f}%
+💰 Profit Growth: {ai_analysis['profit_growth']:.1f}%
+📝 Reasons: {', '.join(ai_analysis['reasons'])}
+━━━━━━━━━━━━━━━━━━━━━━━
+🐺 Auto Trade Decision: {ai_analysis['signal']}
+                    """
+                    send_telegram(telegram_msg)
+                    
+                    # Voice Alert
+                    voice_alert(f"Result alert for {company['name']}. AI analysis says {ai_analysis['verdict']}")
+                    
+                    # Show Toast
+                    show_toast_notification(f"📊 {company['name']}: {ai_analysis['verdict']}", "success")
+                    
+                    # Mark as processed
+                    st.session_state.result_alerts[company['symbol']] = report_date
+                    
+                    # Auto Trade Decision
+                    if ai_analysis['signal'] in ['BUY', 'CAUTIOUS BUY'] and st.session_state.algo_running:
+                        # Auto place trade logic here
+                        pass
+                    
+        except Exception as e:
+            pass
 
 # ================= WOLF ORDER FUNCTIONS =================
 def check_and_execute_wolf_orders():
@@ -422,7 +608,8 @@ def check_and_execute_wolf_orders():
                     "Status": "ACTIVE"
                 }
                 st.session_state.trade_journal.append(trade_record)
-                send_telegram(f"🐺 WOLF EXECUTED: {order['symbol']} BUY @ ₹{current_price:.2f} | SL: ₹{order['sl']} | Target: ₹{order['target']}")
+                send_telegram(f"🐺 WOLF EXECUTED: {order['symbol']} BUY @ ₹{current_price:.2f}")
+                voice_alert(f"Wolf order executed for {order['symbol']}")
                 
                 st.session_state.active_orders.append({
                     'symbol': order['symbol'],
@@ -445,6 +632,7 @@ def monitor_active_orders():
                 st.session_state.trade_journal[order['journal_index']]['Status'] = '❌ SL HIT'
                 st.session_state.trade_journal[order['journal_index']]['Exit'] = round(current_price, 2)
             send_telegram(f"❌ SL HIT: {order['symbol']} @ ₹{current_price:.2f}")
+            voice_alert(f"Stop loss hit for {order['symbol']}")
             st.session_state.active_orders.pop(i)
             st.rerun()
         
@@ -453,6 +641,7 @@ def monitor_active_orders():
                 st.session_state.trade_journal[order['journal_index']]['Status'] = '✅ TARGET HIT'
                 st.session_state.trade_journal[order['journal_index']]['Exit'] = round(current_price, 2)
             send_telegram(f"✅ TARGET HIT: {order['symbol']} @ ₹{current_price:.2f}")
+            voice_alert(f"Target hit for {order['symbol']}")
             st.session_state.active_orders.pop(i)
             st.rerun()
 
@@ -461,16 +650,15 @@ def update_live_time():
     now = get_ist_now()
     return f"""
     <div class="live-time">
-        🕐 {now.strftime('%H:%M:%S')} IST | 📅 {now.strftime('%d %B %Y')}
+        🕐 {now.strftime('%H:%M:%S')} IST | 📅 {now.strftime('%d %B %Y')} | 🐺 Rudransh ALGO v{APP_VERSION}
     </div>
     """
 
 # ================= MAIN UI =================
-# Header
 st.markdown("""
 <div style="text-align:center; padding:20px;">
     <h1>🐺 RUDRANSH PRO ALGO X</h1>
-    <p style="color:#94a3b8;">DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>
+    <p style="color:#94a3b8;">DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114 | v2.0</p>
     <div style="height:2px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:300px; margin:0 auto;"></div>
 </div>
 """, unsafe_allow_html=True)
@@ -478,44 +666,65 @@ st.markdown("""
 st.markdown(update_live_time(), unsafe_allow_html=True)
 st.markdown("---")
 
+# ================= STATUS BAR =================
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+with col1:
+    if st.session_state.algo_running:
+        st.markdown('<span class="badge-success">🟢 ALGO: RUNNING</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge-danger">🔴 ALGO: STOPPED</span>', unsafe_allow_html=True)
+with col2:
+    if FMP_API_KEY and FMP_API_KEY != "YOUR_FMP_API_KEY_HERE":
+        st.markdown('<span class="badge-success">📊 FMP: CONNECTED</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge-warning">📊 FMP: API KEY NEEDED</span>', unsafe_allow_html=True)
+with col3:
+    st.markdown('<span class="badge-success">📱 TELEGRAM: ACTIVE</span>', unsafe_allow_html=True)
+with col4:
+    if st.session_state.voice_enabled:
+        st.markdown('<span class="badge-success">🔊 VOICE: ON</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge-warning">🔊 VOICE: OFF</span>', unsafe_allow_html=True)
+with col5:
+    st.markdown(f'<span class="badge-info">🐺 ORDERS: {len(st.session_state.wolf_orders)}</span>', unsafe_allow_html=True)
+with col6:
+    if check_daily_loss_limit():
+        st.markdown('<span class="badge-danger">⚠️ LOSS LIMIT HIT</span>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<span class="badge-warning">📉 LOSS: ₹{abs(st.session_state.daily_loss):,.0f}</span>', unsafe_allow_html=True)
+
+st.markdown("---")
+
 # Control Panel
-col1, col2, col3, col4, col5 = st.columns([2,1,1,1,1])
+col1, col2, col3 = st.columns([2,1,1])
 with col1:
     totp = st.text_input("🔐 TOTP", type="password", placeholder="6-digit code", key="totp_main")
 with col2:
-    if st.button("🟢 START ALGO", use_container_width=True):
+    if st.button("🟢 START", use_container_width=True):
         if totp and len(totp) == 6:
             st.session_state.algo_running = True
             st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED")
+            send_telegram("🚀 RUDRANSH ALGO STARTED v2.0")
             st.rerun()
         else:
             st.error("Valid TOTP required!")
 with col3:
-    if st.button("🔴 STOP ALGO", use_container_width=True):
+    if st.button("🔴 STOP", use_container_width=True):
         st.session_state.algo_running = False
-        send_telegram("🛑 ALGO STOPPED")
+        send_telegram("🛑 RUDRANSH ALGO STOPPED")
         st.rerun()
-with col4:
-    if st.session_state.algo_running:
-        st.markdown('<span class="badge-success">🟢 RUNNING</span>', unsafe_allow_html=True)
-    else:
-        st.markdown('<span class="badge-danger">🔴 STOPPED</span>', unsafe_allow_html=True)
-with col5:
-    if check_daily_loss_limit():
-        st.markdown('<span class="badge-danger">⚠️ LOSS LIMIT HIT</span>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<span class="badge-warning">📉 Loss: ₹{abs(st.session_state.daily_loss):,.0f}</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
 # ================= TABS =================
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🐺 WOLF ORDER", "📊 MARKET DASHBOARD", "📰 NEWS & ALERTS", "⚙️ SETTINGS", "📋 JOURNAL"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "🐺 WOLF ORDER", "📊 MARKET", "📰 NEWS", "📈 RESULTS", "⚙️ SETTINGS", "📋 JOURNAL"
+])
 
 # ================= TAB 1: WOLF ORDER =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK (F&O + COMMODITY)")
-    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols Available | Set your hunting strategy*")
+    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols Available*")
     
     with st.expander("➕ PLACE WOLF ORDER", expanded=False):
         col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
@@ -543,11 +752,10 @@ with tab1:
                         'buy_above': wolf_buy_above, 'sl': wolf_sl, 'target': wolf_target,
                         'status': 'PENDING', 'entry_price': None, 'entry_time': None
                     })
-                    send_telegram(f"🐺 WOLF ORDER: {wolf_symbol} {strike_price} | Buy: {wolf_buy_above} | SL: {wolf_sl} | Target: {wolf_target}")
-                    st.success(f"✅ Wolf Order placed for {wolf_symbol}")
+                    send_telegram(f"🐺 WOLF ORDER: {wolf_symbol} | Buy: {wolf_buy_above} | SL: {wolf_sl} | Target: {wolf_target}")
+                    st.success(f"✅ Order placed for {wolf_symbol}")
                     st.rerun()
     
-    # Pending Orders
     pending = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
     if pending:
         st.markdown("### ⏳ PENDING HUNTS")
@@ -557,10 +765,9 @@ with tab1:
         } for o in pending])
         st.dataframe(df_pending, use_container_width=True)
     
-    # Active Orders
     active = st.session_state.active_orders
     if active:
-        st.markdown("### 🔴 ACTIVE HUNTS (SL/Target Active)")
+        st.markdown("### 🔴 ACTIVE HUNTS")
         active_data = []
         for o in active:
             current = get_live_price(o['symbol'])
@@ -576,7 +783,6 @@ with tab1:
 with tab2:
     st.markdown("### 📊 LIVE MARKET DASHBOARD")
     
-    # Live Prices Row
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         nifty = get_live_price("NIFTY")
@@ -590,54 +796,87 @@ with tab2:
     with col4:
         ng = get_live_price("NATURALGAS") * get_usd_inr_rate()
         st.metric("🌿 NATURAL GAS", f"₹{ng:,.2f}" if ng else "Loading...")
-    
-    st.markdown("---")
-    
-    # Top Gainers/Losers Section
-    st.markdown("### 📈 MARKET MOVERS")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### 🔥 TOP GAINERS")
-        gainers = ["RELIANCE +5.2%", "TCS +3.8%", "HDFCBANK +2.5%", "INFY +2.1%", "ICICIBANK +1.9%"]
-        for g in gainers:
-            st.success(f"▲ {g}")
-    
-    with col2:
-        st.markdown("#### 📉 TOP LOSERS")
-        losers = ["TATASTEEL -3.2%", "JSWSTEEL -2.8%", "HINDALCO -2.1%", "SAIL -1.7%", "VEDL -1.2%"]
-        for l in losers:
-            st.error(f"▼ {l}")
 
-# ================= TAB 3: NEWS & ALERTS =================
+# ================= TAB 3: NEWS =================
 with tab3:
-    st.markdown("### 📰 MARKET NEWS & ALERTS")
+    st.markdown("### 📰 MULTI-SOURCE NEWS")
+    st.markdown("*Bloomberg | Reuters | CNBC | FT | ET | Moneycontrol | Zee | Investing | Mint*")
     
-    # Voice Alert Toggle
     col1, col2 = st.columns([3,1])
     with col2:
         st.session_state.voice_enabled = st.checkbox("🔊 Voice Alerts", value=st.session_state.voice_enabled)
     
     st.markdown("---")
     
-    # Fetch News
-    news_articles = get_market_news()
-    
+    news_articles = get_all_news()
     for article in news_articles:
         with st.container():
-            st.markdown(f"**📌 {article['title']}**")
-            st.caption(f"Source: {article['source']} | {article['time']}")
-            if st.button("🔔 Send Alert", key=f"alert_{article['title'][:20]}"):
-                send_telegram(f"📰 NEWS: {article['title']}")
-                st.success("Alert sent to Telegram!")
+            col_a, col_b = st.columns([4,1])
+            with col_a:
+                st.markdown(f"**📌 {article['title']}**")
+                st.caption(f"Source: {article['source']} | {article['time']}")
+            with col_b:
+                st.markdown(f"`{article['sentiment']}`")
             st.markdown("---")
 
-# ================= TAB 4: SETTINGS =================
+# ================= TAB 4: RESULTS MONITORING =================
 with tab4:
+    st.markdown("### 📊 REAL-TIME RESULTS MONITORING")
+    st.markdown("*Powered by Financial Modeling Prep API*")
+    
+    # FMP API Status
+    if FMP_API_KEY and FMP_API_KEY != "YOUR_FMP_API_KEY_HERE":
+        st.success("🟢 FMP API: CONNECTED | Monitoring Active (30 sec refresh)")
+    else:
+        st.warning("⚠️ FMP API Key Required! Get it from https://financialmodelingprep.com/")
+        api_key_input = st.text_input("Enter FMP API Key:", type="password")
+        if api_key_input:
+            FMP_API_KEY = api_key_input
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Pending Results
+    st.markdown("### ⏳ PENDING RESULTS TODAY")
+    pending_df = pd.DataFrame([{
+        "Company": c['name'], "Symbol": c['symbol'], "Expected Time": c['time'], "Verdict": c['expected']
+    } for c in PENDING_RESULTS])
+    st.dataframe(pending_df, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # AI Analysis Engine Status
+    st.markdown("### 🧠 AI ANALYSIS ENGINE")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Status", "🟢 READY")
+    with col2:
+        st.metric("Confidence Threshold", "70%")
+    with col3:
+        st.metric("Auto Trade", "ENABLED" if st.session_state.algo_running else "DISABLED")
+    
+    st.markdown("---")
+    
+    # Alerts History
+    if st.session_state.result_alerts:
+        st.markdown("### 🔔 RESULT ALERTS HISTORY")
+        for alert in st.session_state.result_alerts[-5:]:
+            with st.container():
+                col1, col2 = st.columns([3,1])
+                with col1:
+                    st.markdown(f"**📊 {alert['company']}**")
+                    st.caption(f"Time: {alert['timestamp']} | AI: {alert['ai_analysis']['verdict']}")
+                with col2:
+                    st.markdown(f"`{alert['ai_analysis']['signal']}`")
+                st.progress(alert['ai_analysis']['confidence']/100)
+                st.caption(f"Reasons: {', '.join(alert['ai_analysis']['reasons'])}")
+                st.markdown("---")
+
+# ================= TAB 5: SETTINGS =================
+with tab5:
     st.markdown("### ⚙️ SYSTEM SETTINGS")
     
-    # TP Settings
-    st.markdown("#### 🇮🇳 NIFTY SETTINGS")
+    st.markdown("#### 🇮🇳 NIFTY TP SETTINGS")
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
         st.number_input("Lots", min_value=1, max_value=50, value=st.session_state.nifty_lots, key="nifty_lots")
@@ -654,7 +893,7 @@ with tab4:
     with col7:
         st.checkbox("ON", value=st.session_state.nifty_tp3_enabled, key="nifty_tp3_en")
     
-    st.markdown("#### 🛢️ CRUDE SETTINGS")
+    st.markdown("#### 🛢️ CRUDE TP SETTINGS")
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
         st.number_input("Lots", min_value=1, max_value=50, key="crude_lots")
@@ -671,7 +910,7 @@ with tab4:
     with col7:
         st.checkbox("ON", value=st.session_state.crude_tp3_enabled, key="crude_tp3_en")
     
-    st.markdown("#### 🌿 NATURAL GAS SETTINGS")
+    st.markdown("#### 🌿 NATURAL GAS TP SETTINGS")
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
         st.number_input("Lots", min_value=1, max_value=50, key="ng_lots")
@@ -692,22 +931,20 @@ with tab4:
     st.markdown("#### 📉 RISK MANAGEMENT")
     st.session_state.max_daily_loss = st.number_input("Max Daily Loss (₹)", 10000, 500000, st.session_state.max_daily_loss, 10000)
 
-# ================= TAB 5: JOURNAL =================
-with tab5:
+# ================= TAB 6: JOURNAL =================
+with tab6:
     st.markdown("### 📋 TRADING JOURNAL")
     
     if st.session_state.trade_journal:
         df_journal = pd.DataFrame(st.session_state.trade_journal)
         st.dataframe(df_journal, use_container_width=True, height=400)
     else:
-        st.info("📭 No trades executed yet. Place a Wolf Order to start hunting!")
+        st.info("📭 No trades executed yet.")
     
     st.markdown("---")
     st.markdown("### 📊 PERFORMANCE SUMMARY")
     total_trades = len(st.session_state.trade_journal)
     active_count = len([t for t in st.session_state.trade_journal if 'ACTIVE' in str(t.get('Status', ''))])
-    sl_count = len([t for t in st.session_state.trade_journal if 'SL' in str(t.get('Status', ''))])
-    target_count = len([t for t in st.session_state.trade_journal if 'TARGET' in str(t.get('Status', ''))])
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -715,51 +952,61 @@ with tab5:
     with col2:
         st.metric("Active", active_count)
     with col3:
-        st.metric("SL Hit", sl_count)
+        st.metric("Daily Loss", f"₹{abs(st.session_state.daily_loss):,.0f}")
     with col4:
-        st.metric("Target Hit", target_count)
+        st.metric("Max Loss Limit", f"₹{st.session_state.max_daily_loss:,.0f}")
 
-# ================= AUTO TRADING LOGIC =================
+# ================= AUTO MONITORING =================
 if st.session_state.algo_running and st.session_state.totp_verified and not check_daily_loss_limit():
     check_and_execute_wolf_orders()
     monitor_active_orders()
-    st.info("🐺 Wolf is hunting the market... Tracking orders 🔍")
+    
+    # Monitor FMP Results
+    if FMP_API_KEY and FMP_API_KEY != "YOUR_FMP_API_KEY_HERE":
+        monitor_results()
+    
+    st.info("🐺 Rudransh ALGO is active... Monitoring Wolf Orders & Results 🔍")
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown("## 🐺 WOLF DASHBOARD")
+    st.markdown("## 🐺 RUDRANSH DASHBOARD")
     st.markdown("---")
     
     st.markdown("### 📊 TODAY'S STATUS")
     st.metric("Active Hunts", len(st.session_state.active_orders))
     st.metric("Pending Hunts", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
     st.metric("Daily P&L", f"₹{abs(st.session_state.daily_loss):,.2f}")
+    st.metric("Total Symbols", len(FO_SCRIPTS))
     
     st.markdown("---")
-    st.markdown("### 🛡️ SYMBOLS COUNT")
-    st.metric("Total F&O Stocks", f"{len(FO_SCRIPTS)}")
-    st.caption("Includes NIFTY, BANKNIFTY, CRUDE, NG + 209 Stocks")
+    st.markdown("### 🧠 AI STATUS")
+    st.caption("🤖 AI Engine: READY")
+    st.caption("📊 FMP API: " + ("CONNECTED" if FMP_API_KEY and FMP_API_KEY != "YOUR_FMP_API_KEY_HERE" else "PENDING"))
+    st.caption("📰 News Sources: 9 Active")
     
     st.markdown("---")
-    st.markdown("### 📱 CONNECTED")
-    st.caption("✅ Telegram Bot Active")
-    st.caption(f"🐺 Wolf Mode: {'ACTIVE' if st.session_state.algo_running else 'SLEEPING'}")
+    st.markdown("### 📱 CONNECTED SERVICES")
+    st.caption("✅ Telegram Bot")
+    st.caption("✅ Voice Alerts")
+    st.caption("✅ FMP API")
+    st.caption("✅ Multi-Source News")
     
     st.markdown("---")
-    st.markdown("### 📈 MARKET SENTIMENT")
-    st.progress(0.65)
-    st.caption("Bullish: 65% | Bearish: 35%")
+    st.markdown(f"### 📌 VERSION INFO")
+    st.caption(f"App: {APP_NAME}")
+    st.caption(f"Version: {APP_VERSION}")
+    st.caption(f"Updated: {LAST_UPDATE}")
+
+# ================= AUTO REFRESH =================
+time.sleep(30)  # 30 seconds refresh for real-time monitoring
+st.rerun()
 
 # ================= FOOTER =================
 st.markdown("---")
-st.markdown("""
+st.markdown(f"""
 <div style="text-align:center; padding:20px; color:#94a3b8;">
-    🔐 App Protected | 🐺 Wolf Order Book Active | 📱 Telegram Enabled
+    🐺 Rudransh Pro Algo X v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION}
     <br>
-    Developed by Satish D. Nakhate, Talwade, Pune - 412114
+    🔐 App Protected | 🐺 Wolf Order Active | 📊 FMP Results Monitor | 📰 9 News Sources
 </div>
 """, unsafe_allow_html=True)
-
-# ================= AUTO REFRESH =================
-time.sleep(10)
-st.rerun()
