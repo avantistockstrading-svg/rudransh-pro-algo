@@ -4,6 +4,7 @@ import requests
 import time
 import pandas as pd
 from datetime import datetime, timedelta, timezone
+from streamlit_autorefresh import st_autorefresh
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="RUDRANSH PRO ALGO X", layout="wide", page_icon="⚡")
@@ -14,12 +15,13 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_ist_now():
     return datetime.now(IST)
 
+# ================= AUTO REFRESH (30 सेकंद - Without Logout) =================
+# हे फक्त Dashboard refresh करेल, App बाहेर फेकणार नाही
+refresh_count = st_autorefresh(interval=30000, key="auto_refresh", limit=None)
+
 # ================= API KEYS =================
 FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"
 GNEWS_API_KEY = "7dbec44567a0bc1a8e232f664b3f3dbf"
-
-# ================= AUTO REFRESH (30 सेकंद) =================
-st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 
 # ================= APP LOCK =================
 if "unlocked" not in st.session_state:
@@ -174,7 +176,7 @@ st.markdown("<h1 style='text-align:center;'>⚡ RUDRANSH PRO ALGO X</h1>", unsaf
 st.markdown("<p style='text-align:center; color:#94a3b8;'>DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE</p>", unsafe_allow_html=True)
 
 # ================= AUTO-REFRESH STATUS =================
-st.info("🔄 **Auto-Refresh every 30 seconds** | Page will reload automatically")
+st.info("🔄 **Auto-Refresh every 30 seconds** | Data updates automatically without logout")
 st.markdown("---")
 
 # ================= LIVE PRICES =================
@@ -189,7 +191,7 @@ st.markdown("---")
 
 # ================= Q4 RESULTS DASHBOARD =================
 st.markdown("## 📊 Q4 FY26 RESULTS DASHBOARD")
-st.caption("🤖 AI-Powered Real-Time Analysis | Updates every 30 seconds")
+st.caption("🤖 AI-Powered Real-Time Analysis | Auto-refreshes every 30 seconds")
 
 rows = []
 for company, data in Q4_DATA.items():
@@ -323,9 +325,9 @@ with st.sidebar:
     st.markdown("### 📡 STATUS")
     st.success("✅ FMP API Connected")
     st.success("✅ GNews API Connected")
-    st.info("🔄 Auto-refresh: 30 sec")
+    st.info("🔄 Auto-refresh: 30 sec (No logout)")
 
 # ================= FOOTER =================
 st.markdown("---")
-st.caption(f"🔄 Next auto-refresh in 30 seconds | Last: {get_ist_now().strftime('%H:%M:%S')}")
+st.caption(f"🔄 Auto-refresh every 30 seconds | Last update: {get_ist_now().strftime('%H:%M:%S')}")
 st.caption("🔐 Password: 8055 | Developed by Satish D. Nakhate")
