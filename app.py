@@ -20,7 +20,7 @@ st.set_page_config(page_title="RUDRANSH PRO ALGO X", layout="wide", page_icon="�
 # ================= FMP API CONFIGURATION =================
 # Register at https://financialmodelingprep.com/ for FREE API key
 # Free tier: 250 requests/day
-FMP_API_KEY = "YOUR_FMP_API_KEY_HERE"  # तुमचा API key येथे ठेवा
+FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"  # तुमचा API key येथे ठेवा
 
 # ================= IST Timezone =================
 IST = timezone(timedelta(hours=5, minutes=30))
