@@ -2303,7 +2303,7 @@ def auto_trade_from_signal_with_journal():
 
 # ================= WOLF AUTO F&O TRADE =================
 def wolf_auto_fo_trade():
-    """WOLF AUTO F&O - EMA BUY आणि EMA SELL साठी"""
+    """WOLF AUTO F&O - EMA BUY आणि EMA SELL साठी (बिना common conditions)"""
     
     nifty_trend = get_nifty_trend()
     nifty_positive = (nifty_trend == "POSITIVE")
@@ -2343,7 +2343,7 @@ def wolf_auto_fo_trade():
         trend15_up = get_mtf_trend(symbol, "15m") == "UP"
         trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
         
-        # ========== EMA BUY (CE) - STRICT BUY ==========
+        # ========== EMA BUY (CE) - STRICT BUY ONLY ==========
         ema_buy = (nifty_positive and
                    not indicators["sideways"] and
                    sector_bullish and
@@ -2356,7 +2356,7 @@ def wolf_auto_fo_trade():
                    indicators["current_price"] > indicators["c1_high"] and
                    trend5_up and trend15_up and trend1h_up)
         
-        # ========== EMA SELL (PUT) - STRICT SELL ==========
+        # ========== EMA SELL (PUT) - STRICT SELL ONLY ==========
         ema_sell = (nifty_negative and
                     not indicators["sideways"] and
                     sector_bearish and
