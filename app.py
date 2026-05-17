@@ -1680,24 +1680,184 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     monitor_fmp_results()
     st.info("🐺 Wolf is hunting... FMP Stable APIs Active 🤖")
 
-# ================= SIDEBAR =================
+# ================= SIDEBAR (SAMRUDDHI DASHBOARD - PROFESSIONAL COLORFUL) =================
 with st.sidebar:
-    st.markdown("## 🌸 SAMRUDDHI DASHBOARD")
+    st.markdown("""
+    <div style="text-align:center; padding:10px; background: linear-gradient(135deg, #00ff88, #00b4d8); border-radius: 15px; margin-bottom: 20px;">
+        <h2 style="margin:0; color:black;">🌸 SAMRUDDHI DASHBOARD</h2>
+        <p style="margin:0; color:black; font-size:12px;">🐺 Rudransh Algo v4.3</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("---")
-    st.metric("Active Orders", len(st.session_state.active_orders))
-    st.metric("Pending Orders", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
-    st.metric("Total Trades", len(st.session_state.trade_journal))
-    st.metric("Total Symbols", len(FO_SCRIPTS))
-    st.metric("Results Alerts", len(st.session_state.result_alerts))
+    
+    # ================= STATUS CARDS =================
+    # Active Orders Card
+    active_count = len(st.session_state.active_orders)
+    active_color = "#00ff88" if active_count > 0 else "#ffaa00"
+    active_bg = "rgba(0,255,136,0.1)" if active_count > 0 else "rgba(255,170,0,0.1)"
+    st.markdown(f"""
+    <div style="background: {active_bg}; border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid {active_color}; text-align: center;">
+        <span style="font-size: 28px;">🔴</span>
+        <h3 style="margin: 5px 0; color: {active_color};">{active_count}</h3>
+        <p style="margin: 0; color: #aaa;">Active Orders</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Pending Orders Card
+    pending_count = len([o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING'])
+    pending_color = "#ffaa00"
+    st.markdown(f"""
+    <div style="background: rgba(255,170,0,0.1); border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid {pending_color}; text-align: center;">
+        <span style="font-size: 28px;">⏳</span>
+        <h3 style="margin: 5px 0; color: {pending_color};">{pending_count}</h3>
+        <p style="margin: 0; color: #aaa;">Pending Orders</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Total Trades Card
+    total_trades = len(st.session_state.trade_journal)
+    st.markdown(f"""
+    <div style="background: rgba(0,180,216,0.1); border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid #00b4d8; text-align: center;">
+        <span style="font-size: 28px;">📋</span>
+        <h3 style="margin: 5px 0; color: #00b4d8;">{total_trades}</h3>
+        <p style="margin: 0; color: #aaa;">Total Trades</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Total Symbols Card
+    total_symbols = len(FO_SCRIPTS)
+    st.markdown(f"""
+    <div style="background: rgba(136,255,136,0.1); border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid #88ff88; text-align: center;">
+        <span style="font-size: 28px;">📊</span>
+        <h3 style="margin: 5px 0; color: #88ff88;">{total_symbols}</h3>
+        <p style="margin: 0; color: #aaa;">Total Symbols</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Results Alerts Card
+    alert_count = len(st.session_state.result_alerts)
+    alert_color = "#ff4444" if alert_count > 0 else "#ffaa00"
+    st.markdown(f"""
+    <div style="background: rgba(255,68,68,0.1); border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid {alert_color}; text-align: center;">
+        <span style="font-size: 28px;">🔔</span>
+        <h3 style="margin: 5px 0; color: {alert_color};">{alert_count}</h3>
+        <p style="margin: 0; color: #aaa;">Results Alerts</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("---")
-    st.caption("✅ FMP API: Stable Endpoints")
-    st.caption("✅ GNews API: Active")
-    st.caption("✅ Telegram: Active")
-    st.caption(f"✅ Auto Trade: {'ON' if st.session_state.auto_trade_enabled else 'OFF'}")
-
-# ================= FOOTER =================
-st.markdown("---")
-st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | FMP Stable APIs")
+    
+    # ================= API STATUS SECTION =================
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 10px 0;">
+        <h4 style="margin:0 0 10px 0; color:#00b4d8;">🔌 API STATUS</h4>
+    """, unsafe_allow_html=True)
+    
+    # FMP API Status
+    fmp_status, _, _ = check_fmp_api()
+    if fmp_status:
+        st.markdown('<span style="color:#00ff88">✅ FMP API: Stable Endpoints</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span style="color:#ffaa00">🟡 FMP API: Stable Endpoints</span>', unsafe_allow_html=True)
+    
+    # GNews API Status
+    st.markdown('<span style="color:#00ff88">✅ GNews API: Active</span>', unsafe_allow_html=True)
+    
+    # Telegram Status
+    st.markdown('<span style="color:#00ff88">✅ Telegram: Active</span>', unsafe_allow_html=True)
+    
+    # Auto Trade Status
+    auto_status = st.session_state.auto_trade_enabled
+    auto_color = "#00ff88" if auto_status else "#ff4444"
+    auto_text = "ON" if auto_status else "OFF"
+    st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= QUICK ACTIONS =================
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 10px 0;">
+        <h4 style="margin:0 0 10px 0; color:#00b4d8;">⚡ QUICK ACTIONS</h4>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🐺 New Order", use_container_width=True):
+            st.info("Go to WOLF ORDER tab")
+    with col2:
+        if st.button("📊 Refresh", use_container_width=True):
+            st.rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= MARKET SENTIMENT MINI =================
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 10px 0;">
+        <h4 style="margin:0 0 10px 0; color:#00b4d8;">📈 MARKET SENTIMENT</h4>
+    """, unsafe_allow_html=True)
+    
+    # Get NIFTY for sentiment
+    try:
+        nifty_sentiment = yf.download("^NSEI", period="2d", interval="1d", progress=False)
+        if not nifty_sentiment.empty and len(nifty_sentiment) > 1:
+            nifty_current = float(nifty_sentiment['Close'].iloc[-1])
+            nifty_prev = float(nifty_sentiment['Close'].iloc[-2])
+            nifty_change = ((nifty_current - nifty_prev) / nifty_prev) * 100
+            if nifty_change > 0.5:
+                sentiment = "🟢 BULLISH"
+                sentiment_color = "#00ff88"
+            elif nifty_change < -0.5:
+                sentiment = "🔴 BEARISH"
+                sentiment_color = "#ff4444"
+            else:
+                sentiment = "🟡 SIDEWAYS"
+                sentiment_color = "#ffaa00"
+            st.markdown(f'<p style="color:{sentiment_color}; text-align:center; font-size:18px;">{sentiment}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="text-align:center; font-size:12px; color:#aaa;">NIFTY: {nifty_change:+.2f}%</p>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="color:#ffaa00; text-align:center;">🔴 Market Closed</p>', unsafe_allow_html=True)
+    except:
+        st.markdown('<p style="color:#ffaa00; text-align:center;">🔴 Market Closed</p>', unsafe_allow_html=True)
+    
+    # Sentiment Gauge
+    st.markdown("""
+    <div style="background:#333; border-radius:10px; height:6px; margin-top:10px;">
+        <div style="background:linear-gradient(90deg, #ff4444, #ffaa00, #00ff88); width:100%; border-radius:10px; height:6px;"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+        <small style="color:#ff4444;">BEARISH</small>
+        <small style="color:#ffaa00;">SIDEWAYS</small>
+        <small style="color:#00ff88;">BULLISH</small>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= SYSTEM INFO =================
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 10px 0;">
+        <h4 style="margin:0 0 10px 0; color:#00b4d8;">💻 SYSTEM INFO</h4>
+        <p style="margin:2px 0; font-size:12px; color:#aaa;">🐺 Version: 4.3.0</p>
+        <p style="margin:2px 0; font-size:12px; color:#aaa;">📅 IST: ' + get_ist_now().strftime('%H:%M:%S') + '</p>
+        <p style="margin:2px 0; font-size:12px; color:#aaa;">🔄 Auto Refresh: 30s</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= FOOTER =================
+    st.markdown("""
+    <div style="text-align:center; padding:10px;">
+        <p style="color:#666; font-size:10px;">Developed by<br>SATISH D. NAKHATE<br>TALWADE, PUNE - 412114</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ================= NO AUTO REFRESH =================
 # Removed time.sleep() and st.rerun() to prevent blank screen
