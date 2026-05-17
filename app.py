@@ -332,6 +332,42 @@ def get_company_earnings(symbol):
     except:
         return None
 
+# ================= EARNINGS CALENDAR API (AUTO DAILY UPDATE) =================
+def get_today_earnings():
+    """FMP Earnings Calendar API वरून आजच्या results ची list मिळवा"""
+    try:
+        today = get_ist_now().strftime('%Y-%m-%d')
+        url = f"https://financialmodelingprep.com/stable/earnings-calendar?from={today}&to={today}&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            earnings_list = []
+            for item in data:
+                symbol = item.get('symbol', '').replace('.NS', '')
+                earnings_list.append({
+                    'name': symbol,
+                    'symbol': symbol,
+                    'date': item.get('date', today),
+                    'eps_estimated': item.get('epsEstimated'),
+                    'eps_actual': item.get('epsActual')
+                })
+            return earnings_list
+        return []
+    except Exception as e:
+        print(f"Earnings Calendar Error: {e}")
+        return []
+
+def get_pending_results():
+    """Dynamic results list - daily update होईल"""
+    earnings = get_today_earnings()
+    if earnings:
+        return earnings
+    # API error असल्यास empty list return करा
+    return []
+
+# ================= PENDING RESULTS (Dynamic) =================
+PENDING_RESULTS = get_pending_results()
+
 # ================= TREND FUNCTIONS =================
 def get_nifty_trend():
     try:
