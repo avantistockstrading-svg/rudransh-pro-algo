@@ -651,7 +651,6 @@ def get_mtf_trend(symbol, interval):
     except:
         return "NEUTRAL"
 
-# ================= TECHNICAL INDICATORS =================
 def get_technical_indicators(symbol):
     try:
         if symbol == "NIFTY":
@@ -666,8 +665,10 @@ def get_technical_indicators(symbol):
             ticker = f"{symbol}.NS"
         
         df = yf.download(ticker, period="10d", interval="5m", progress=False)
-        if df.empty or len(df) < 200:
-            return None
+        if df.empty or len(df) < 50:
+            df = yf.download(ticker, period="20d", interval="1d", progress=False)
+            if df.empty or len(df) < 20:
+                return None
         
         close = df['Close']
         high = df['High']
@@ -676,7 +677,7 @@ def get_technical_indicators(symbol):
         
         ema9 = close.ewm(span=9, adjust=False).mean().iloc[-1]
         ema20 = close.ewm(span=20, adjust=False).mean().iloc[-1]
-        ema200 = close.ewm(span=200, adjust=False).mean().iloc[-1]
+        ema200 = close.ewm(span=200, adjust=False).mean().iloc[-1] if len(close) > 200 else ema20
         
         delta = close.diff()
         gain = delta.where(delta > 0, 0).rolling(window=14).mean()
@@ -699,18 +700,26 @@ def get_technical_indicators(symbol):
         volume_sma = volume.rolling(20).mean()
         volume_filter = volume.iloc[-1] > volume_sma.iloc[-1] if not volume_sma.isna().iloc[-1] else True
         
-        prev_candle = df.iloc[-2]
-        curr_candle = df.iloc[-1]
-        strong_bull = curr_candle['Close'] > curr_candle['Open'] and curr_candle['Close'] > prev_candle['High']
-        strong_bear = curr_candle['Close'] < curr_candle['Open'] and curr_candle['Close'] < prev_candle['Low']
+        if len(df) >= 2:
+            prev_candle = df.iloc[-2]
+            curr_candle = df.iloc[-1]
+            strong_bull = curr_candle['Close'] > curr_candle['Open'] and curr_candle['Close'] > prev_candle['High']
+            strong_bear = curr_candle['Close'] < curr_candle['Open'] and curr_candle['Close'] < prev_candle['Low']
+            c1_high = prev_candle['High']
+            c1_low = prev_candle['Low']
+        else:
+            strong_bull = False
+            strong_bear = False
+            c1_high = high.iloc[-1]
+            c1_low = low.iloc[-1]
         
         sideways = (45 < current_rsi < 55) and (adx < 20) if not pd.isna(adx) else False
         
         return {
-            "current_price": close.iloc[-1], "ema9": ema9, "ema20": ema20, "ema200": ema200,
-            "rsi": current_rsi, "adx": adx if not pd.isna(adx) else 25,
-            "volume_filter": volume_filter, "strong_bull": strong_bull, "strong_bear": strong_bear,
-            "sideways": sideways, "c1_high": prev_candle['High'], "c1_low": prev_candle['Low']
+            "current_price": float(close.iloc[-1]), "ema9": float(ema9), "ema20": float(ema20),
+            "ema200": float(ema200), "rsi": float(current_rsi), "adx": float(adx) if not pd.isna(adx) else 25,
+            "volume_filter": bool(volume_filter), "strong_bull": bool(strong_bull), "strong_bear": bool(strong_bear),
+            "sideways": bool(sideways), "c1_high": float(c1_high), "c1_low": float(c1_low)
         }
     except:
         return None
