@@ -26,6 +26,14 @@ TELEGRAM_CHAT = "1983026913"
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title=APP_NAME, layout="wide", page_icon="🐺")
 
+st.markdown("""
+<style>
+html, body, [class*="css"]  {
+    font-family: "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ================= CUSTOM CSS =================
 st.markdown("""
 <style>
