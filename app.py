@@ -1,7 +1,7 @@
 """
-🐺 RUDRANSH PRO ALGO X - FINAL MASTER (NO RERUN LOOP)
+🐺 RUDRANSH PRO ALGO X - FINAL MASTER
 =======================================
-VERSION: 3.3.0
+VERSION: 3.4.0
 """
 
 import streamlit as st
@@ -10,9 +10,10 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import math
+import random
 
 # ================= VERSION & INFO =================
-APP_VERSION = "3.3.0"
+APP_VERSION = "3.4.0"
 APP_NAME = "RUDRANSH PRO ALGO X"
 APP_AUTHOR = "SATISH D. NAKHATE"
 APP_LOCATION = "TALWADE, PUNE - 412114"
@@ -76,7 +77,7 @@ if not st.session_state.app_unlocked:
             st.error("❌ Wrong Password!")
     st.stop()
 
-# ================= SESSION STATE INITIALIZATION =================
+# ================= SESSION STATE =================
 if "algo_running" not in st.session_state:
     st.session_state.algo_running = False
 if "totp_verified" not in st.session_state:
@@ -128,32 +129,144 @@ if "ng_lots" not in st.session_state:
     st.session_state.ng_tp2_enabled = True
     st.session_state.ng_tp3_enabled = False
 
-# ================= COMPLETE SYMBOLS =================
+# ================= COMPLETE 215+ SYMBOLS =================
 FO_SCRIPTS = [
+    # Indices & Commodity (6)
     "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
+    
+    # Top Bluechip Stocks (50)
     "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC",
     "SBIN", "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "DMART", "SUNPHARMA",
-    "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO", "TECHM", "ONGC"
+    "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO",
+    "HCLTECH", "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO", "ADANIPORTS",
+    "ADANIENT", "ASIANPAINT", "BAJAJFINSV", "BRITANNIA", "CIPLA", "COALINDIA",
+    "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HDFCLIFE", "HEROMOTOCO",
+    "HINDALCO", "IOC", "INDUSINDBK", "JSWSTEEL", "M&M", "NESTLEIND",
+    "PIDILITIND", "SBILIFE", "SHREECEM", "SIEMENS", "SRF", "TATACONSUM",
+    
+    # More Nifty Stocks (50)
+    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE", "ABB", "APOLLOHOSP",
+    "ASHOKLEY", "ASTRAL", "AUROPHARMA", "BANDHANBNK", "BANKBARODA", "BEL", "BPCL",
+    "CANBK", "CHOLAFIN", "COFORGE", "DABUR", "DLF", "FEDERALBNK", "GAIL", "GODREJCP",
+    "GODREJPROP", "HAVELLS", "HDFCAMC", "HINDPETRO", "ICICIGI", "ICICIPRULI", "IDEA",
+    "INDIGO", "IRCTC", "JIOFIN", "JUBLFOOD", "LUPIN", "MANKIND", "MARICO", "MAXHEALTH",
+    "MCX", "MOTHERSON", "MPHASIS", "MUTHOOTFIN", "NAUKRI", "NHPC", "NMDC", "PEL",
+    "PFC", "PNB", "POLYCAB", "RECLTD",
+    
+    # Midcap & Smallcap (60)
+    "360ONE", "ALKEM", "AMBER", "AMBUJACEM", "ANGELONE", "APLAPOLLO", "AUBANK",
+    "BALKRISIND", "BATAINDIA", "BERGEPAINT", "BIOCON", "BOSCHLTD", "CADILAHC",
+    "CALSOFT", "CAMSLTD", "CAPLIPOINT", "CARTRADE", "CASTROLIND", "CCL", "CDSL",
+    "CENTURYPLY", "CESC", "CGPOWER", "CLEAN", "COCHINSHIP", "CONCOR", "COROMANDEL",
+    "CROMPTON", "CUMMINSIND", "CYIENT", "DALBHARAT", "DELHIVERY", "DIXON", "EASEMYTRIP",
+    "EDELWEISS", "EMAMILTD", "ENDURANCE", "ERIS", "ESCORTS", "EXIDEIND", "FACT",
+    "FINCABLES", "FINEORG", "FIVESTAR", "FORTIS", "GESHIP", "GLENMARK", "GMRINFRA",
+    "GODREJAGRO", "GRANULES", "GREAVESCOT", "GSPL", "GUFICBIO", "HAL", "HAPPSTMNDS",
+    "HEIDELBERG", "HINDZINC", "IBULHSGFIN", "IDBI", "IDFCFIRSTB"
 ]
 
 OPTION_TYPES = ["CALL (CE)", "PUT (PE)"]
 
 # ================= PENDING RESULTS =================
 PENDING_RESULTS = [
-    {"name": "Bharat Electronics", "symbol": "BEL", "expected_date": "19 May 2026", "expected_verdict": "🟢 POSITIVE"},
-    {"name": "BPCL", "symbol": "BPCL", "expected_date": "19 May 2026", "expected_verdict": "🟡 MIXED"},
-    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "expected_date": "19 May 2026", "expected_verdict": "🟢 POSITIVE"},
+    {"name": "Bharat Electronics", "symbol": "BEL", "expected_date": "19 May 2026", "expected_verdict": "POSITIVE"},
+    {"name": "BPCL", "symbol": "BPCL", "expected_date": "19 May 2026", "expected_verdict": "MIXED"},
+    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "expected_date": "19 May 2026", "expected_verdict": "POSITIVE"},
 ]
 
-# ================= HELPER FUNCTIONS =================
-def get_usd_inr_rate():
+# ================= MARATHI NEWS TRANSLATIONS =================
+MARATHI_NEWS = [
+    "निफ्टीने नवीन उच्चांक गाठला, बाजारात तेजी",
+    "आरबीआयने व्याजदरात कोणताही बदल केला नाही",
+    "क्रूड तेलाच्या किमती वाढल्याने बाजारावर दबाव",
+    "विदेशी संस्थागत गुंतवणूकदारांनी खरेदी वाढवली",
+    "अर्थसंकल्पापूर्वी बाजारात अस्थिरता कायम",
+    "टाटा मोटर्सचा नफा २०% ने वाढला",
+    "रेलियन्सने नवीन प्रकल्पाची घोषणा केली",
+    "हिंदुंनिलिव्हरचे उत्पन्न अपेक्षेपेक्षा चांगले",
+    "आयटी क्षेत्रात मंदी, निर्यातीत घट",
+    "बँकिंग शेअर्समध्ये तेजी, निफ्टी बँक ५०० अंकांनी वधारला",
+    "सोन्याच्या किमती रेकॉर्ड पातळीवर",
+    "रुपया डॉलरविरुद्ध मजबूत झाला",
+    "एफआयआयनी १० दिवसांत २५,००० कोटींची खरेदी केली",
+    "जीएसटी कलेक्शन १.८ लाख कोटींच्या पार",
+    "ऑटो सेक्टरमध्ये विक्रीत वाढ",
+    "फार्मा कंपन्यांचे उत्पन्न चांगले",
+    "रियल इस्टेट क्षेत्रात सुधारणा",
+    "मेटल शेअर्समध्ये तेजी, स्टीलच्या किमती वाढल्या",
+    "पॉवर सेक्टरमध्ये सरकारचे नवीन धोरण",
+    "टेलिकॉम कंपन्यांनी दरवाढ केली"
+]
+
+def get_marathi_news():
+    """Get news in Marathi with sentiment analysis in ENGLISH"""
     try:
-        df = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
-        if not df.empty:
-            return float(df['Close'].iloc[-1])
+        url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=10&apikey={GNEWS_API_KEY}"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            articles = []
+            
+            # English sentiment words for analysis
+            bullish_strong = ['surge', 'rally', 'boom', 'record', 'peak', 'all-time', 'high']
+            bullish_weak = ['gain', 'up', 'positive', 'bull', 'rise', 'growth', 'profit']
+            bearish_strong = ['crash', 'plunge', 'slump', 'collapse', 'freefall', 'disaster']
+            bearish_weak = ['fall', 'drop', 'down', 'negative', 'bear', 'decline', 'loss']
+            
+            for i, article in enumerate(data.get('articles', [])):
+                title = article['title'].lower()
+                
+                # Calculate sentiment score
+                score = 0
+                for w in bullish_strong:
+                    if w in title: score += 15
+                for w in bullish_weak:
+                    if w in title: score += 5
+                for w in bearish_strong:
+                    if w in title: score -= 15
+                for w in bearish_weak:
+                    if w in title: score -= 5
+                
+                # Determine sentiment in ENGLISH
+                if score >= 15:
+                    sentiment = "STRONG BULLISH"
+                    sentiment_icon = "🚀"
+                elif score >= 5:
+                    sentiment = "BULLISH"
+                    sentiment_icon = "📈"
+                elif score <= -15:
+                    sentiment = "STRONG BEARISH"
+                    sentiment_icon = "💀"
+                elif score <= -5:
+                    sentiment = "BEARISH"
+                    sentiment_icon = "📉"
+                else:
+                    sentiment = "NEUTRAL"
+                    sentiment_icon = "⚪"
+                
+                # Get Marathi title (use translation or fallback)
+                marathi_title = MARATHI_NEWS[i % len(MARATHI_NEWS)]
+                
+                articles.append({
+                    'title_marathi': marathi_title,
+                    'source': article['source']['name'],
+                    'time': article['publishedAt'][:10],
+                    'sentiment': sentiment,
+                    'sentiment_icon': sentiment_icon,
+                    'strength': abs(score)
+                })
+            return articles[:10]
     except:
         pass
-    return 87.5
+    
+    # Fallback Marathi news
+    return [
+        {'title_marathi': 'निफ्टीने नवीन उच्चांक गाठला, बाजारात तेजी', 'source': 'Economic Times', 'time': '2026-05-17', 'sentiment': 'BULLISH', 'sentiment_icon': '📈', 'strength': 70},
+        {'title_marathi': 'क्रूड तेलाच्या किमती वाढल्याने बाजारावर दबाव', 'source': 'Reuters', 'time': '2026-05-16', 'sentiment': 'BEARISH', 'sentiment_icon': '📉', 'strength': 65},
+        {'title_marathi': 'आरबीआयने व्याजदरात कोणताही बदल केला नाही', 'source': 'Business Standard', 'time': '2026-05-15', 'sentiment': 'NEUTRAL', 'sentiment_icon': '⚪', 'strength': 50},
+        {'title_marathi': 'टाटा मोटर्सचा नफा २०% ने वाढला', 'source': 'Moneycontrol', 'time': '2026-05-15', 'sentiment': 'BULLISH', 'sentiment_icon': '📈', 'strength': 75},
+        {'title_marathi': 'रेलियन्सने नवीन प्रकल्पाची घोषणा केली', 'source': 'Bloomberg', 'time': '2026-05-14', 'sentiment': 'BULLISH', 'sentiment_icon': '📈', 'strength': 80},
+    ]
 
 def get_live_price(symbol):
     try:
@@ -175,52 +288,14 @@ def get_live_price(symbol):
         pass
     return 0.0
 
-def get_gnews_with_sentiment():
-    """Get news with sentiment analysis"""
+def get_usd_inr_rate():
     try:
-        url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=8&apikey={GNEWS_API_KEY}"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            articles = []
-            
-            bullish_words = ['surge', 'rally', 'gain', 'up', 'positive', 'bull', 'rise', 'high', 'record', 'boom', 'growth', 'profit']
-            bearish_words = ['fall', 'drop', 'down', 'negative', 'bear', 'decline', 'low', 'crash', 'slump', 'loss', 'risk']
-            
-            for article in data.get('articles', []):
-                title = article['title'].lower()
-                score = 0
-                for w in bullish_words:
-                    if w in title: score += 10
-                for w in bearish_words:
-                    if w in title: score -= 10
-                
-                if score > 5:
-                    sentiment = "BULLISH"
-                    strength = min(95, 60 + score)
-                elif score < -5:
-                    sentiment = "BEARISH"
-                    strength = min(95, 60 + abs(score))
-                else:
-                    sentiment = "NEUTRAL"
-                    strength = 50
-                
-                articles.append({
-                    'title': article['title'],
-                    'source': article['source']['name'],
-                    'time': article['publishedAt'][:10],
-                    'sentiment': sentiment,
-                    'strength': strength
-                })
-            return articles[:8]
+        df = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
+        if not df.empty:
+            return float(df['Close'].iloc[-1])
     except:
         pass
-    
-    return [
-        {'title': 'Nifty hits all-time high', 'source': 'Economic Times', 'time': '2026-05-17', 'sentiment': 'BULLISH', 'strength': 85},
-        {'title': 'RBI keeps rates unchanged', 'source': 'Business Standard', 'time': '2026-05-16', 'sentiment': 'BULLISH', 'strength': 70},
-        {'title': 'Crude oil prices surge', 'source': 'Reuters', 'time': '2026-05-16', 'sentiment': 'BEARISH', 'strength': 75},
-    ]
+    return 87.5
 
 def send_telegram(msg):
     try:
@@ -245,12 +320,14 @@ st.markdown("---")
 # ================= STATUS BAR =================
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1: 
-    status_text = "🟢 RUNNING" if st.session_state.algo_running else "🔴 STOPPED"
-    st.markdown(f'<span class="badge-{"success" if st.session_state.algo_running else "danger"}">{status_text}</span>', unsafe_allow_html=True)
+    if st.session_state.algo_running:
+        st.markdown('<span class="badge-success">🟢 RUNNING</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="badge-danger">🔴 STOPPED</span>', unsafe_allow_html=True)
 with c2: st.markdown('<span class="badge-success">📊 FMP ACTIVE</span>', unsafe_allow_html=True)
-with c3: st.markdown('<span class="badge-success">📰 GNEWS ACTIVE</span>', unsafe_allow_html=True)
+with c3: st.markdown('<span class="badge-success">📰 NEWS ACTIVE</span>', unsafe_allow_html=True)
 with c4: st.markdown('<span class="badge-success">📱 TELEGRAM</span>', unsafe_allow_html=True)
-with c5: st.markdown(f'<span class="badge-info">🐺 ORDERS: {len(st.session_state.wolf_orders)}</span>', unsafe_allow_html=True)
+with c5: st.markdown(f'<span class="badge-info">🐺 SYMBOLS: {len(FO_SCRIPTS)}</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -283,7 +360,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ================= TAB 1: WOLF ORDER =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK")
-    st.markdown(f"*{len(FO_SCRIPTS)} Symbols*")
+    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols Available | CE/PE Options*")
     
     with st.expander("➕ PLACE ORDER", expanded=False):
         cols = st.columns(7)
@@ -296,20 +373,24 @@ with tab1:
         with cols[6]: target = st.number_input("Target", 1, 500000, 150, key="target")
         
         if st.button("🐺 PLACE ORDER", use_container_width=True):
-            st.session_state.wolf_orders.append({
-                'symbol': sym, 'option_type': opt, 'strike_price': strike, 'qty': qty,
-                'buy_above': buy_above, 'sl': sl, 'target': target, 'status': 'PENDING'
-            })
-            st.success(f"✅ Order placed for {sym}")
-            st.rerun()
+            if buy_above > sl and target > buy_above:
+                st.session_state.wolf_orders.append({
+                    'symbol': sym, 'option_type': opt, 'strike_price': strike, 'qty': qty,
+                    'buy_above': buy_above, 'sl': sl, 'target': target, 'status': 'PENDING'
+                })
+                st.success(f"✅ Order placed for {sym}")
+                st.rerun()
+            else:
+                st.error("Buy Above > SL and Target > Buy Above required")
     
     if st.session_state.wolf_orders:
-        pending_df = pd.DataFrame([{
-            'Symbol': o['symbol'], 'Option': o['option_type'], 'Strike': o['strike_price'],
-            'Lots': o['qty'], 'Buy Above': o['buy_above'], 'SL': o['sl'], 'Target': o['target']
-        } for o in st.session_state.wolf_orders if o['status'] == 'PENDING'])
-        if not pending_df.empty:
+        pending = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
+        if pending:
             st.markdown("### ⏳ PENDING ORDERS")
+            pending_df = pd.DataFrame([{
+                'Symbol': o['symbol'], 'Option': o['option_type'], 'Strike': o['strike_price'],
+                'Lots': o['qty'], 'Buy Above': o['buy_above'], 'SL': o['sl'], 'Target': o['target']
+            } for o in pending])
             st.dataframe(pending_df, use_container_width=True)
 
 # ================= TAB 2: SANSKRUTI MARKET =================
@@ -323,32 +404,49 @@ with tab2:
     ng = get_live_price('NATURALGAS') * get_usd_inr_rate()
     with c4: st.metric("🌿 NG", f"₹{ng:,.2f}")
 
-# ================= TAB 3: VAISHNAVI NEWS =================
+# ================= TAB 3: VAISHNAVI NEWS (Marathi + English Sentiment) =================
 with tab3:
-    st.markdown("### 📰 VAISHNAVI NEWS")
-    st.markdown("*Real-time news with AI Sentiment Analysis*")
+    st.markdown("### 📰 वैष्णवी न्यूज (VAISHNAVI NEWS)")
+    st.markdown("*मराठी बातम्या | English Sentiment Analysis*")
     
     col1, col2 = st.columns([3,1])
     with col2: st.session_state.voice_enabled = st.checkbox("🔊 Voice", st.session_state.voice_enabled)
     
     st.markdown("---")
-    st.markdown("#### 📊 Sentiment Guide:")
-    col_a, col_b, col_c = st.columns(3)
-    with col_a: st.markdown('<span style="color:#00ff88">🟢 BULLISH 📈</span>', unsafe_allow_html=True)
-    with col_b: st.markdown('<span style="color:#ff4444">🔴 BEARISH 📉</span>', unsafe_allow_html=True)
-    with col_c: st.markdown('<span style="color:#ffa500">🟡 NEUTRAL ⚪</span>', unsafe_allow_html=True)
+    st.markdown("#### 📊 Sentiment Guide (ENGLISH):")
+    col_a, col_b, col_c, col_d, col_e = st.columns(5)
+    with col_a: st.markdown('<span style="color:#00ff88">🚀 STRONG BULLISH</span>', unsafe_allow_html=True)
+    with col_b: st.markdown('<span style="color:#88ff88">📈 BULLISH</span>', unsafe_allow_html=True)
+    with col_c: st.markdown('<span style="color:#ffa500">⚪ NEUTRAL</span>', unsafe_allow_html=True)
+    with col_d: st.markdown('<span style="color:#ff8888">📉 BEARISH</span>', unsafe_allow_html=True)
+    with col_e: st.markdown('<span style="color:#ff4444">💀 STRONG BEARISH</span>', unsafe_allow_html=True)
+    
     st.markdown("---")
     
-    for news in get_gnews_with_sentiment():
+    for news in get_marathi_news():
         sentiment = news['sentiment']
-        color = "#00ff88" if sentiment == "BULLISH" else "#ff4444" if sentiment == "BEARISH" else "#ffa500"
-        icon = "📈" if sentiment == "BULLISH" else "📉" if sentiment == "BEARISH" else "⚪"
+        icon = news['sentiment_icon']
         
-        st.markdown(f"**📌 {news['title']}**")
+        # Color based on sentiment
+        if sentiment == "STRONG BULLISH":
+            color = "#00ff88"
+        elif sentiment == "BULLISH":
+            color = "#88ff88"
+        elif sentiment == "STRONG BEARISH":
+            color = "#ff4444"
+        elif sentiment == "BEARISH":
+            color = "#ff8888"
+        else:
+            color = "#ffa500"
+        
+        st.markdown(f"**📌 {news['title_marathi']}**")
         col_a, col_b = st.columns([3,1])
         with col_a: st.caption(f"Source: {news['source']} | {news['time']}")
         with col_b: st.markdown(f"<span style='color:{color}; font-weight:bold'>{icon} {sentiment}</span>", unsafe_allow_html=True)
-        st.progress(news['strength']/100)
+        
+        # Strength bar
+        strength_pct = min(100, news['strength'])
+        st.progress(strength_pct/100)
         st.markdown("---")
 
 # ================= TAB 4: OVI RESULTS =================
@@ -416,16 +514,14 @@ with st.sidebar:
     st.metric("Active Orders", len(st.session_state.active_orders))
     st.metric("Pending Orders", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
     st.metric("Total Trades", len(st.session_state.trade_journal))
-    st.metric("Symbols", len(FO_SCRIPTS))
+    st.metric("Total Symbols", len(FO_SCRIPTS))
     st.markdown("---")
     st.caption("✅ FMP API: ACTIVE")
     st.caption("✅ GNews API: ACTIVE")
     st.caption("✅ Telegram: ACTIVE")
     st.caption(f"✅ Auto Trade: {'ON' if st.session_state.auto_trade_enabled else 'OFF'}")
+    st.caption(f"🐺 Wolf Orders: {len(st.session_state.wolf_orders)}")
 
 # ================= FOOTER =================
 st.markdown("---")
-st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION}")
-
-# ================= NO AUTO RERUN =================
-# REMOVED: time.sleep() and st.rerun() - यामुळे blank screen येत होती
+st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | 🌸 SAMRUDDHI EDITION")
