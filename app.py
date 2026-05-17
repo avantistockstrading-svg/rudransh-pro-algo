@@ -480,7 +480,7 @@ with tab3:
         st.caption(f"Source: {news['source']} | {news['time']}")
         st.markdown("---")
 
-# ================= TAB 4: OVI Q4 RESULTS (UPDATED WITH COLORS & PREDICTIONS) =================
+# ================= TAB 4: OVI RESULTS (UPDATED WITH COLORS & PREDICTIONS) =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - Q4 FY26 MONITORING")
     st.markdown("*Real-time earnings monitoring with AI predictions*")
@@ -492,7 +492,7 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= UPDATED PENDING RESULTS WITH PREDICTIONS =================
+    # ================= PENDING RESULTS WITH PREDICTIONS =================
     PENDING_RESULTS_UPDATED = [
         {"name": "Bharat Electronics", "symbol": "BEL", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "BULLISH", "confidence": 85, "sentiment": "🟢 Positive", "analyst_rating": "BUY"},
@@ -504,29 +504,18 @@ with tab4:
          "prediction": "BULLISH", "confidence": 80, "sentiment": "🟢 Positive", "analyst_rating": "BUY"},
         {"name": "PI Industries", "symbol": "PIIND", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "BULLISH", "confidence": 75, "sentiment": "🟢 Positive", "analyst_rating": "BUY"},
-        {"name": "HDFC Bank", "symbol": "HDFCBANK", "q4_date": "15 May 2026", "time": "Results Declared", 
+        {"name": "HDFC Bank", "symbol": "HDFCBANK", "q4_date": "15 May 2026", "time": "Declared", 
          "prediction": "BULLISH", "confidence": 88, "sentiment": "🟢 Positive", "analyst_rating": "BUY", "status": "COMPLETED"},
-        {"name": "Reliance Industries", "symbol": "RELIANCE", "q4_date": "14 May 2026", "time": "Results Declared", 
+        {"name": "Reliance Industries", "symbol": "RELIANCE", "q4_date": "14 May 2026", "time": "Declared", 
          "prediction": "NEUTRAL", "confidence": 55, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD", "status": "COMPLETED"},
-        {"name": "Infosys", "symbol": "INFY", "q4_date": "16 May 2026", "time": "Results Declared", 
+        {"name": "Infosys", "symbol": "INFY", "q4_date": "16 May 2026", "time": "Declared", 
          "prediction": "BEARISH", "confidence": 65, "sentiment": "🔴 Negative", "analyst_rating": "SELL", "status": "COMPLETED"},
     ]
     
-    # Function to get color based on prediction
-    def get_prediction_color(prediction):
-        colors = {
-            "STRONG BULLISH": "#00ff44",
-            "BULLISH": "#88ff88",
-            "NEUTRAL": "#ffaa00",
-            "BEARISH": "#ff6666",
-            "STRONG BEARISH": "#ff3333"
-        }
-        return colors.get(prediction, "#ffffff")
-    
-    # Display as colored DataFrame
+    # Display as regular DataFrame first
     st.markdown("#### 📊 Monitored Companies - Q4 FY26")
     
-    # Create DataFrame with color formatting
+    # Create DataFrame
     df_pending = pd.DataFrame([{
         "Company": c['name'],
         "Symbol": c['symbol'],
@@ -538,18 +527,8 @@ with tab4:
         "Analyst Rating": c['analyst_rating']
     } for c in PENDING_RESULTS_UPDATED])
     
-    # Display with custom styling
-    st.dataframe(
-        df_pending.style.applymap(
-            lambda x: f'background-color: {get_prediction_color(x)}; color: black; font-weight: bold' 
-            if x in ["STRONG BULLISH", "BULLISH", "NEUTRAL", "BEARISH", "STRONG BEARISH"] else '',
-            subset=['AI Prediction']
-        ).set_properties(**{
-            'text-align': 'center'
-        }),
-        use_container_width=True,
-        height=400
-    )
+    # Display dataframe normally
+    st.dataframe(df_pending, use_container_width=True, height=400)
     
     st.markdown("---")
     
@@ -557,15 +536,60 @@ with tab4:
     st.markdown("#### 🎨 AI Prediction Color Guide:")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.markdown('<span style="background:#00ff44; padding:5px 10px; border-radius:10px;">🚀 STRONG BULLISH</span>', unsafe_allow_html=True)
+        st.markdown('<span style="background:#00ff44; padding:5px 10px; border-radius:10px; color:black;">🚀 STRONG BULLISH</span>', unsafe_allow_html=True)
     with col2:
-        st.markdown('<span style="background:#88ff88; padding:5px 10px; border-radius:10px;">📈 BULLISH</span>', unsafe_allow_html=True)
+        st.markdown('<span style="background:#88ff88; padding:5px 10px; border-radius:10px; color:black;">📈 BULLISH</span>', unsafe_allow_html=True)
     with col3:
-        st.markdown('<span style="background:#ffaa00; padding:5px 10px; border-radius:10px;">⚪ NEUTRAL</span>', unsafe_allow_html=True)
+        st.markdown('<span style="background:#ffaa00; padding:5px 10px; border-radius:10px; color:black;">⚪ NEUTRAL</span>', unsafe_allow_html=True)
     with col4:
-        st.markdown('<span style="background:#ff6666; padding:5px 10px; border-radius:10px;">📉 BEARISH</span>', unsafe_allow_html=True)
+        st.markdown('<span style="background:#ff6666; padding:5px 10px; border-radius:10px; color:black;">📉 BEARISH</span>', unsafe_allow_html=True)
     with col5:
-        st.markdown('<span style="background:#ff3333; padding:5px 10px; border-radius:10px;">💀 STRONG BEARISH</span>', unsafe_allow_html=True)
+        st.markdown('<span style="background:#ff3333; padding:5px 10px; border-radius:10px; color:black;">💀 STRONG BEARISH</span>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= COLORED CARDS FOR EACH COMPANY =================
+    st.markdown("#### 📊 Company-wise Analysis Cards")
+    
+    for company in PENDING_RESULTS_UPDATED:
+        if company['prediction'] == "STRONG BULLISH":
+            bg_color = "#00ff44"
+            border_color = "#00cc33"
+            icon = "🚀"
+        elif company['prediction'] == "BULLISH":
+            bg_color = "#88ff88"
+            border_color = "#55aa55"
+            icon = "📈"
+        elif company['prediction'] == "NEUTRAL":
+            bg_color = "#ffaa00"
+            border_color = "#cc8800"
+            icon = "⚪"
+        elif company['prediction'] == "BEARISH":
+            bg_color = "#ff6666"
+            border_color = "#cc4444"
+            icon = "📉"
+        else:
+            bg_color = "#ff3333"
+            border_color = "#cc2222"
+            icon = "💀"
+        
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 5px solid {border_color};">
+            <table style="width:100%;">
+                <tr>
+                    <td style="width:25%;"><b>🏢 {company['name']}</b><br><small>{company['symbol']}</small></td>
+                    <td style="width:20%;"><b>📅 Q4 Date</b><br>{company['q4_date']}</td>
+                    <td style="width:20%;"><b>⏰ Time</b><br>{company['time']}</td>
+                    <td style="width:35%;"><b>🤖 AI Prediction</b><br><span style="background:{bg_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{icon} {company['prediction']} ({company['confidence']}%)</span></td>
+                </tr>
+                <tr>
+                    <td><b>📊 Sentiment</b><br>{company['sentiment']}</td>
+                    <td><b>⭐ Analyst Rating</b><br>{company['analyst_rating']}</td>
+                    <td colspan="2"><b>💡 Expected Action</b><br>{'BUY' if 'BULLISH' in company['prediction'] else 'HOLD' if company['prediction'] == 'NEUTRAL' else 'SELL'}</td>
+                </tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -591,11 +615,11 @@ with tab4:
     if st.session_state.result_alerts:
         st.markdown("#### 🔔 Recent Result Alerts")
         for alert in st.session_state.result_alerts[-5:]:
-            verdict_color = "#00ff88" if "BULLISH" in alert['verdict'] else "#ff4444" if "BEARISH" in alert['verdict'] else "#ffaa00"
+            verdict_color = "#00ff88" if "BULLISH" in str(alert.get('verdict', '')) else "#ff4444" if "BEARISH" in str(alert.get('verdict', '')) else "#ffaa00"
             st.markdown(f"""
             <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {verdict_color};">
-                <b>📊 {alert['company']}</b> | {alert['date']} {alert['time']}<br>
-                📈 Revenue: {alert['revenue']} | AI: <span style="color:{verdict_color}">{alert['verdict']}</span> | Signal: {alert['signal']} | Confidence: {alert['confidence']}%
+                <b>📊 {alert.get('company', 'Unknown')}</b> | {alert.get('date', '')} {alert.get('time', '')}<br>
+                📈 Revenue: {alert.get('revenue', 'N/A')} | AI: <span style="color:{verdict_color}">{alert.get('verdict', 'N/A')}</span> | Signal: {alert.get('signal', 'N/A')} | Confidence: {alert.get('confidence', 0)}%
             </div>
             """, unsafe_allow_html=True)
     else:
