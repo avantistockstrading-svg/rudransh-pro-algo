@@ -1263,49 +1263,379 @@ with tab4:
     else:
         st.info("📭 No results detected yet. Waiting for Q4 results...")
 
-# ================= TAB 5: SAHYADRI SETTINGS =================
+# ================= TAB 5: SAHYADRI SETTINGS (COLOR CODED PROFESSIONAL UI) =================
 with tab5:
     st.markdown("### ⚙️ SAHYADRI SETTINGS")
-    
-    st.markdown("#### 🤖 AUTO TRADE")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.auto_trade_enabled = st.checkbox("Enable Auto Trading", st.session_state.auto_trade_enabled)
-        st.session_state.auto_trade_qty = st.number_input("Lots", 1, 50, st.session_state.auto_trade_qty)
-    with col2:
-        st.session_state.auto_trade_sl_percent = st.number_input("SL %", 1, 20, st.session_state.auto_trade_sl_percent)
-        st.session_state.auto_trade_target_percent = st.number_input("Target %", 1, 30, st.session_state.auto_trade_target_percent)
+    st.markdown("*Configure your trading parameters and risk management*")
     
     st.markdown("---")
-    st.markdown("#### NIFTY TP")
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    with c1: st.number_input("Lots",1,50,st.session_state.nifty_lots,key="n_l")
-    with c2: st.number_input("TP1",1,100,st.session_state.nifty_tp1,key="n_t1")
-    with c3: st.checkbox("ON",st.session_state.nifty_tp1_enabled,key="n_en1")
-    with c4: st.number_input("TP2",1,100,st.session_state.nifty_tp2,key="n_t2")
-    with c5: st.checkbox("ON",st.session_state.nifty_tp2_enabled,key="n_en2")
-    with c6: st.number_input("TP3",1,100,st.session_state.nifty_tp3,key="n_t3")
-    with c7: st.checkbox("ON",st.session_state.nifty_tp3_enabled,key="n_en3")
     
-    st.markdown("#### CRUDE TP")
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    with c1: st.number_input("Lots",1,50,st.session_state.crude_lots,key="c_l")
-    with c2: st.number_input("TP1",1,100,st.session_state.crude_tp1,key="c_t1")
-    with c3: st.checkbox("ON",st.session_state.crude_tp1_enabled,key="c_en1")
-    with c4: st.number_input("TP2",1,100,st.session_state.crude_tp2,key="c_t2")
-    with c5: st.checkbox("ON",st.session_state.crude_tp2_enabled,key="c_en2")
-    with c6: st.number_input("TP3",1,100,st.session_state.crude_tp3,key="c_t3")
-    with c7: st.checkbox("ON",st.session_state.crude_tp3_enabled,key="c_en3")
+    # ================= AUTO TRADE SETTINGS SECTION =================
+    st.markdown("#### 🤖 AUTO TRADE CONFIGURATION")
+    st.markdown("*Settings for automatic trade execution*")
     
-    st.markdown("#### NG TP")
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    with c1: st.number_input("Lots",1,50,st.session_state.ng_lots,key="g_l")
-    with c2: st.number_input("TP1",1,50,st.session_state.ng_tp1,key="g_t1")
-    with c3: st.checkbox("ON",st.session_state.ng_tp1_enabled,key="g_en1")
-    with c4: st.number_input("TP2",1,50,st.session_state.ng_tp2,key="g_t2")
-    with c5: st.checkbox("ON",st.session_state.ng_tp2_enabled,key="g_en2")
-    with c6: st.number_input("TP3",1,50,st.session_state.ng_tp3,key="g_t3")
-    with c7: st.checkbox("ON",st.session_state.ng_tp3_enabled,key="g_en3")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Auto Trade Toggle with color
+        auto_trade_status = st.session_state.auto_trade_enabled
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 5px 0; border-left: 4px solid {'#00ff88' if auto_trade_status else '#ff4444'}">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold;">🚀 Auto Trading</span>
+                <span style="color: {'#00ff88' if auto_trade_status else '#ff4444'}; font-weight: bold;">{'🟢 ENABLED' if auto_trade_status else '🔴 DISABLED'}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.auto_trade_enabled = st.checkbox("Enable Auto Trading", auto_trade_status, key="auto_trade_main")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Quantity Setting
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0;">
+            <span style="color:#00b4d8;">📦 Quantity (Lots)</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.auto_trade_qty = st.number_input("Lots", min_value=1, max_value=50, value=st.session_state.auto_trade_qty, key="auto_qty", label_visibility="collapsed")
+    
+    with col2:
+        # SL Setting
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0;">
+            <span style="color:#ff6666;">🛡️ Stop Loss (%)</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.auto_trade_sl_percent = st.number_input("SL %", min_value=1, max_value=20, value=st.session_state.auto_trade_sl_percent, key="auto_sl", label_visibility="collapsed")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Target Setting
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0;">
+            <span style="color:#88ff88;">🎯 Target (%)</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.auto_trade_target_percent = st.number_input("Target %", min_value=1, max_value=30, value=st.session_state.auto_trade_target_percent, key="auto_target", label_visibility="collapsed")
+    
+    st.markdown("---")
+    
+    # ================= NIFTY SETTINGS SECTION =================
+    st.markdown("#### 🇮🇳 NIFTY TARGET PROFIT SETTINGS")
+    
+    # Create a styled container
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,180,216,0.1)); border-radius: 15px; padding: 20px; margin: 10px 0;">
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    
+    with col1:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00ff88;">📦</span><br>
+            <span style="font-size:12px;">LOTS</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_lots = st.number_input("Lots", min_value=1, max_value=50, value=st.session_state.nifty_lots, key="n_lots_ui", label_visibility="collapsed")
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#88ff88;">🎯1</span><br>
+            <span style="font-size:12px;">TP1</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_tp1 = st.number_input("TP1", min_value=1, max_value=100, value=st.session_state.nifty_tp1, key="n_tp1_ui", label_visibility="collapsed")
+    
+    with col3:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP1 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_tp1_enabled = st.checkbox("TP1 ON", value=st.session_state.nifty_tp1_enabled, key="n_tp1_en_ui", label_visibility="collapsed")
+    
+    with col4:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#88ff88;">🎯2</span><br>
+            <span style="font-size:12px;">TP2</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_tp2 = st.number_input("TP2", min_value=1, max_value=100, value=st.session_state.nifty_tp2, key="n_tp2_ui", label_visibility="collapsed")
+    
+    with col5:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP2 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_tp2_enabled = st.checkbox("TP2 ON", value=st.session_state.nifty_tp2_enabled, key="n_tp2_en_ui", label_visibility="collapsed")
+    
+    with col6:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#88ff88;">🎯3</span><br>
+            <span style="font-size:12px;">TP3</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_tp3 = st.number_input("TP3", min_value=1, max_value=100, value=st.session_state.nifty_tp3, key="n_tp3_ui", label_visibility="collapsed")
+    
+    with col7:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP3 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.nifty_tp3_enabled = st.checkbox("TP3 ON", value=st.session_state.nifty_tp3_enabled, key="n_tp3_en_ui", label_visibility="collapsed")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= CRUDE SETTINGS SECTION =================
+    st.markdown("#### 🛢️ CRUDE OIL TARGET PROFIT SETTINGS")
+    
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, rgba(255,100,100,0.1), rgba(255,50,50,0.05)); border-radius: 15px; padding: 20px; margin: 10px 0;">
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    
+    with col1:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#ff8888;">📦</span><br>
+            <span style="font-size:12px;">LOTS</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_lots = st.number_input("Lots", min_value=1, max_value=50, value=st.session_state.crude_lots, key="c_lots_ui", label_visibility="collapsed")
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#ffaa88;">🎯1</span><br>
+            <span style="font-size:12px;">TP1</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_tp1 = st.number_input("TP1", min_value=1, max_value=100, value=st.session_state.crude_tp1, key="c_tp1_ui", label_visibility="collapsed")
+    
+    with col3:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP1 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_tp1_enabled = st.checkbox("TP1 ON", value=st.session_state.crude_tp1_enabled, key="c_tp1_en_ui", label_visibility="collapsed")
+    
+    with col4:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#ffaa88;">🎯2</span><br>
+            <span style="font-size:12px;">TP2</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_tp2 = st.number_input("TP2", min_value=1, max_value=100, value=st.session_state.crude_tp2, key="c_tp2_ui", label_visibility="collapsed")
+    
+    with col5:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP2 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_tp2_enabled = st.checkbox("TP2 ON", value=st.session_state.crude_tp2_enabled, key="c_tp2_en_ui", label_visibility="collapsed")
+    
+    with col6:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#ffaa88;">🎯3</span><br>
+            <span style="font-size:12px;">TP3</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_tp3 = st.number_input("TP3", min_value=1, max_value=100, value=st.session_state.crude_tp3, key="c_tp3_ui", label_visibility="collapsed")
+    
+    with col7:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP3 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.crude_tp3_enabled = st.checkbox("TP3 ON", value=st.session_state.crude_tp3_enabled, key="c_tp3_en_ui", label_visibility="collapsed")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= NATURAL GAS SETTINGS SECTION =================
+    st.markdown("#### 🌿 NATURAL GAS TARGET PROFIT SETTINGS")
+    
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, rgba(100,255,100,0.1), rgba(50,200,50,0.05)); border-radius: 15px; padding: 20px; margin: 10px 0;">
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    
+    with col1:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#88ff88;">📦</span><br>
+            <span style="font-size:12px;">LOTS</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_lots = st.number_input("Lots", min_value=1, max_value=50, value=st.session_state.ng_lots, key="g_lots_ui", label_visibility="collapsed")
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#aaffaa;">🎯1</span><br>
+            <span style="font-size:12px;">TP1</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_tp1 = st.number_input("TP1", min_value=1, max_value=50, value=st.session_state.ng_tp1, key="g_tp1_ui", label_visibility="collapsed")
+    
+    with col3:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP1 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_tp1_enabled = st.checkbox("TP1 ON", value=st.session_state.ng_tp1_enabled, key="g_tp1_en_ui", label_visibility="collapsed")
+    
+    with col4:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#aaffaa;">🎯2</span><br>
+            <span style="font-size:12px;">TP2</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_tp2 = st.number_input("TP2", min_value=1, max_value=50, value=st.session_state.ng_tp2, key="g_tp2_ui", label_visibility="collapsed")
+    
+    with col5:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP2 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_tp2_enabled = st.checkbox("TP2 ON", value=st.session_state.ng_tp2_enabled, key="g_tp2_en_ui", label_visibility="collapsed")
+    
+    with col6:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#aaffaa;">🎯3</span><br>
+            <span style="font-size:12px;">TP3</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_tp3 = st.number_input("TP3", min_value=1, max_value=50, value=st.session_state.ng_tp3, key="g_tp3_ui", label_visibility="collapsed")
+    
+    with col7:
+        st.markdown("""
+        <div style="text-align:center; padding:5px;">
+            <span style="color:#00b4d8;">🔘</span><br>
+            <span style="font-size:12px;">TP3 ON</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.ng_tp3_enabled = st.checkbox("TP3 ON", value=st.session_state.ng_tp3_enabled, key="g_tp3_en_ui", label_visibility="collapsed")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= CURRENT CONFIGURATION SUMMARY =================
+    st.markdown("#### 📊 Current Configuration Summary")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # NIFTY Summary
+        nifty_enabled = []
+        if st.session_state.nifty_tp1_enabled:
+            nifty_enabled.append(f"TP1: {st.session_state.nifty_tp1}")
+        if st.session_state.nifty_tp2_enabled:
+            nifty_enabled.append(f"TP2: {st.session_state.nifty_tp2}")
+        if st.session_state.nifty_tp3_enabled:
+            nifty_enabled.append(f"TP3: {st.session_state.nifty_tp3}")
+        
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="font-size:24px;">🇮🇳</span>
+                <span style="font-weight:bold;">NIFTY</span>
+            </div>
+            <div style="color:#00ff88;">📦 Lots: {st.session_state.nifty_lots}</div>
+            <div style="color:#88ff88;">🎯 Targets: {', '.join(nifty_enabled) if nifty_enabled else 'None'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        # CRUDE Summary
+        crude_enabled = []
+        if st.session_state.crude_tp1_enabled:
+            crude_enabled.append(f"TP1: {st.session_state.crude_tp1}")
+        if st.session_state.crude_tp2_enabled:
+            crude_enabled.append(f"TP2: {st.session_state.crude_tp2}")
+        if st.session_state.crude_tp3_enabled:
+            crude_enabled.append(f"TP3: {st.session_state.crude_tp3}")
+        
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="font-size:24px;">🛢️</span>
+                <span style="font-weight:bold;">CRUDE OIL</span>
+            </div>
+            <div style="color:#ff8888;">📦 Lots: {st.session_state.crude_lots}</div>
+            <div style="color:#ffaa88;">🎯 Targets: {', '.join(crude_enabled) if crude_enabled else 'None'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        # NG Summary
+        ng_enabled = []
+        if st.session_state.ng_tp1_enabled:
+            ng_enabled.append(f"TP1: {st.session_state.ng_tp1}")
+        if st.session_state.ng_tp2_enabled:
+            ng_enabled.append(f"TP2: {st.session_state.ng_tp2}")
+        if st.session_state.ng_tp3_enabled:
+            ng_enabled.append(f"TP3: {st.session_state.ng_tp3}")
+        
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="font-size:24px;">🌿</span>
+                <span style="font-weight:bold;">NATURAL GAS</span>
+            </div>
+            <div style="color:#88ff88;">📦 Lots: {st.session_state.ng_lots}</div>
+            <div style="color:#aaffaa;">🎯 Targets: {', '.join(ng_enabled) if ng_enabled else 'None'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= AUTO TRADE STATUS CARD =================
+    st.markdown("#### 🚀 Auto Trading Status")
+    
+    if st.session_state.auto_trade_enabled:
+        st.markdown(f"""
+        <div style="background: rgba(0,255,136,0.1); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00ff88;">
+            <span style="color:#00ff88; font-size:20px;">🟢 AUTO TRADE IS ACTIVE</span><br>
+            <small>Quantity: {st.session_state.auto_trade_qty} lots | SL: {st.session_state.auto_trade_sl_percent}% | Target: {st.session_state.auto_trade_target_percent}%</small>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="background: rgba(255,68,68,0.1); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #ff4444;">
+            <span style="color:#ff4444; font-size:20px;">🔴 AUTO TRADE IS DISABLED</span><br>
+            <small>Enable from settings above to activate automatic trading</small>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
