@@ -24,6 +24,12 @@ GNEWS_API_KEY = "7dbec44567a0bc1a8e232f664b3f3dbf"
 TELEGRAM_BOT = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
 TELEGRAM_CHAT = "1983026913"
 
+# ================= ANGEL ONE API KEYS =================
+ANGEL_API_KEY = "7yyokKoC"
+ANGEL_CLIENT_CODE = "S470211"
+ANGEL_PASSWORD = "1234"
+ANGEL_TOTP_SECRET = "P5XCUTXRKXQNNATBO5JZYM6SPI"
+
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title=APP_NAME, layout="wide", page_icon="🐺")
 
