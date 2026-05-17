@@ -554,72 +554,37 @@ def monitor_active_orders_with_pnl():
         
         st.session_state.active_orders.pop(idx)
         send_telegram(f"📊 {order.get('signal_type', 'ORDER')} CLOSED: {order['symbol']} - {reason} | P&L: ₹{pnl_value:.2f}")
-
-def auto_trade_from_signal_with_journal():
-    """SAHYADRI सिस्टीम वरून auto trade करा"""
-    nifty_trend = get_nifty_trend()
-    symbols_to_check = ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"]
+def check_and_execute_orders_with_journal():
+    """Pending orders check करा आणि execute करा"""
+    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
     
-    for symbol in symbols_to_check:
-        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
-        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
+    for order in pending_orders:
+        current_price = get_live_price(order['symbol'])
         
-        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
-            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-            trade_type = "BUY" if signal == "BUY" else "SELL"
-            can_trade = can_take_trade(symbol, trade_type)
-            
-            if not already_active and can_trade and is_trading_time(symbol):
-                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
+        if current_price <= 0:
+            continue
+        
+        # जर buy_below असेल (BUY किंवा SELL दोन्ही साठी)
+        if order.get('buy_below') is not None:
+            if current_price <= order['buy_below']:
+                order['status'] = 'EXECUTED'
+                order['entry_price'] = current_price
+                order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
                 
-                # Strike price calculate करा
-                if symbol in ["NIFTY", "BANKNIFTY"]:
-                    strike_interval = 50 if symbol == "NIFTY" else 100
-                    strike_price = math.floor(price / strike_interval) * strike_interval
-                else:
-                    strike_price = math.floor(price / 10) * 10
-                
-                sl_percent = st.session_state.auto_trade_sl_percent / 100
-                target_percent = st.session_state.auto_trade_target_percent / 100
-                
-                if signal == "BUY":
-                    sl_price = price * (1 - sl_percent)
-                    target_price = price * (1 + target_percent)
-                else:
-                    sl_price = price * (1 + sl_percent)
-                    target_price = price * (1 - target_percent)
-                
-                order = {
-                    'symbol': symbol,
-                    'option_type': option_type,
-                    'strike_price': strike_price,
-                    'qty': st.session_state.auto_trade_qty,
-                    'entry_price': price,
-                    'entry_time': get_ist_now().strftime('%H:%M:%S'),
-                    'sl': sl_price,
-                    'target': target_price,
-                    'signal_type': '⚙️ SAHYADRI'
+                active_order = {
+                    'symbol': order['symbol'],
+                    'option_type': order.get('option_type', 'CALL (CE)'),
+                    'strike_price': order.get('strike_price', 0),
+                    'qty': order.get('qty', 1),
+                    'entry_price': current_price,
+                    'entry_time': order['entry_time'],
+                    'sl': order.get('sl', current_price * 0.95),
+                    'target': order.get('target', current_price * 1.05),
+                    'signal_type': order.get('signal_type', '⚙️ SAHYADRI')
                 }
-                
-                st.session_state.active_orders.append(order)
-                increment_trade_count(symbol, trade_type)
-                
-                # Journal मध्ये SAHYADRI trade add करा
-                st.session_state.trade_journal.append({
-                    "No": len(st.session_state.trade_journal) + 1,
-                    "Time": order['entry_time'],
-                    "System": "⚙️ SAHYADRI",
-                    "Symbol": f"{symbol} {option_type} {strike_price}",
-                    "Type": signal,
-                    "Signal": f"AUTO - {signal}",
-                    "Entry": round(price, 2),
-                    "Exit": "-",
-                    "P&L (₹)": 0,
-                    "Status": "ACTIVE"
-                })
-                
-                send_telegram(f"⚙️ SAHYADRI AUTO {signal}: {symbol} at ₹{price} | SL: ₹{sl_price} | Target: ₹{target_price}")
-                voice_alert(f"Sahyadri auto {signal} for {symbol}")
+                st.session_state.active_orders.append(active_order)
+                add_to_journal(active_order)
+                send_telegram(f"✅ SAHYADRI EXECUTED: {order['symbol']} at ₹{current_price}")
 
 # ================= PENDING RESULTS (Dynamic) =================
 PENDING_RESULTS = get_pending_results()
