@@ -729,10 +729,6 @@ def get_pending_results():
     if earnings:
         return earnings
     return []
-
-# ================= PENDING RESULTS (Dynamic) =================
-PENDING_RESULTS = get_pending_results()
-
 # ================= UI HEADER =================
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
