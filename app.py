@@ -1683,9 +1683,9 @@ if st.session_state.algo_running and st.session_state.totp_verified:
 # ================= SIDEBAR (SAMRUDDHI DASHBOARD - PROFESSIONAL COLORFUL) =================
 with st.sidebar:
     st.markdown("""
-    <div style="text-align:center; padding:10px; background: linear-gradient(135deg, #00ff88, #00b4d8); border-radius: 15px; margin-bottom: 20px;">
-        <h2 style="margin:0; color:black;">🌸 SAMRUDDHI DASHBOARD</h2>
-        <p style="margin:0; color:black; font-size:12px;">🐺 Rudransh Algo v4.3</p>
+    <div style="text-align:center; padding:15px; background: linear-gradient(135deg, #8B0000, #DC143C); border-radius: 15px; margin-bottom: 20px; border: 1px solid #FFD700;">
+        <h2 style="margin:0; color:#FFD700; font-weight:bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">🌸 SAMRUDDHI DASHBOARD</h2>
+        <p style="margin:5px 0 0 0; color:#FFD700; font-size:12px;">🐺 Rudransh Algo v4.3</p>
     </div>
     """, unsafe_allow_html=True)
     
