@@ -480,7 +480,7 @@ with tab3:
         st.caption(f"Source: {news['source']} | {news['time']}")
         st.markdown("---")
 
-# ================= TAB 4: OVI Q$ RESULTS (UPDATED WITH COLORS & PREDICTIONS) =================
+# ================= TAB 4: OVI Q4 RESULTS (UPDATED WITH COLORS & PREDICTIONS) =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - Q4 FY26 MONITORING")
     st.markdown("*Real-time earnings monitoring with AI predictions*")
