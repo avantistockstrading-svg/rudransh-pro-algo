@@ -557,7 +557,7 @@ with tab1:
     else:
         st.info("🔴 No active orders.")
 
-# ================= TAB 2: SANSKRUTI MARKET (REAL DATA ONLY) =================
+# ================= TAB 2: SANSKRUTI MARKET (ERROR FREE) =================
 with tab2:
     st.markdown("### 🌸 SANSKRUTI MARKET")
     st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
@@ -568,16 +568,71 @@ with tab2:
     
     usd_inr = get_usd_inr_rate()
     
-    # Get real NIFTY data
-    nifty = yf.download("^NSEI", period="5d", interval="1d", progress=False)
-    # Get real BANK NIFTY data
-    banknifty = yf.download("^NSEBANK", period="5d", interval="1d", progress=False)
-    # Get real CRUDE data (in USD then convert to INR)
-    crude = yf.download("CL=F", period="5d", interval="1d", progress=False)
-    # Get real NATURAL GAS data (in USD then convert to INR)
-    ng = yf.download("NG=F", period="5d", interval="1d", progress=False)
+    # Get real NIFTY data with error handling
+    nifty = None
+    banknifty = None
+    crude = None
+    ng = None
     
-    # Function to get trend label based on real data
+    try:
+        nifty = yf.download("^NSEI", period="5d", interval="1d", progress=False)
+        if nifty is not None and not nifty.empty and 'Close' in nifty.columns:
+            nifty_current = float(nifty['Close'].iloc[-1])
+            nifty_prev = float(nifty['Close'].iloc[-2]) if len(nifty) > 1 else nifty_current
+            nifty_pct = ((nifty_current - nifty_prev) / nifty_prev) * 100 if nifty_prev > 0 else 0
+        else:
+            nifty_current = 0
+            nifty_pct = 0
+    except:
+        nifty_current = 0
+        nifty_pct = 0
+    
+    try:
+        banknifty = yf.download("^NSEBANK", period="5d", interval="1d", progress=False)
+        if banknifty is not None and not banknifty.empty and 'Close' in banknifty.columns:
+            bank_current = float(banknifty['Close'].iloc[-1])
+            bank_prev = float(banknifty['Close'].iloc[-2]) if len(banknifty) > 1 else bank_current
+            bank_pct = ((bank_current - bank_prev) / bank_prev) * 100 if bank_prev > 0 else 0
+        else:
+            bank_current = 0
+            bank_pct = 0
+    except:
+        bank_current = 0
+        bank_pct = 0
+    
+    try:
+        crude = yf.download("CL=F", period="5d", interval="1d", progress=False)
+        if crude is not None and not crude.empty and 'Close' in crude.columns:
+            crude_current_usd = float(crude['Close'].iloc[-1])
+            crude_prev_usd = float(crude['Close'].iloc[-2]) if len(crude) > 1 else crude_current_usd
+            crude_pct = ((crude_current_usd - crude_prev_usd) / crude_prev_usd) * 100 if crude_prev_usd > 0 else 0
+            crude_current_inr = crude_current_usd * usd_inr
+        else:
+            crude_current_usd = 0
+            crude_current_inr = 0
+            crude_pct = 0
+    except:
+        crude_current_usd = 0
+        crude_current_inr = 0
+        crude_pct = 0
+    
+    try:
+        ng = yf.download("NG=F", period="5d", interval="1d", progress=False)
+        if ng is not None and not ng.empty and 'Close' in ng.columns:
+            ng_current_usd = float(ng['Close'].iloc[-1])
+            ng_prev_usd = float(ng['Close'].iloc[-2]) if len(ng) > 1 else ng_current_usd
+            ng_pct = ((ng_current_usd - ng_prev_usd) / ng_prev_usd) * 100 if ng_prev_usd > 0 else 0
+            ng_current_inr = ng_current_usd * usd_inr
+        else:
+            ng_current_usd = 0
+            ng_current_inr = 0
+            ng_pct = 0
+    except:
+        ng_current_usd = 0
+        ng_current_inr = 0
+        ng_pct = 0
+    
+    # Function to get trend label
     def get_trend_label(change_pct):
         if change_pct > 1.0:
             return "STRONG BULLISH", "🚀", "#00ff44"
@@ -593,12 +648,9 @@ with tab2:
     col1, col2, col3, col4 = st.columns(4)
     
     # NIFTY Box
-    if not nifty.empty and len(nifty) > 1:
-        nifty_current = float(nifty['Close'].iloc[-1])
-        nifty_prev = float(nifty['Close'].iloc[-2]) if len(nifty) > 1 else nifty_current
-        nifty_pct = ((nifty_current - nifty_prev) / nifty_prev) * 100
-        trend_label, trend_icon, trend_color = get_trend_label(nifty_pct)
-        with col1:
+    with col1:
+        if nifty_current > 0:
+            trend_label, trend_icon, trend_color = get_trend_label(nifty_pct)
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#00b4d8;">🇮🇳 NIFTY 50</h3>
@@ -611,8 +663,7 @@ with tab2:
                 </p>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        with col1:
+        else:
             st.markdown("""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#00b4d8;">🇮🇳 NIFTY 50</h3>
@@ -622,12 +673,9 @@ with tab2:
             """, unsafe_allow_html=True)
     
     # BANK NIFTY Box
-    if not banknifty.empty and len(banknifty) > 1:
-        bank_current = float(banknifty['Close'].iloc[-1])
-        bank_prev = float(banknifty['Close'].iloc[-2]) if len(banknifty) > 1 else bank_current
-        bank_pct = ((bank_current - bank_prev) / bank_prev) * 100
-        trend_label, trend_icon, trend_color = get_trend_label(bank_pct)
-        with col2:
+    with col2:
+        if bank_current > 0:
+            trend_label, trend_icon, trend_color = get_trend_label(bank_pct)
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#00b4d8;">🏦 BANK NIFTY</h3>
@@ -640,8 +688,7 @@ with tab2:
                 </p>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        with col2:
+        else:
             st.markdown("""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#00b4d8;">🏦 BANK NIFTY</h3>
@@ -651,13 +698,9 @@ with tab2:
             """, unsafe_allow_html=True)
     
     # CRUDE OIL Box (in INR)
-    if not crude.empty and len(crude) > 1:
-        crude_current_usd = float(crude['Close'].iloc[-1])
-        crude_prev_usd = float(crude['Close'].iloc[-2]) if len(crude) > 1 else crude_current_usd
-        crude_pct = ((crude_current_usd - crude_prev_usd) / crude_prev_usd) * 100
-        crude_current_inr = crude_current_usd * usd_inr
-        trend_label, trend_icon, trend_color = get_trend_label(crude_pct)
-        with col3:
+    with col3:
+        if crude_current_usd > 0:
+            trend_label, trend_icon, trend_color = get_trend_label(crude_pct)
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
@@ -671,8 +714,7 @@ with tab2:
                 <small style="color:#aaa;">${crude_current_usd:.2f} USD</small>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        with col3:
+        else:
             st.markdown("""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
@@ -682,13 +724,9 @@ with tab2:
             """, unsafe_allow_html=True)
     
     # NATURAL GAS Box (in INR)
-    if not ng.empty and len(ng) > 1:
-        ng_current_usd = float(ng['Close'].iloc[-1])
-        ng_prev_usd = float(ng['Close'].iloc[-2]) if len(ng) > 1 else ng_current_usd
-        ng_pct = ((ng_current_usd - ng_prev_usd) / ng_prev_usd) * 100
-        ng_current_inr = ng_current_usd * usd_inr
-        trend_label, trend_icon, trend_color = get_trend_label(ng_pct)
-        with col4:
+    with col4:
+        if ng_current_usd > 0:
+            trend_label, trend_icon, trend_color = get_trend_label(ng_pct)
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#88ff88;">🌿 NATURAL GAS</h3>
@@ -702,8 +740,7 @@ with tab2:
                 <small style="color:#aaa;">${ng_current_usd:.2f} USD</small>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        with col4:
+        else:
             st.markdown("""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#88ff88;">🌿 NATURAL GAS</h3>
@@ -718,7 +755,7 @@ with tab2:
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
-    # Get global indices data
+    # Global indices list
     global_indices = {
         "🇺🇸 S&P 500": "SPY",
         "🇺🇸 NASDAQ": "QQQ",
@@ -733,7 +770,7 @@ with tab2:
         "🥈 SILVER": "SI=F"
     }
     
-    # Display global markets in rows of 4
+    # Display in rows of 4
     items = list(global_indices.items())
     for i in range(0, len(items), 4):
         cols = st.columns(4)
@@ -742,25 +779,34 @@ with tab2:
                 name, symbol = items[i + j]
                 try:
                     df = yf.download(symbol, period="5d", interval="1d", progress=False)
-                    if not df.empty and len(df) > 1:
+                    if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
                         current = float(df['Close'].iloc[-1])
                         prev = float(df['Close'].iloc[-2])
-                        change_pct = ((current - prev) / prev) * 100
+                        change_pct = ((current - prev) / prev) * 100 if prev > 0 else 0
                         
-                        def get_global_trend(change_pct):
-                            if change_pct > 1.0:
-                                return "STRONG BULLISH", "🚀", "#00ff44"
-                            elif change_pct > 0.2:
-                                return "BULLISH", "📈", "#88ff88"
-                            elif change_pct < -1.0:
-                                return "STRONG BEARISH", "💀", "#ff3333"
-                            elif change_pct < -0.2:
-                                return "BEARISH", "📉", "#ff6666"
-                            else:
-                                return "SIDEWAYS", "➡️", "#ffaa00"
+                        if change_pct > 1.0:
+                            trend_label = "STRONG BULLISH"
+                            trend_icon = "🚀"
+                            trend_color = "#00ff44"
+                        elif change_pct > 0.2:
+                            trend_label = "BULLISH"
+                            trend_icon = "📈"
+                            trend_color = "#88ff88"
+                        elif change_pct < -1.0:
+                            trend_label = "STRONG BEARISH"
+                            trend_icon = "💀"
+                            trend_color = "#ff3333"
+                        elif change_pct < -0.2:
+                            trend_label = "BEARISH"
+                            trend_icon = "📉"
+                            trend_color = "#ff6666"
+                        else:
+                            trend_label = "SIDEWAYS"
+                            trend_icon = "➡️"
+                            trend_color = "#ffaa00"
                         
-                        trend_label, trend_icon, trend_color = get_global_trend(change_pct)
                         change_color = "#00ff88" if change_pct > 0 else "#ff4444" if change_pct < 0 else "#ffaa00"
+                        change_icon = "▲" if change_pct > 0 else "▼" if change_pct < 0 else "●"
                         
                         with cols[j]:
                             st.markdown(f"""
@@ -771,7 +817,7 @@ with tab2:
                                 </div>
                                 <div style="margin-top: 8px;">
                                     <span style="font-size: 18px; font-weight: bold;">${current:,.2f}</span>
-                                    <span style="color:{change_color}; margin-left: 10px;">{"▲" if change_pct > 0 else "▼" if change_pct < 0 else "●"} {change_pct:+.2f}%</span>
+                                    <span style="color:{change_color}; margin-left: 10px;">{change_icon} {change_pct:+.2f}%</span>
                                 </div>
                                 <small style="color:#aaa;">{symbol}</small>
                             </div>
@@ -785,7 +831,7 @@ with tab2:
                                 <small style="color:#aaa;">{symbol}</small>
                             </div>
                             """, unsafe_allow_html=True)
-                except:
+                except Exception as e:
                     with cols[j]:
                         st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
@@ -800,25 +846,25 @@ with tab2:
     # ================= GLOBAL TREND SUMMARY =================
     st.markdown("#### 🌏 Global Market Summary")
     
-    # Calculate real-time global sentiment from available data
+    # Calculate global sentiment from real data
     valid_markets = []
     for name, symbol in global_indices.items():
         try:
             df = yf.download(symbol, period="5d", interval="1d", progress=False)
-            if not df.empty and len(df) > 1:
+            if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
                 current = float(df['Close'].iloc[-1])
                 prev = float(df['Close'].iloc[-2])
-                change_pct = ((current - prev) / prev) * 100
-                valid_markets.append({'name': name, 'change_pct': change_pct})
+                change_pct = ((current - prev) / prev) * 100 if prev > 0 else 0
+                valid_markets.append(change_pct)
         except:
             pass
     
     if valid_markets:
-        strong_bullish = len([m for m in valid_markets if m['change_pct'] > 1.0])
-        bullish = len([m for m in valid_markets if 0.2 < m['change_pct'] <= 1.0])
-        sideways = len([m for m in valid_markets if -0.2 <= m['change_pct'] <= 0.2])
-        bearish = len([m for m in valid_markets if -1.0 <= m['change_pct'] < -0.2])
-        strong_bearish = len([m for m in valid_markets if m['change_pct'] < -1.0])
+        strong_bullish = len([c for c in valid_markets if c > 1.0])
+        bullish = len([c for c in valid_markets if 0.2 < c <= 1.0])
+        sideways = len([c for c in valid_markets if -0.2 <= c <= 0.2])
+        bearish = len([c for c in valid_markets if -1.0 <= c < -0.2])
+        strong_bearish = len([c for c in valid_markets if c < -1.0])
         
         total = len(valid_markets)
         bullish_pct = ((strong_bullish + bullish) / total) * 100 if total > 0 else 0
