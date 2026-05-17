@@ -923,7 +923,7 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET =================
+# ================= TAB 2: SANSKRUTI MARKET (ERROR FREE) =================
 with tab2:
     st.markdown("### 🌸 SANSKRUTI MARKET")
     st.markdown("*Live Indian & Global Markets*")
@@ -931,45 +931,101 @@ with tab2:
     
     usd_inr = get_usd_inr_rate()
     
-    # NIFTY
-    nifty = yf.download("^NSEI", period="2d", interval="1d", progress=False)
-    nifty_current = float(nifty['Close'].iloc[-1]) if not nifty.empty else 0
+    # NIFTY with error handling
+    try:
+        nifty = yf.download("^NSEI", period="2d", interval="1d", progress=False)
+        if nifty is not None and not nifty.empty and 'Close' in nifty.columns:
+            nifty_current = float(nifty['Close'].iloc[-1])
+        else:
+            nifty_current = 0
+    except:
+        nifty_current = 0
     
-    # BANKNIFTY
-    banknifty = yf.download("^NSEBANK", period="2d", interval="1d", progress=False)
-    bank_current = float(banknifty['Close'].iloc[-1]) if not banknifty.empty else 0
+    # BANKNIFTY with error handling
+    try:
+        banknifty = yf.download("^NSEBANK", period="2d", interval="1d", progress=False)
+        if banknifty is not None and not banknifty.empty and 'Close' in banknifty.columns:
+            bank_current = float(banknifty['Close'].iloc[-1])
+        else:
+            bank_current = 0
+    except:
+        bank_current = 0
     
-    # CRUDE
-    crude = yf.download("CL=F", period="2d", interval="1d", progress=False)
-    crude_usd = float(crude['Close'].iloc[-1]) if not crude.empty else 0
-    crude_inr = crude_usd * usd_inr
+    # CRUDE with error handling
+    try:
+        crude = yf.download("CL=F", period="2d", interval="1d", progress=False)
+        if crude is not None and not crude.empty and 'Close' in crude.columns:
+            crude_usd = float(crude['Close'].iloc[-1])
+            crude_inr = crude_usd * usd_inr
+        else:
+            crude_usd = 0
+            crude_inr = 0
+    except:
+        crude_usd = 0
+        crude_inr = 0
     
-    # NG
-    ng = yf.download("NG=F", period="2d", interval="1d", progress=False)
-    ng_usd = float(ng['Close'].iloc[-1]) if not ng.empty else 0
-    ng_inr = ng_usd * usd_inr
+    # NG with error handling
+    try:
+        ng = yf.download("NG=F", period="2d", interval="1d", progress=False)
+        if ng is not None and not ng.empty and 'Close' in ng.columns:
+            ng_usd = float(ng['Close'].iloc[-1])
+            ng_inr = ng_usd * usd_inr
+        else:
+            ng_usd = 0
+            ng_inr = 0
+    except:
+        ng_usd = 0
+        ng_inr = 0
     
     col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
         if nifty_current > 0:
             st.metric("🇮🇳 NIFTY 50", f"₹{nifty_current:,.2f}")
         else:
-            st.markdown("🔴 Market Closed")
+            st.markdown("""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <h4>🇮🇳 NIFTY 50</h4>
+                <p style="color:#ffaa00;">🔴 Market Closed</p>
+                <p style="font-size:12px;">Opens Monday 9:15 AM</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
     with col2:
         if bank_current > 0:
             st.metric("🏦 BANK NIFTY", f"₹{bank_current:,.2f}")
         else:
-            st.markdown("🔴 Market Closed")
+            st.markdown("""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <h4>🏦 BANK NIFTY</h4>
+                <p style="color:#ffaa00;">🔴 Market Closed</p>
+                <p style="font-size:12px;">Opens Monday 9:15 AM</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
     with col3:
         if crude_usd > 0:
             st.metric("🛢️ CRUDE OIL", f"₹{crude_inr:,.2f}", f"${crude_usd:.2f}")
         else:
-            st.markdown("🔴 Market Closed")
+            st.markdown("""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <h4>🛢️ CRUDE OIL</h4>
+                <p style="color:#ffaa00;">🔴 Market Closed</p>
+                <p style="font-size:12px;">Opens Monday</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
     with col4:
         if ng_usd > 0:
             st.metric("🌿 NATURAL GAS", f"₹{ng_inr:,.2f}", f"${ng_usd:.2f}")
         else:
-            st.markdown("🔴 Market Closed")
+            st.markdown("""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <h4>🌿 NATURAL GAS</h4>
+                <p style="color:#ffaa00;">🔴 Market Closed</p>
+                <p style="font-size:12px;">Opens Monday</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ================= TAB 3: VAISHNAVI NEWS =================
 with tab3:
