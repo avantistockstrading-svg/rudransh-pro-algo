@@ -1082,7 +1082,7 @@ st.markdown("---")
 # ================= TABS =================
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🐺 WOLF ORDER", "🌸 SANSKRUTI MARKET", "📰 VAISHNAVI NEWS", 
-    "📈 OVI RESULTS", "⚙️ SAHYADRI SETTINGS", "💰 PORTFOLIO & P&L"
+    "📈 OVI RESULTS", "⚙️ SAHYADRI SETTINGS", "💰 VEDASHREE PORTFOLIO & LIVE P&L"
 ])
 
 # ================= TAB 1: WOLF ORDER =================
