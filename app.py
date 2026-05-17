@@ -942,7 +942,6 @@ def get_news_with_sentiment():
     except:
         pass
     return [{'title': 'NIFTY hits all-time high', 'source': 'Economic Times', 'time': get_ist_now().strftime('%Y-%m-%d'), 'sentiment': 'BULLISH', 'icon': '📈', 'color': '#88ff88'}]
-
 def process_result_and_trade(company_name, symbol, result_type):
     nifty_trend = get_nifty_trend()
     if result_type == "POSITIVE" and nifty_trend == "POSITIVE":
@@ -953,6 +952,7 @@ def process_result_and_trade(company_name, symbol, result_type):
         option_type = "PUT (PE)"
     else:
         return False, f"WAIT - {result_type} / NIFTY {nifty_trend}"
+    
     current_price = get_live_price(symbol)
     if current_price > 0:
         if symbol in ["NIFTY", "BANKNIFTY"]:
@@ -962,15 +962,46 @@ def process_result_and_trade(company_name, symbol, result_type):
             strike_price = math.floor(current_price) * 100
         else:
             strike_price = math.floor(current_price / 10) * 10
+        
+        # ========== TP आणि SL कॅल्क्युलेशन ==========
+        entry_price = current_price
+        tp1_percent = 0.10   # 10%
+        tp2_percent = 0.20   # 20% (एकूण)
+        sl_percent = 0.15     # 15%
+        
+        if signal == "BUY":
+            tp1_price = entry_price * (1 + tp1_percent)   # 10% वर TP1
+            tp2_price = entry_price * (1 + tp2_percent)   # 20% वर TP2 (Target)
+            sl_price = entry_price * (1 - sl_percent)     # 15% SL
+        else:  # SELL (PUT)
+            tp1_price = entry_price * (1 - tp1_percent)   # 10% वर TP1
+            tp2_price = entry_price * (1 - tp2_percent)   # 20% वर TP2 (Target)
+            sl_price = entry_price * (1 + sl_percent)     # 15% SL
+        
+        # Order मध्ये TP1, TP2, SL ठेवा
         st.session_state.wolf_orders.append({
-            'symbol': symbol, 'option_type': option_type, 'strike_price': strike_price, 'qty': 1,
-            'buy_above': current_price, 'sl': current_price * 0.85, 'target': current_price * 1.2,
-            'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S'),
-            'auto_trade': True, 'result_based': True, 'company': company_name
+            'symbol': symbol,
+            'option_type': option_type,
+            'strike_price': strike_price,
+            'qty': 1,  # 1 lot
+            'buy_above': current_price,
+            'sl': sl_price,
+            'target': tp2_price,  # Final Target (TP2)
+            'tp1': tp1_price,      # TP1 price
+            'tp1_percent': 50,     # TP1 वर 50% profit book
+            'tp2_percent': 50,     # TP2 वर 50% profit book
+            'status': 'PENDING',
+            'placed_time': get_ist_now().strftime('%H:%M:%S'),
+            'auto_trade': True,
+            'result_based': True,
+            'company': company_name,
+            'signal_type': '📈 OVI'
         })
-        send_telegram(f"📊 RESULT: {company_name} - {signal} {option_type}")
-        return True, f"{signal} order placed"
+        
+        send_telegram(f"📊 OVI: {company_name} - {signal} {option_type} | Entry:{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | SL:{sl_price:.2f}")
+        return True, f"{signal} order placed with TP1(10%) 50%, TP2(20%) 50%"
     return False, "Price not available"
+
 # ================= UI HEADER =================
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
@@ -2107,12 +2138,7 @@ def close_journal_entry(symbol, exit_price, pnl):
             entry['Time'] = f"{entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
             break
 
-# ================= FOOTER =================
-st.markdown("---")
-st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | All Features Real")
-
-# ================= MISSING FUNCTIONS =================
-
+# ================= MONITOR RESULTS =================
 def monitor_today_results():
     """Today चे results monitor करा"""
     try:
@@ -2150,6 +2176,7 @@ def monitor_today_results():
     except Exception as e:
         print(f"Error: {e}")
 
+# ================= CHECK & EXECUTE WOLF ORDERS =================
 def check_and_execute_orders_with_journal():
     """Wolf orders execute करा"""
     pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
@@ -2170,12 +2197,14 @@ def check_and_execute_orders_with_journal():
                 'entry_price': current_price,
                 'entry_time': order['entry_time'],
                 'sl': order.get('sl', current_price * 0.95),
-                'target': order.get('target', current_price * 1.05)
+                'target': order.get('target', current_price * 1.05),
+                'signal_type': '🐺 WOLF'
             }
             st.session_state.active_orders.append(active_order)
-            add_to_journal_with_system(active_order, "🐺 WOLF")
+            add_to_journal(active_order)
             send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price}")
 
+# ================= MONITOR ACTIVE ORDERS WITH P&L =================
 def monitor_active_orders_with_pnl():
     """Active orders चे SL/Target check करा"""
     orders_to_remove = []
@@ -2201,6 +2230,7 @@ def monitor_active_orders_with_pnl():
         add_to_journal(order, exit_price, reason)
         st.session_state.active_orders.pop(idx)
 
+# ================= AUTO TRADE FROM SIGNAL =================
 def auto_trade_from_signal_with_journal():
     """Auto trade execute करा signals वरून"""
     nifty_trend = get_nifty_trend()
@@ -2244,10 +2274,14 @@ def auto_trade_from_signal_with_journal():
                     'entry_time': get_ist_now().strftime('%H:%M:%S'),
                     'sl': sl_price,
                     'target': target_price,
-                    'signal_type': f'AUTO_{signal}'
+                    'signal_type': '⚙️ SAHYADRI'
                 }
                 
                 st.session_state.active_orders.append(order)
                 increment_trade_count(symbol, trade_type)
                 add_to_journal(order)
-                send_telegram(f"🤖 AUTO {signal}: {symbol} at ₹{price}")
+                send_telegram(f"⚙️ SAHYADRI AUTO {signal}: {symbol} at ₹{price}")
+
+# ================= FOOTER =================
+st.markdown("---")
+st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | All Features Real")
