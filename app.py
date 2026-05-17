@@ -2082,6 +2082,31 @@ with st.sidebar:
     auto_color = "#00ff88" if st.session_state.auto_trade_enabled else "#ff4444"
     st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
 
+# ================= SIMPLE JOURNAL FUNCTIONS =================
+
+def add_journal_entry(system_name, symbol, trade_type, entry_price):
+    """Journal मध्ये simple entry add करा"""
+    st.session_state.trade_journal.append({
+        "Time": get_ist_now().strftime('%H:%M:%S'),
+        "System": system_name,
+        "Symbol": symbol,
+        "Type": trade_type,
+        "Entry": entry_price,
+        "Exit": "-",
+        "P&L": 0,
+        "Status": "OPEN"
+    })
+
+def close_journal_entry(symbol, exit_price, pnl):
+    """Journal entry close करा"""
+    for entry in st.session_state.trade_journal:
+        if entry['Symbol'] == symbol and entry['Status'] == "OPEN":
+            entry['Exit'] = exit_price
+            entry['P&L'] = pnl
+            entry['Status'] = "CLOSED"
+            entry['Time'] = f"{entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
+            break
+
 # ================= FOOTER =================
 st.markdown("---")
 st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | All Features Real")
