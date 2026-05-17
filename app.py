@@ -844,34 +844,40 @@ with tab2:
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
-    # Global indices list with flags
+    # Global indices list (WITHOUT flag in name)
     global_indices = {
-        "🇺🇸 S&P 500": "SPY",
-        "🇺🇸 NASDAQ": "QQQ",
-        "🇺🇸 Dow Jones": "DIA",
-        "🇯🇵 Nikkei 225": "EWJ",
-        "🇭🇰 Hang Seng": "EWH",
-        "🇨🇳 Shanghai": "FXI",
-        "🇬🇧 FTSE 100": "EWU",
-        "🇩🇪 DAX": "EWG",
-        "🇫🇷 CAC 40": "EWQ",
-        "🥇 GOLD": "GC=F",
-        "🥈 SILVER": "SI=F"
+        "S&P 500": "SPY",
+        "NASDAQ": "QQQ",
+        "Dow Jones": "DIA",
+        "Nikkei 225": "EWJ",
+        "Hang Seng": "EWH",
+        "Shanghai": "FXI",
+        "FTSE 100": "EWU",
+        "DAX": "EWG",
+        "CAC 40": "EWQ",
+        "GOLD": "GC=F",
+        "SILVER": "SI=F"
     }
     
-    # Flag mapping
+    # Flag mapping (name without flag)
     flag_map = {
-        "🇺🇸 S&P 500": "🇺🇸",
-        "🇺🇸 NASDAQ": "🇺🇸",
-        "🇺🇸 Dow Jones": "🇺🇸",
-        "🇯🇵 Nikkei 225": "🇯🇵",
-        "🇭🇰 Hang Seng": "🇭🇰",
-        "🇨🇳 Shanghai": "🇨🇳",
-        "🇬🇧 FTSE 100": "🇬🇧",
-        "🇩🇪 DAX": "🇩🇪",
-        "🇫🇷 CAC 40": "🇫🇷",
-        "🥇 GOLD": "🌍",
-        "🥈 SILVER": "🌍"
+        "S&P 500": "🇺🇸",
+        "NASDAQ": "🇺🇸",
+        "Dow Jones": "🇺🇸",
+        "Nikkei 225": "🇯🇵",
+        "Hang Seng": "🇭🇰",
+        "Shanghai": "🇨🇳",
+        "FTSE 100": "🇬🇧",
+        "DAX": "🇩🇪",
+        "CAC 40": "🇫🇷",
+        "GOLD": "🌍",
+        "SILVER": "🌍"
+    }
+    
+    # Icon mapping for special items
+    icon_map = {
+        "GOLD": "🥇",
+        "SILVER": "🥈"
     }
     
     # Display in rows of 4
@@ -882,6 +888,9 @@ with tab2:
             if i + j < len(items):
                 name, symbol = items[i + j]
                 flag = flag_map.get(name, "🌍")
+                icon = icon_map.get(name, "")
+                display_name = f"{flag} {icon} {name}".strip()
+                
                 try:
                     df = yf.download(symbol, period="5d", interval="1d", progress=False)
                     if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
@@ -917,7 +926,7 @@ with tab2:
                             st.markdown(f"""
                             <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px; border-left: 4px solid {change_color};">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight:bold;">{flag} {name}</span>
+                                    <span style="font-weight:bold;">{display_name}</span>
                                     <span style="background:{trend_color}; border-radius:15px; padding:2px 8px; font-size:10px; color:black; font-weight:bold;">{trend_icon} {trend_label}</span>
                                 </div>
                                 <div style="margin-top: 8px;">
@@ -931,7 +940,7 @@ with tab2:
                         with cols[j]:
                             st.markdown(f"""
                             <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
-                                <div style="font-weight:bold;">{flag} {name}</div>
+                                <div style="font-weight:bold;">{display_name}</div>
                                 <div style="color:#ffaa00;">🔴 Market Closed</div>
                                 <small style="color:#aaa;">{symbol}</small>
                             </div>
@@ -940,7 +949,7 @@ with tab2:
                     with cols[j]:
                         st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
-                            <div style="font-weight:bold;">{flag} {name}</div>
+                            <div style="font-weight:bold;">{display_name}</div>
                             <div style="color:#ffaa00;">🔴 Market Closed</div>
                             <small style="color:#aaa;">{symbol}</small>
                         </div>
