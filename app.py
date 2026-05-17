@@ -253,59 +253,6 @@ SECTOR_MAPPING = {
     "CIPLA": "PHARMA", "COALINDIA": "METALS", "DIVISLAB": "PHARMA", "DRREDDY": "PHARMA"
 }
 
-# ================= EARNINGS CALENDAR API (AUTO DAILY UPDATE) =================
-def get_today_earnings():
-    """FMP Earnings Calendar API वरून आजच्या results ची list मिळवा"""
-    try:
-        today = get_ist_now().strftime('%Y-%m-%d')
-        url = f"https://financialmodelingprep.com/stable/earnings-calendar?from={today}&to={today}&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            earnings_list = []
-            for item in data:
-                # फक्त भारतीय कंपन्या फिल्टर करायच्या असल्यास
-                if '.NS' in item.get('symbol', '') or item.get('symbol') in ['RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK', 'INFY', 'HINDUNILVR', 'ITC', 'SBIN', 'BHARTIARTL', 'KOTAKBANK', 'AXISBANK', 'LT', 'DMART', 'SUNPHARMA', 'BAJFINANCE', 'TITAN', 'MARUTI', 'TATAMOTORS', 'TATASTEEL', 'WIPRO', 'HCLTECH', 'ONGC', 'NTPC', 'POWERGRID', 'ULTRACEMCO', 'ADANIPORTS', 'ADANIENT', 'ASIANPAINT', 'BAJAJFINSV', 'BRITANNIA', 'CIPLA', 'COALINDIA', 'DIVISLAB', 'DRREDDY', 'EICHERMOT', 'GRASIM', 'HDFCLIFE', 'HEROMOTOCO', 'HINDALCO', 'IOC', 'INDUSINDBK', 'JSWSTEEL', 'M&M', 'NESTLEIND', 'PIDILITIND', 'SBILIFE', 'SHREECEM', 'SIEMENS', 'SRF', 'TATACONSUM', 'TATAPOWER', 'TECHM', 'UPL', 'VEDL', 'YESBANK', 'ZYDUSLIFE']:
-                    earnings_list.append({
-                        'name': item.get('symbol', '').replace('.NS', ''),
-                        'symbol': item.get('symbol', '').replace('.NS', ''),
-                        'date': item.get('date', today),
-                        'eps_estimated': item.get('epsEstimated'),
-                        'eps_actual': item.get('epsActual')
-                    })
-            return earnings_list
-        return []
-    except Exception as e:
-        print(f"Earnings Calendar Error: {e}")
-        return []
-
-# PENDING_RESULTS आता dynamic असेल
-def get_pending_results():
-    """Dynamic results list - daily update होईल"""
-    earnings = get_today_earnings()
-    if earnings:
-        return earnings
-    # Fallback (API error असल्यास)
-    return [
-        {"name": "Bharat Electronics", "symbol": "BEL"},
-        {"name": "BPCL", "symbol": "BPCL"},
-        {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE"},
-        {"name": "Mankind Pharma", "symbol": "MANKIND"},
-        {"name": "PI Industries", "symbol": "PIIND"},
-    ]
-
-# monitor_today_results function मध्ये हा बदल करा
-def monitor_today_results():
-    """Monitor results of companies announcing today - DAILY AUTO UPDATE"""
-    today_results = get_pending_results()  # Dynamic list
-    
-    for company in today_results:
-        if f"{company['symbol']}_processed" in st.session_state:
-            continue
-        earnings = get_company_earnings(company['symbol'])
-        if earnings:
-            # ... बाकी कोड तसाच ठेवा
-
 # ================= FMP API FUNCTIONS =================
 def check_fmp_api():
     try:
@@ -751,101 +698,40 @@ def process_result_and_trade(company_name, symbol, result_type):
         return True, f"{signal} order placed"
     return False, "Price not available"
 
-def monitor_today_results():
-    for company in PENDING_RESULTS:
-        if f"{company['symbol']}_processed" in st.session_state:
-            continue
-        earnings = get_company_earnings(company['symbol'])
-        if earnings:
-            revenue = earnings.get('revenue', 0)
-            prev_revenue = earnings.get('revenue', 0)
-            revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-            if revenue_growth > 10:
-                result_type = "POSITIVE"
-            elif revenue_growth < -5:
-                result_type = "NEGATIVE"
-            else:
-                result_type = "NEUTRAL"
-            success, message = process_result_and_trade(company['name'], company['symbol'], result_type)
-            st.session_state[f"{company['symbol']}_processed"] = True
-            st.session_state.result_alerts.append({'company': company['name'], 'result': result_type, 'action': message, 'time': get_ist_now().strftime('%H:%M:%S')})
-
-def auto_trade_from_signal_with_journal():
-    symbols_to_monitor = ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"] + FO_SCRIPTS[:50]
-    nifty_trend = get_nifty_trend()
-    for symbol in symbols_to_monitor:
-        if symbol == "NIFTY":
-            continue
-        if not is_trading_time(symbol):
-            continue
-        sector = SECTOR_MAPPING.get(symbol, "NEUTRAL")
-        sector_trend = get_sector_trend(sector) if sector != "NEUTRAL" else "NEUTRAL"
-        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
-        if signal == "BUY" and can_take_trade(symbol, "BUY"):
-            if symbol in ["NIFTY", "BANKNIFTY"]:
-                strike_interval = 50 if symbol == "NIFTY" else 100
-                strike_price = math.floor(price / strike_interval) * strike_interval
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_price = math.floor(price) * 100
-            else:
-                strike_price = math.floor(price / 10) * 10
-            st.session_state.wolf_orders.append({
-                'symbol': symbol, 'option_type': "CALL (CE)", 'strike_price': strike_price, 'qty': 1,
-                'buy_above': price, 'sl': price * 0.85, 'target': price * 1.2,
-                'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True, 'signal_type': 'STRICT_BUY'
-            })
-            increment_trade_count(symbol, "BUY")
-            send_telegram(f"🐺 AUTO BUY: {symbol} @ {price:.2f}")
-        elif signal == "SELL" and can_take_trade(symbol, "SELL"):
-            if symbol in ["NIFTY", "BANKNIFTY"]:
-                strike_interval = 50 if symbol == "NIFTY" else 100
-                strike_price = math.floor(price / strike_interval) * strike_interval
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_price = math.floor(price) * 100
-            else:
-                strike_price = math.floor(price / 10) * 10
-            st.session_state.wolf_orders.append({
-                'symbol': symbol, 'option_type': "PUT (PE)", 'strike_price': strike_price, 'qty': 1,
-                'buy_above': price, 'sl': price * 0.85, 'target': price * 1.2,
-                'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True, 'signal_type': 'STRICT_SELL'
-            })
-            increment_trade_count(symbol, "SELL")
-            send_telegram(f"🐺 AUTO SELL: {symbol} @ {price:.2f}")
-
-def check_and_execute_orders_with_journal():
-    for order in st.session_state.wolf_orders[:]:
-        if order['status'] == 'PENDING':
-            price = get_live_price(order['symbol'])
-            if price > 0 and price >= order['buy_above']:
-                order['status'] = 'ACTIVE'
-                order['entry_price'] = price
-                order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
-                add_to_journal(order, None, None)
-                send_telegram(f"🐺 EXECUTED: {order['symbol']} @ ₹{price:.2f}")
-                st.session_state.active_orders.append({
-                    'symbol': order['symbol'], 'option_type': order['option_type'],
-                    'strike_price': order.get('strike_price', ''), 'entry_price': price,
-                    'sl': order['sl'], 'target': order['target'], 'qty': order['qty'],
-                    'signal_type': order.get('signal_type', 'MANUAL'), 'entry_time': order['entry_time']
+# ================= EARNINGS CALENDAR API (AUTO DAILY UPDATE) =================
+def get_today_earnings():
+    """FMP Earnings Calendar API वरून आजच्या results ची list मिळवा"""
+    try:
+        today = get_ist_now().strftime('%Y-%m-%d')
+        url = f"https://financialmodelingprep.com/stable/earnings-calendar?from={today}&to={today}&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            earnings_list = []
+            for item in data:
+                symbol = item.get('symbol', '').replace('.NS', '')
+                earnings_list.append({
+                    'name': symbol,
+                    'symbol': symbol,
+                    'date': item.get('date', today),
+                    'eps_estimated': item.get('epsEstimated'),
+                    'eps_actual': item.get('epsActual')
                 })
+            return earnings_list
+        return []
+    except Exception as e:
+        print(f"Earnings Calendar Error: {e}")
+        return []
 
-def monitor_active_orders_with_pnl():
-    for i, order in enumerate(st.session_state.active_orders[:]):
-        current_price = get_live_price(order['symbol'])
-        if current_price == 0:
-            continue
-        if current_price <= order['sl']:
-            add_to_journal(order, current_price, "SL HIT")
-            send_telegram(f"❌ SL HIT: {order['symbol']} @ ₹{current_price:.2f}")
-            st.session_state.active_orders.pop(i)
-            st.rerun()
-        elif current_price >= order['target']:
-            add_to_journal(order, current_price, "TARGET HIT")
-            send_telegram(f"✅ TARGET HIT: {order['symbol']} @ ₹{current_price:.2f}")
-            st.session_state.active_orders.pop(i)
-            st.rerun()
+def get_pending_results():
+    """Dynamic results list - daily update होईल"""
+    earnings = get_today_earnings()
+    if earnings:
+        return earnings
+    return []
+
+# ================= PENDING RESULTS (Dynamic) =================
+PENDING_RESULTS = get_pending_results()
 
 # ================= UI HEADER =================
 st.markdown(f"""
