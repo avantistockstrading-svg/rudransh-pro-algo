@@ -429,25 +429,87 @@ with col3:
 
 st.markdown("---")
 
-# ================= CONTROL PANEL =================
-col1, col2, col3 = st.columns([2,1,1])
+# ================= CONTROL PANEL (PROFESSIONAL) =================
+st.markdown("""
+<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 20px; padding: 20px; margin: 10px 0; border: 1px solid rgba(0,255,136,0.2);">
+    <h4 style="margin:0 0 15px 0; color:#00b4d8; text-align:center;">🎮 CONTROL PANEL</h4>
+""", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([2, 1, 1])
+
 with col1:
-    totp = st.text_input("🔐 TOTP", type="password", placeholder="6-digit code", key="totp_main")
+    st.markdown("""
+    <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 5px 15px; border: 1px solid #00b4d8;">
+        <label style="color:#00b4d8; font-size:12px;">🔐 6-DIGIT TOTP CODE</label>
+    </div>
+    """, unsafe_allow_html=True)
+    totp = st.text_input("TOTP", type="password", placeholder="Enter 6-digit code", key="totp_main", label_visibility="collapsed")
+
 with col2:
-    if st.button("🟢 START", use_container_width=True):
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🟢 START ALGO", use_container_width=True):
         if totp and len(totp) == 6:
             st.session_state.algo_running = True
             st.session_state.totp_verified = True
             send_telegram("🚀 ALGO STARTED v4.3")
+            st.success("✅ Algo Started Successfully!")
             st.rerun()
         else:
-            st.error("Valid TOTP required!")
+            st.error("❌ Valid 6-digit TOTP required!")
+
 with col3:
-    if st.button("🔴 STOP", use_container_width=True):
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🔴 STOP ALGO", use_container_width=True):
         st.session_state.algo_running = False
         send_telegram("🛑 ALGO STOPPED")
+        st.warning("⚠️ Algo Stopped!")
         st.rerun()
 
+# Status Indicators
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.session_state.algo_running:
+        st.markdown("""
+        <div style="background: rgba(0,255,136,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00ff88;">
+            <span style="color:#00ff88;">🟢 SYSTEM STATUS</span><br>
+            <span style="color:#00ff88; font-size:12px;">● ACTIVE</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background: rgba(255,68,68,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #ff4444;">
+            <span style="color:#ff4444;">🔴 SYSTEM STATUS</span><br>
+            <span style="color:#ff4444; font-size:12px;">● INACTIVE</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+with col2:
+    if st.session_state.totp_verified:
+        st.markdown("""
+        <div style="background: rgba(0,255,136,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00ff88;">
+            <span style="color:#00ff88;">🔐 TOTP STATUS</span><br>
+            <span style="color:#00ff88; font-size:12px;">✓ VERIFIED</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background: rgba(255,68,68,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #ff4444;">
+            <span style="color:#ff4444;">🔐 TOTP STATUS</span><br>
+            <span style="color:#ff4444; font-size:12px;">✗ NOT VERIFIED</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+with col3:
+    current_time = get_ist_now().strftime('%H:%M:%S')
+    st.markdown(f"""
+    <div style="background: rgba(0,180,216,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00b4d8;">
+        <span style="color:#00b4d8;">⏰ CURRENT TIME</span><br>
+        <span style="color:#00b4d8; font-size:14px; font-weight:bold;">{current_time} IST</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= TABS =================
