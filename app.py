@@ -1912,15 +1912,23 @@ with tab5:
         st.session_state.wait_color = "#ffaa00"
     
     with col1:
-        st.session_state.theme_color = st.color_picker("BUY/SELL Color", st.session_state.theme_color)
+        new_theme = st.color_picker("BUY/SELL Color", st.session_state.theme_color, key="theme_picker")
     with col2:
-        st.session_state.wait_color = st.color_picker("WAIT Color", st.session_state.wait_color)
+        new_wait = st.color_picker("WAIT Color", st.session_state.wait_color, key="wait_picker")
     with col3:
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, {st.session_state.theme_color}, {st.session_state.wait_color}); border-radius: 10px; padding: 10px; text-align: center;">
+        <div style="background: linear-gradient(135deg, {new_theme}, {new_wait}); border-radius: 10px; padding: 10px; text-align: center;">
             <small>Preview</small>
         </div>
         """, unsafe_allow_html=True)
+    
+    col_a, col_b, col_c = st.columns(3)
+    with col_b:
+        if st.button("💾 SAVE THEME", use_container_width=True):
+            st.session_state.theme_color = new_theme
+            st.session_state.wait_color = new_wait
+            st.success("✅ Theme Saved!")
+            st.rerun()
     
     st.markdown("---")
     
@@ -1981,7 +1989,7 @@ with tab5:
     
     st.markdown("---")
     
-    # ================= DAILY TRADE COUNTS (SIMPLE) =================
+    # ================= DAILY TRADE COUNTS =================
     st.markdown("#### 📊 DAILY TRADE COUNTS")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
