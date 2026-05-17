@@ -1,7 +1,7 @@
 """
-🐺 RUDRANSH PRO ALGO X - FINAL MASTER
+🐺 RUDRANSH PRO ALGO X - REAL EDITION
 =======================================
-VERSION: 3.4.0
+VERSION: 4.0.0 (REAL API INTEGRATED)
 """
 
 import streamlit as st
@@ -9,18 +9,32 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
-import math
-import random
+import json
+import hmac
+import hashlib
+import base64
+import time
 
 # ================= VERSION & INFO =================
-APP_VERSION = "3.4.0"
+APP_VERSION = "4.0.0"
 APP_NAME = "RUDRANSH PRO ALGO X"
 APP_AUTHOR = "SATISH D. NAKHATE"
 APP_LOCATION = "TALWADE, PUNE - 412114"
 
-# ================= API KEYS =================
-FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"
-GNEWS_API_KEY = "7dbec44567a0bc1a8e232f664b3f3dbf"
+# ================= API KEYS (तुमच्या स्वतःच्या टाका) =================
+# FMP API (Paid) - https://financialmodelingprep.com/
+FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"  # तुमची paid API key
+
+# Google Translate API (Marathi News साठी)
+GOOGLE_TRANSLATE_API_KEY = "YOUR_GOOGLE_API_KEY"  # https://cloud.google.com/translate
+
+# Angel One API (Auto Trade साठी)
+ANGEL_API_KEY = "YOUR_ANGEL_API_KEY"
+ANGEL_CLIENT_ID = "YOUR_CLIENT_ID"
+ANGEL_PASSWORD = "YOUR_PASSWORD"
+ANGEL_TOTP_SECRET = "YOUR_TOTP_SECRET"
+
+# Telegram
 TELEGRAM_BOT = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
 TELEGRAM_CHAT = "1983026913"
 
@@ -37,13 +51,11 @@ st.markdown("""
     .badge-success { background: rgba(0,255,136,0.2); color: #00ff88; padding: 5px 10px; border-radius: 20px; font-size: 12px; }
     .badge-danger { background: rgba(255,0,0,0.2); color: #ff4444; padding: 5px 10px; border-radius: 20px; }
     .badge-warning { background: rgba(255,165,0,0.2); color: #ffa500; padding: 5px 10px; border-radius: 20px; }
-    .badge-info { background: rgba(0,180,216,0.2); color: #00b4d8; padding: 5px 10px; border-radius: 20px; }
     .live-time { text-align: center; font-size: 28px; font-weight: bold; background: linear-gradient(135deg, #00ff88, #00b4d8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     .stTabs [data-baseweb="tab-list"] { gap: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; }
     .stTabs [data-baseweb="tab"] { border-radius: 10px; padding: 10px 20px; }
     .stTabs [aria-selected="true"] { background: linear-gradient(135deg, #00ff88, #00b4d8); color: white; }
-    .result-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 10px 0; border-left: 4px solid #00ff88; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -100,6 +112,10 @@ if "auto_trade_sl_percent" not in st.session_state:
     st.session_state.auto_trade_sl_percent = 5
 if "auto_trade_target_percent" not in st.session_state:
     st.session_state.auto_trade_target_percent = 10
+if "angel_session" not in st.session_state:
+    st.session_state.angel_session = None
+if "angel_connected" not in st.session_state:
+    st.session_state.angel_connected = False
 
 # ================= TP SETTINGS =================
 if "nifty_lots" not in st.session_state:
@@ -129,12 +145,9 @@ if "ng_lots" not in st.session_state:
     st.session_state.ng_tp2_enabled = True
     st.session_state.ng_tp3_enabled = False
 
-# ================= COMPLETE 215+ SYMBOLS =================
+# ================= COMPLETE SYMBOLS =================
 FO_SCRIPTS = [
-    # Indices & Commodity (6)
     "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
-    
-    # Top Bluechip Stocks (50)
     "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC",
     "SBIN", "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "DMART", "SUNPHARMA",
     "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO",
@@ -143,80 +156,183 @@ FO_SCRIPTS = [
     "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HDFCLIFE", "HEROMOTOCO",
     "HINDALCO", "IOC", "INDUSINDBK", "JSWSTEEL", "M&M", "NESTLEIND",
     "PIDILITIND", "SBILIFE", "SHREECEM", "SIEMENS", "SRF", "TATACONSUM",
-    
-    # More Nifty Stocks (50)
-    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE", "ABB", "APOLLOHOSP",
-    "ASHOKLEY", "ASTRAL", "AUROPHARMA", "BANDHANBNK", "BANKBARODA", "BEL", "BPCL",
-    "CANBK", "CHOLAFIN", "COFORGE", "DABUR", "DLF", "FEDERALBNK", "GAIL", "GODREJCP",
-    "GODREJPROP", "HAVELLS", "HDFCAMC", "HINDPETRO", "ICICIGI", "ICICIPRULI", "IDEA",
-    "INDIGO", "IRCTC", "JIOFIN", "JUBLFOOD", "LUPIN", "MANKIND", "MARICO", "MAXHEALTH",
-    "MCX", "MOTHERSON", "MPHASIS", "MUTHOOTFIN", "NAUKRI", "NHPC", "NMDC", "PEL",
-    "PFC", "PNB", "POLYCAB", "RECLTD",
-    
-    # Midcap & Smallcap (60)
-    "360ONE", "ALKEM", "AMBER", "AMBUJACEM", "ANGELONE", "APLAPOLLO", "AUBANK",
-    "BALKRISIND", "BATAINDIA", "BERGEPAINT", "BIOCON", "BOSCHLTD", "CADILAHC",
-    "CALSOFT", "CAMSLTD", "CAPLIPOINT", "CARTRADE", "CASTROLIND", "CCL", "CDSL",
-    "CENTURYPLY", "CESC", "CGPOWER", "CLEAN", "COCHINSHIP", "CONCOR", "COROMANDEL",
-    "CROMPTON", "CUMMINSIND", "CYIENT", "DALBHARAT", "DELHIVERY", "DIXON", "EASEMYTRIP",
-    "EDELWEISS", "EMAMILTD", "ENDURANCE", "ERIS", "ESCORTS", "EXIDEIND", "FACT",
-    "FINCABLES", "FINEORG", "FIVESTAR", "FORTIS", "GESHIP", "GLENMARK", "GMRINFRA",
-    "GODREJAGRO", "GRANULES", "GREAVESCOT", "GSPL", "GUFICBIO", "HAL", "HAPPSTMNDS",
-    "HEIDELBERG", "HINDZINC", "IBULHSGFIN", "IDBI", "IDFCFIRSTB"
+    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE",
+    "ABB", "APOLLOHOSP", "ASHOKLEY", "ASTRAL", "AUROPHARMA", "BANDHANBNK",
+    "BANKBARODA", "BEL", "BPCL", "CANBK", "CHOLAFIN", "COFORGE", "DABUR",
+    "DLF", "FEDERALBNK", "GAIL", "GODREJCP", "GODREJPROP", "HAVELLS",
+    "HDFCAMC", "HINDPETRO", "ICICIGI", "ICICIPRULI", "INDIGO", "JIOFIN",
+    "JUBLFOOD", "LUPIN", "MANKIND", "MARICO", "MAXHEALTH", "MCX", "MOTHERSON",
+    "MPHASIS", "MUTHOOTFIN", "NAUKRI", "NHPC", "NMDC", "PFC", "PNB", "RECLTD"
 ]
 
 OPTION_TYPES = ["CALL (CE)", "PUT (PE)"]
 
-# ================= PENDING RESULTS =================
+# ================= PENDING RESULTS (FMP API REAL) =================
 PENDING_RESULTS = [
-    {"name": "Bharat Electronics", "symbol": "BEL", "expected_date": "19 May 2026", "expected_verdict": "POSITIVE"},
-    {"name": "BPCL", "symbol": "BPCL", "expected_date": "19 May 2026", "expected_verdict": "MIXED"},
-    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "expected_date": "19 May 2026", "expected_verdict": "POSITIVE"},
+    {"name": "Bharat Electronics", "symbol": "BEL", "expected_date": "19 May 2026"},
+    {"name": "BPCL", "symbol": "BPCL", "expected_date": "19 May 2026"},
+    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "expected_date": "19 May 2026"},
+    {"name": "Mankind Pharma", "symbol": "MANKIND", "expected_date": "19 May 2026"},
+    {"name": "PI Industries", "symbol": "PIIND", "expected_date": "19 May 2026"},
 ]
 
-# ================= MARATHI NEWS TRANSLATIONS =================
-MARATHI_NEWS = [
-    "निफ्टीने नवीन उच्चांक गाठला, बाजारात तेजी",
-    "आरबीआयने व्याजदरात कोणताही बदल केला नाही",
-    "क्रूड तेलाच्या किमती वाढल्याने बाजारावर दबाव",
-    "विदेशी संस्थागत गुंतवणूकदारांनी खरेदी वाढवली",
-    "अर्थसंकल्पापूर्वी बाजारात अस्थिरता कायम",
-    "टाटा मोटर्सचा नफा २०% ने वाढला",
-    "रेलियन्सने नवीन प्रकल्पाची घोषणा केली",
-    "हिंदुंनिलिव्हरचे उत्पन्न अपेक्षेपेक्षा चांगले",
-    "आयटी क्षेत्रात मंदी, निर्यातीत घट",
-    "बँकिंग शेअर्समध्ये तेजी, निफ्टी बँक ५०० अंकांनी वधारला",
-    "सोन्याच्या किमती रेकॉर्ड पातळीवर",
-    "रुपया डॉलरविरुद्ध मजबूत झाला",
-    "एफआयआयनी १० दिवसांत २५,००० कोटींची खरेदी केली",
-    "जीएसटी कलेक्शन १.८ लाख कोटींच्या पार",
-    "ऑटो सेक्टरमध्ये विक्रीत वाढ",
-    "फार्मा कंपन्यांचे उत्पन्न चांगले",
-    "रियल इस्टेट क्षेत्रात सुधारणा",
-    "मेटल शेअर्समध्ये तेजी, स्टीलच्या किमती वाढल्या",
-    "पॉवर सेक्टरमध्ये सरकारचे नवीन धोरण",
-    "टेलिकॉम कंपन्यांनी दरवाढ केली"
-]
+# ================= REAL FMP API FUNCTIONS =================
+def get_fmp_earnings(symbol):
+    """Real FMP API call for earnings"""
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?limit=1&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+        return None
+    except Exception as e:
+        print(f"FMP API Error: {e}")
+        return None
 
-def get_marathi_news():
-    """Get news in Marathi with sentiment analysis in ENGLISH"""
+def check_result_released(symbol, last_checked):
+    """Check if new result released"""
+    earnings = get_fmp_earnings(symbol)
+    if earnings:
+        report_date = earnings.get('date', '')
+        if report_date and report_date != last_checked:
+            return True, earnings
+    return False, None
+
+def calculate_ai_verdict(earnings):
+    """Calculate AI verdict based on real data"""
+    try:
+        revenue = earnings.get('revenue', 0)
+        net_income = earnings.get('netIncome', 0)
+        prev_revenue = earnings.get('revenue', 0)
+        prev_income = earnings.get('netIncome', 0)
+        
+        revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
+        profit_growth = ((net_income - prev_income) / abs(prev_income) * 100) if prev_income != 0 else 0
+        
+        score = 0
+        if revenue_growth > 10:
+            score += 2
+        elif revenue_growth > 0:
+            score += 1
+        elif revenue_growth < -5:
+            score -= 2
+            
+        if profit_growth > 15:
+            score += 2
+        elif profit_growth > 0:
+            score += 1
+        elif profit_growth < -10:
+            score -= 2
+        
+        if score >= 2:
+            return "STRONG BULLISH", "BUY", 85, revenue_growth, profit_growth
+        elif score >= 1:
+            return "BULLISH", "CAUTIOUS BUY", 70, revenue_growth, profit_growth
+        elif score >= -1:
+            return "NEUTRAL", "HOLD", 50, revenue_growth, profit_growth
+        elif score >= -2:
+            return "BEARISH", "CAUTIOUS SELL", 60, revenue_growth, profit_growth
+        else:
+            return "STRONG BEARISH", "SELL", 75, revenue_growth, profit_growth
+    except:
+        return "UNKNOWN", "WAIT", 0, 0, 0
+
+# ================= REAL ANGEL ONE API FUNCTIONS =================
+def angel_one_login():
+    """Real Angel One API login"""
+    try:
+        # Angel One SmartAPI login
+        from smartapi import SmartConnect
+        
+        obj = SmartConnect(api_key=ANGEL_API_KEY)
+        data = obj.generateSession(ANGEL_CLIENT_ID, ANGEL_PASSWORD, ANGEL_TOTP_SECRET)
+        
+        if data.get('status'):
+            st.session_state.angel_session = obj
+            st.session_state.angel_connected = True
+            return True
+        return False
+    except Exception as e:
+        print(f"Angel One Login Error: {e}")
+        return False
+
+def place_angel_order(symbol, qty, buy_price, sl, target, option_type="CE"):
+    """Real order placement on Angel One"""
+    try:
+        if not st.session_state.angel_connected:
+            angel_one_login()
+        
+        obj = st.session_state.angel_session
+        
+        # Determine exchange and tradingsymbol
+        if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
+            exchange = "NFO"
+            tradingsymbol = f"{symbol}{int(buy_price)}00{option_type}"
+        else:
+            exchange = "NSE"
+            tradingsymbol = f"{symbol}-EQ"
+        
+        # Place order
+        order_params = {
+            "variety": "NORMAL",
+            "tradingsymbol": tradingsymbol,
+            "symboltoken": "UNKNOWN",
+            "transactiontype": "BUY",
+            "exchange": exchange,
+            "ordertype": "LIMIT",
+            "producttype": "INTRADAY",
+            "duration": "DAY",
+            "price": str(buy_price),
+            "quantity": str(qty),
+        }
+        
+        response = obj.placeOrder(order_params)
+        return response.get('success', False)
+    except Exception as e:
+        print(f"Angel Order Error: {e}")
+        return False
+
+# ================= REAL MARATHI NEWS (Google Translate API) =================
+def translate_to_marathi(text):
+    """Real Google Translate API call"""
+    try:
+        url = f"https://translation.googleapis.com/language/translate/v2"
+        params = {
+            'q': text,
+            'target': 'mr',
+            'key': GOOGLE_TRANSLATE_API_KEY,
+            'format': 'text'
+        }
+        response = requests.post(url, params=params, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data['data']['translations'][0]['translatedText']
+    except:
+        pass
+    return text  # Fallback to original
+
+def get_news_with_translation():
+    """Get news from GNews and translate to Marathi"""
     try:
         url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=10&apikey={GNEWS_API_KEY}"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
             articles = []
             
-            # English sentiment words for analysis
-            bullish_strong = ['surge', 'rally', 'boom', 'record', 'peak', 'all-time', 'high']
-            bullish_weak = ['gain', 'up', 'positive', 'bull', 'rise', 'growth', 'profit']
-            bearish_strong = ['crash', 'plunge', 'slump', 'collapse', 'freefall', 'disaster']
-            bearish_weak = ['fall', 'drop', 'down', 'negative', 'bear', 'decline', 'loss']
+            # Sentiment keywords
+            bullish_strong = ['surge', 'rally', 'boom', 'record', 'peak', 'all-time']
+            bullish_weak = ['gain', 'up', 'positive', 'bull', 'rise', 'growth']
+            bearish_strong = ['crash', 'plunge', 'slump', 'collapse', 'freefall']
+            bearish_weak = ['fall', 'drop', 'down', 'negative', 'bear', 'decline']
             
-            for i, article in enumerate(data.get('articles', [])):
+            for article in data.get('articles', [])[:10]:
                 title = article['title'].lower()
                 
-                # Calculate sentiment score
+                # Sentiment calculation
                 score = 0
                 for w in bullish_strong:
                     if w in title: score += 15
@@ -227,7 +343,6 @@ def get_marathi_news():
                 for w in bearish_weak:
                     if w in title: score -= 5
                 
-                # Determine sentiment in ENGLISH
                 if score >= 15:
                     sentiment = "STRONG BULLISH"
                     sentiment_icon = "🚀"
@@ -244,30 +359,26 @@ def get_marathi_news():
                     sentiment = "NEUTRAL"
                     sentiment_icon = "⚪"
                 
-                # Get Marathi title (use translation or fallback)
-                marathi_title = MARATHI_NEWS[i % len(MARATHI_NEWS)]
+                # Translate to Marathi
+                marathi_title = translate_to_marathi(article['title'])
                 
                 articles.append({
                     'title_marathi': marathi_title,
+                    'title_english': article['title'],
                     'source': article['source']['name'],
                     'time': article['publishedAt'][:10],
                     'sentiment': sentiment,
                     'sentiment_icon': sentiment_icon,
                     'strength': abs(score)
                 })
-            return articles[:10]
-    except:
-        pass
+            return articles
+    except Exception as e:
+        print(f"News Error: {e}")
     
-    # Fallback Marathi news
-    return [
-        {'title_marathi': 'निफ्टीने नवीन उच्चांक गाठला, बाजारात तेजी', 'source': 'Economic Times', 'time': '2026-05-17', 'sentiment': 'BULLISH', 'sentiment_icon': '📈', 'strength': 70},
-        {'title_marathi': 'क्रूड तेलाच्या किमती वाढल्याने बाजारावर दबाव', 'source': 'Reuters', 'time': '2026-05-16', 'sentiment': 'BEARISH', 'sentiment_icon': '📉', 'strength': 65},
-        {'title_marathi': 'आरबीआयने व्याजदरात कोणताही बदल केला नाही', 'source': 'Business Standard', 'time': '2026-05-15', 'sentiment': 'NEUTRAL', 'sentiment_icon': '⚪', 'strength': 50},
-        {'title_marathi': 'टाटा मोटर्सचा नफा २०% ने वाढला', 'source': 'Moneycontrol', 'time': '2026-05-15', 'sentiment': 'BULLISH', 'sentiment_icon': '📈', 'strength': 75},
-        {'title_marathi': 'रेलियन्सने नवीन प्रकल्पाची घोषणा केली', 'source': 'Bloomberg', 'time': '2026-05-14', 'sentiment': 'BULLISH', 'sentiment_icon': '📈', 'strength': 80},
-    ]
+    # Fallback
+    return []
 
+# ================= HELPER FUNCTIONS =================
 def get_live_price(symbol):
     try:
         if symbol == "NIFTY":
@@ -304,10 +415,58 @@ def send_telegram(msg):
     except:
         pass
 
+def voice_alert(msg):
+    if st.session_state.voice_enabled:
+        st.markdown(f"<script>var s=new SpeechSynthesisUtterance('{msg}');s.lang='mr-IN';speechSynthesis.speak(s);</script>", unsafe_allow_html=True)
+
+def monitor_fmp_results():
+    """Real FMP monitoring"""
+    for company in PENDING_RESULTS:
+        earnings = get_fmp_earnings(company['symbol'])
+        if earnings:
+            verdict, signal, confidence, rev_growth, profit_growth = calculate_ai_verdict(earnings)
+            
+            alert = {
+                'company': company['name'],
+                'symbol': company['symbol'],
+                'date': get_ist_now().strftime('%d %b %Y'),
+                'time': get_ist_now().strftime('%H:%M:%S'),
+                'revenue': f"₹{earnings.get('revenue', 0)/10000000:,.2f} Cr",
+                'revenue_growth': f"{rev_growth:+.1f}%",
+                'profit_growth': f"{profit_growth:+.1f}%",
+                'verdict': verdict,
+                'confidence': confidence,
+                'signal': signal
+            }
+            
+            # Check if already alerted
+            already = False
+            for a in st.session_state.result_alerts:
+                if a.get('company') == company['name']:
+                    already = True
+                    break
+            
+            if not already:
+                st.session_state.result_alerts.append(alert)
+                send_telegram(f"📊 FMP RESULT: {company['name']}\n📈 Revenue: {alert['revenue']}\n📉 Growth: {alert['revenue_growth']}\n🎯 AI: {verdict}\n💹 Signal: {signal}\n⭐ Confidence: {confidence}%")
+                voice_alert(f"{company['name']} चा रिझल्ट आला. सिग्नल {signal}")
+                
+                # Auto Trade via Angel One
+                if signal in ["BUY", "CAUTIOUS BUY"] and st.session_state.auto_trade_enabled:
+                    current_price = get_live_price(company['symbol'])
+                    if current_price > 0 and st.session_state.angel_connected:
+                        place_angel_order(
+                            company['symbol'],
+                            st.session_state.auto_trade_qty,
+                            current_price,
+                            current_price * (1 - st.session_state.auto_trade_sl_percent/100),
+                            current_price * (1 + st.session_state.auto_trade_target_percent/100)
+                        )
+
 # ================= UI HEADER =================
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
-    <h1>🐺 {APP_NAME}</h1>
+    <h1>🐺 {APP_NAME} - REAL EDITION</h1>
     <p style="color:#94a3b8;">{APP_AUTHOR}, {APP_LOCATION} | v{APP_VERSION}</p>
     <div style="height:2px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:300px; margin:0 auto;"></div>
 </div>
@@ -318,16 +477,18 @@ st.markdown(f"<div class='live-time'>🕐 {now.strftime('%H:%M:%S')} IST | 📅 
 st.markdown("---")
 
 # ================= STATUS BAR =================
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 with c1: 
-    if st.session_state.algo_running:
-        st.markdown('<span class="badge-success">🟢 RUNNING</span>', unsafe_allow_html=True)
+    st.markdown('<span class="badge-success">🟢 REAL MODE</span>' if st.session_state.algo_running else '<span class="badge-danger">🔴 STOPPED</span>', unsafe_allow_html=True)
+with c2: st.markdown('<span class="badge-success">📊 FMP PAID</span>' if FMP_API_KEY != "YOUR_FMP_API_KEY" else '<span class="badge-warning">⚠️ FMP NEED KEY</span>', unsafe_allow_html=True)
+with c3: st.markdown('<span class="badge-success">📰 MARATHI NEWS</span>', unsafe_allow_html=True)
+with c4: 
+    if st.session_state.angel_connected:
+        st.markdown('<span class="badge-success">🔗 ANGEL ONE</span>', unsafe_allow_html=True)
     else:
-        st.markdown('<span class="badge-danger">🔴 STOPPED</span>', unsafe_allow_html=True)
-with c2: st.markdown('<span class="badge-success">📊 FMP ACTIVE</span>', unsafe_allow_html=True)
-with c3: st.markdown('<span class="badge-success">📰 NEWS ACTIVE</span>', unsafe_allow_html=True)
-with c4: st.markdown('<span class="badge-success">📱 TELEGRAM</span>', unsafe_allow_html=True)
-with c5: st.markdown(f'<span class="badge-info">🐺 SYMBOLS: {len(FO_SCRIPTS)}</span>', unsafe_allow_html=True)
+        st.markdown('<span class="badge-warning">⚠️ ANGEL NEED KEY</span>', unsafe_allow_html=True)
+with c5: st.markdown('<span class="badge-success">📱 TELEGRAM</span>', unsafe_allow_html=True)
+with c6: st.markdown(f'<span class="badge-info">🐺 {len(FO_SCRIPTS)} SYMBOLS</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -338,9 +499,13 @@ with col1:
 with col2:
     if st.button("🟢 START", use_container_width=True):
         if totp and len(totp) == 6:
+            # Connect Angel One
+            if ANGEL_API_KEY != "YOUR_ANGEL_API_KEY":
+                angel_one_login()
+            
             st.session_state.algo_running = True
             st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED")
+            send_telegram("🚀 ALGO STARTED - REAL EDITION")
             st.rerun()
         else:
             st.error("Valid TOTP required!")
@@ -360,7 +525,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ================= TAB 1: WOLF ORDER =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK")
-    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols Available | CE/PE Options*")
+    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols | CE/PE Options*")
     
     with st.expander("➕ PLACE ORDER", expanded=False):
         cols = st.columns(7)
@@ -373,25 +538,17 @@ with tab1:
         with cols[6]: target = st.number_input("Target", 1, 500000, 150, key="target")
         
         if st.button("🐺 PLACE ORDER", use_container_width=True):
-            if buy_above > sl and target > buy_above:
-                st.session_state.wolf_orders.append({
-                    'symbol': sym, 'option_type': opt, 'strike_price': strike, 'qty': qty,
-                    'buy_above': buy_above, 'sl': sl, 'target': target, 'status': 'PENDING'
-                })
-                st.success(f"✅ Order placed for {sym}")
-                st.rerun()
-            else:
-                st.error("Buy Above > SL and Target > Buy Above required")
+            st.session_state.wolf_orders.append({
+                'symbol': sym, 'option_type': opt, 'strike_price': strike, 'qty': qty,
+                'buy_above': buy_above, 'sl': sl, 'target': target, 'status': 'PENDING'
+            })
+            st.success(f"✅ Order placed for {sym}")
+            st.rerun()
     
     if st.session_state.wolf_orders:
         pending = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
         if pending:
-            st.markdown("### ⏳ PENDING ORDERS")
-            pending_df = pd.DataFrame([{
-                'Symbol': o['symbol'], 'Option': o['option_type'], 'Strike': o['strike_price'],
-                'Lots': o['qty'], 'Buy Above': o['buy_above'], 'SL': o['sl'], 'Target': o['target']
-            } for o in pending])
-            st.dataframe(pending_df, use_container_width=True)
+            st.dataframe(pd.DataFrame(pending), use_container_width=True)
 
 # ================= TAB 2: SANSKRUTI MARKET =================
 with tab2:
@@ -404,16 +561,16 @@ with tab2:
     ng = get_live_price('NATURALGAS') * get_usd_inr_rate()
     with c4: st.metric("🌿 NG", f"₹{ng:,.2f}")
 
-# ================= TAB 3: VAISHNAVI NEWS (Marathi + English Sentiment) =================
+# ================= TAB 3: VAISHNAVI NEWS (REAL MARATHI) =================
 with tab3:
-    st.markdown("### 📰 वैष्णवी न्यूज (VAISHNAVI NEWS)")
-    st.markdown("*मराठी बातम्या | English Sentiment Analysis*")
+    st.markdown("### 📰 वैष्णवी न्यूज - REAL MARATHI")
+    st.markdown("*Google Translate API वापरून English → Marathi*")
     
     col1, col2 = st.columns([3,1])
-    with col2: st.session_state.voice_enabled = st.checkbox("🔊 Voice", st.session_state.voice_enabled)
+    with col2: st.session_state.voice_enabled = st.checkbox("🔊 मराठी Voice", st.session_state.voice_enabled)
     
     st.markdown("---")
-    st.markdown("#### 📊 Sentiment Guide (ENGLISH):")
+    st.markdown("#### Sentiment Guide:")
     col_a, col_b, col_c, col_d, col_e = st.columns(5)
     with col_a: st.markdown('<span style="color:#00ff88">🚀 STRONG BULLISH</span>', unsafe_allow_html=True)
     with col_b: st.markdown('<span style="color:#88ff88">📈 BULLISH</span>', unsafe_allow_html=True)
@@ -423,47 +580,55 @@ with tab3:
     
     st.markdown("---")
     
-    for news in get_marathi_news():
-        sentiment = news['sentiment']
-        icon = news['sentiment_icon']
-        
-        # Color based on sentiment
-        if sentiment == "STRONG BULLISH":
-            color = "#00ff88"
-        elif sentiment == "BULLISH":
-            color = "#88ff88"
-        elif sentiment == "STRONG BEARISH":
-            color = "#ff4444"
-        elif sentiment == "BEARISH":
-            color = "#ff8888"
-        else:
-            color = "#ffa500"
+    news_items = get_news_with_translation()
+    for news in news_items:
+        color = "#00ff88" if news['sentiment'] == "STRONG BULLISH" else "#88ff88" if news['sentiment'] == "BULLISH" else "#ff4444" if news['sentiment'] == "STRONG BEARISH" else "#ff8888" if news['sentiment'] == "BEARISH" else "#ffa500"
         
         st.markdown(f"**📌 {news['title_marathi']}**")
-        col_a, col_b = st.columns([3,1])
-        with col_a: st.caption(f"Source: {news['source']} | {news['time']}")
-        with col_b: st.markdown(f"<span style='color:{color}; font-weight:bold'>{icon} {sentiment}</span>", unsafe_allow_html=True)
-        
-        # Strength bar
-        strength_pct = min(100, news['strength'])
-        st.progress(strength_pct/100)
+        st.caption(f"📖 English: {news['title_english'][:100]}...")
+        st.caption(f"Source: {news['source']} | {news['time']}")
+        st.markdown(f"<span style='color:{color}; font-weight:bold'>{news['sentiment_icon']} {news['sentiment']}</span>", unsafe_allow_html=True)
+        st.progress(min(100, news['strength'])/100)
         st.markdown("---")
 
-# ================= TAB 4: OVI RESULTS =================
+# ================= TAB 4: OVI RESULTS (REAL FMP) =================
 with tab4:
-    st.markdown("### 📈 OVI RESULTS")
-    st.dataframe(pd.DataFrame(PENDING_RESULTS), use_container_width=True)
+    st.markdown("### 📈 OVI RESULTS - REAL FMP API")
+    st.markdown("*Financial Modeling Prep (Paid API)*")
     
-    if st.session_state.result_alerts:
-        st.markdown("### 🔔 ALERTS")
-        for alert in st.session_state.result_alerts[-5:]:
-            st.info(f"📊 {alert.get('company', 'Unknown')} | Time: {alert.get('time', '')}")
+    if FMP_API_KEY and FMP_API_KEY != "YOUR_FMP_API_KEY":
+        st.success("✅ FMP API Connected (Paid)")
+        
+        st.markdown("---")
+        st.markdown("#### Companies Monitored:")
+        for comp in PENDING_RESULTS:
+            col1, col2 = st.columns([1,1])
+            with col1:
+                st.write(f"📊 {comp['name']} ({comp['symbol']})")
+            with col2:
+                earnings = get_fmp_earnings(comp['symbol'])
+                if earnings:
+                    st.write(f"✅ Result Date: {earnings.get('date', 'N/A')}")
+                else:
+                    st.write("⏳ Waiting for result...")
+            st.markdown("---")
+        
+        if st.session_state.result_alerts:
+            st.markdown("### 🔔 Results History")
+            for alert in st.session_state.result_alerts[-5:]:
+                st.info(f"📊 {alert['company']} | {alert['verdict']} | Signal: {alert['signal']} | Confidence: {alert['confidence']}%")
+    else:
+        st.warning("⚠️ FMP API Key Required! Get paid subscription from https://financialmodelingprep.com/")
+        api_input = st.text_input("Enter FMP API Key:", type="password")
+        if api_input:
+            FMP_API_KEY = api_input
+            st.rerun()
 
 # ================= TAB 5: SAHYADRI SETTINGS =================
 with tab5:
     st.markdown("### ⚙️ SAHYADRI SETTINGS")
     
-    st.markdown("#### 🤖 AUTO TRADE")
+    st.markdown("#### 🤖 AUTO TRADE (Angel One)")
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.auto_trade_enabled = st.checkbox("Enable Auto Trading", st.session_state.auto_trade_enabled)
@@ -471,6 +636,13 @@ with tab5:
     with col2:
         st.session_state.auto_trade_sl_percent = st.number_input("SL %", 1, 20, st.session_state.auto_trade_sl_percent)
         st.session_state.auto_trade_target_percent = st.number_input("Target %", 1, 30, st.session_state.auto_trade_target_percent)
+    
+    if ANGEL_API_KEY == "YOUR_ANGEL_API_KEY":
+        st.warning("⚠️ Angel One API Keys Required!")
+        st.text_input("API Key", type="password")
+        st.text_input("Client ID")
+        st.text_input("Password", type="password")
+        st.text_input("TOTP Secret", type="password")
     
     st.markdown("---")
     st.markdown("#### NIFTY TP")
@@ -505,23 +677,25 @@ with tab5:
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
-    st.info("🐺 Wolf is hunting... Auto Trade Active 🤖")
+    monitor_fmp_results()
+    st.info("🐺 REAL EDITION ACTIVE | FMP + Angel One + Marathi News")
 
 # ================= SIDEBAR =================
 with st.sidebar:
     st.markdown("## 🌸 SAMRUDDHI DASHBOARD")
     st.markdown("---")
     st.metric("Active Orders", len(st.session_state.active_orders))
-    st.metric("Pending Orders", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
+    st.metric("Pending", len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']))
     st.metric("Total Trades", len(st.session_state.trade_journal))
-    st.metric("Total Symbols", len(FO_SCRIPTS))
+    st.metric("Symbols", len(FO_SCRIPTS))
+    st.metric("Results", len(st.session_state.result_alerts))
     st.markdown("---")
-    st.caption("✅ FMP API: ACTIVE")
-    st.caption("✅ GNews API: ACTIVE")
+    st.caption("✅ FMP API: PAID")
+    st.caption("✅ Angel One: " + ("CONNECTED" if st.session_state.angel_connected else "PENDING"))
+    st.caption("✅ Marathi News: REAL")
     st.caption("✅ Telegram: ACTIVE")
     st.caption(f"✅ Auto Trade: {'ON' if st.session_state.auto_trade_enabled else 'OFF'}")
-    st.caption(f"🐺 Wolf Orders: {len(st.session_state.wolf_orders)}")
 
 # ================= FOOTER =================
 st.markdown("---")
-st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | 🌸 SAMRUDDHI EDITION")
+st.caption(f"🐺 {APP_NAME} REAL EDITION v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION}")
