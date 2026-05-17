@@ -1693,156 +1693,107 @@ with tab4:
         st.info("📭 No results detected yet. Waiting for Q4 results...")
 
 
-# ================= TAB 5: SAHYADRI SETTINGS (UPDATED) =================
+# ================= TAB 5: SAHYADRI SETTINGS =================
 with tab5:
     st.markdown("### ⚙️ SAHYADRI SETTINGS")
     st.markdown("---")
     
-    # ================= ASSET TOGGLE BUTTONS =================
-    st.markdown("#### 🎛️ ASSET SELECTION")
-    st.markdown("*Enable/Disable assets for auto trading*")
+    # ================= COLOR SELECTION =================
+    st.markdown("#### 🎨 THEME COLOR SELECTION")
+    col1, col2, col3 = st.columns(3)
     
-    if "enable_nifty_auto" not in st.session_state:
-        st.session_state.enable_nifty_auto = True
-    if "enable_banknifty_auto" not in st.session_state:
-        st.session_state.enable_banknifty_auto = True
-    if "enable_crude_auto" not in st.session_state:
-        st.session_state.enable_crude_auto = True
-    if "enable_ng_auto" not in st.session_state:
-        st.session_state.enable_ng_auto = True
-    
-    col1, col2, col3, col4 = st.columns(4)
+    if "theme_color" not in st.session_state:
+        st.session_state.theme_color = "#00ff88"
+    if "wait_color" not in st.session_state:
+        st.session_state.wait_color = "#ffaa00"
     
     with col1:
-        btn_color = "#00ff88" if st.session_state.enable_nifty_auto else "#ff4444"
-        btn_text = "ON" if st.session_state.enable_nifty_auto else "OFF"
-        st.markdown(f"""
-        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 10px; text-align: center;">
-            <h4>🇮🇳 NIFTY</h4>
-            <div style="background: {btn_color}; border-radius: 20px; padding: 5px; color: black; font-weight: bold;">{btn_text}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.session_state.enable_nifty_auto = st.checkbox("NIFTY", st.session_state.enable_nifty_auto, key="enable_nifty")
-    
+        st.session_state.theme_color = st.color_picker("BUY/SELL Color", st.session_state.theme_color)
     with col2:
-        btn_color = "#00ff88" if st.session_state.enable_banknifty_auto else "#ff4444"
-        btn_text = "ON" if st.session_state.enable_banknifty_auto else "OFF"
-        st.markdown(f"""
-        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 10px; text-align: center;">
-            <h4>🏦 BANKNIFTY</h4>
-            <div style="background: {btn_color}; border-radius: 20px; padding: 5px; color: black; font-weight: bold;">{btn_text}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.session_state.enable_banknifty_auto = st.checkbox("BANKNIFTY", st.session_state.enable_banknifty_auto, key="enable_banknifty")
-    
+        st.session_state.wait_color = st.color_picker("WAIT Color", st.session_state.wait_color)
     with col3:
-        btn_color = "#00ff88" if st.session_state.enable_crude_auto else "#ff4444"
-        btn_text = "ON" if st.session_state.enable_crude_auto else "OFF"
         st.markdown(f"""
-        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 10px; text-align: center;">
-            <h4>🛢️ CRUDE</h4>
-            <div style="background: {btn_color}; border-radius: 20px; padding: 5px; color: black; font-weight: bold;">{btn_text}</div>
+        <div style="background: linear-gradient(135deg, {st.session_state.theme_color}, {st.session_state.wait_color}); border-radius: 10px; padding: 10px; text-align: center;">
+            <small>Preview</small>
         </div>
         """, unsafe_allow_html=True)
-        st.session_state.enable_crude_auto = st.checkbox("CRUDE", st.session_state.enable_crude_auto, key="enable_crude")
-    
-    with col4:
-        btn_color = "#00ff88" if st.session_state.enable_ng_auto else "#ff4444"
-        btn_text = "ON" if st.session_state.enable_ng_auto else "OFF"
-        st.markdown(f"""
-        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 10px; text-align: center;">
-            <h4>🌿 NG</h4>
-            <div style="background: {btn_color}; border-radius: 20px; padding: 5px; color: black; font-weight: bold;">{btn_text}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.session_state.enable_ng_auto = st.checkbox("NATURAL GAS", st.session_state.enable_ng_auto, key="enable_ng")
     
     st.markdown("---")
     
-    # ================= AUTO TRADE CONFIGURATION =================
-    st.markdown("#### 🤖 AUTO TRADE CONFIGURATION")
-    
+    # ================= AUTO TRADE SECTION =================
+    st.markdown("#### 🤖 AUTO TRADE")
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.auto_trade_enabled = st.checkbox("Enable Auto Trading", st.session_state.auto_trade_enabled)
-        st.session_state.auto_trade_qty = st.number_input("Quantity (Lots)", 1, 50, st.session_state.auto_trade_qty)
+        st.session_state.auto_trade_qty = st.number_input("Lots", 1, 50, st.session_state.auto_trade_qty)
     with col2:
-        st.session_state.auto_trade_sl_percent = st.number_input("Stop Loss (%)", 1, 20, st.session_state.auto_trade_sl_percent)
-        st.session_state.auto_trade_target_percent = st.number_input("Target (%)", 1, 30, st.session_state.auto_trade_target_percent)
+        st.session_state.auto_trade_sl_percent = st.number_input("SL %", 1, 20, st.session_state.auto_trade_sl_percent)
+        st.session_state.auto_trade_target_percent = st.number_input("Target %", 1, 30, st.session_state.auto_trade_target_percent)
     
     st.markdown("---")
     
-    # ================= STRICT BUY/SELL SIGNALS (INR for CRUDE & NG) =================
+    # ================= STRICT BUY/SELL SIGNALS =================
     st.markdown("#### 📊 STRICT BUY/SELL SIGNALS")
     
     nifty_trend = get_nifty_trend()
-    usd_inr = get_usd_inr_rate()
-    
     col1, col2, col3, col4 = st.columns(4)
     
-    # NIFTY Signal
     nifty_signal, nifty_price, _ = get_strict_signal("NIFTY", nifty_trend, "NEUTRAL")
+    bank_signal, bank_price, _ = get_strict_signal("BANKNIFTY", nifty_trend, "NEUTRAL")
+    crude_signal, crude_price, _ = get_strict_signal("CRUDE", nifty_trend, "NEUTRAL")
+    ng_signal, ng_price, _ = get_strict_signal("NATURALGAS", nifty_trend, "NEUTRAL")
+    
     with col1:
         if nifty_signal == "BUY":
-            st.markdown(f'<div style="background:#00ff88; border-radius: 15px; padding: 15px; text-align: center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:#00ff88;">🟢 BUY</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:white;">🟢 BUY</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
         elif nifty_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius: 15px; padding: 15px; text-align: center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:#ff4444;">🔴 SELL</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:white;">🔴 SELL</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="background:#ffe0b3; border-radius: 15px; padding: 15px; text-align: center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:#cc8800;">🟡 WAIT</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:black;">🟡 WAIT</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
     
-    # BANKNIFTY Signal
-    bank_signal, bank_price, _ = get_strict_signal("BANKNIFTY", nifty_trend, "NEUTRAL")
     with col2:
         if bank_signal == "BUY":
-            st.markdown(f'<div style="background:#00ff88; border-radius: 15px; padding: 15px; text-align: center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:#00ff88;">🟢 BUY</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:white;">🟢 BUY</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
         elif bank_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius: 15px; padding: 15px; text-align: center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:#ff4444;">🔴 SELL</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:white;">🔴 SELL</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="background:#ffe0b3; border-radius: 15px; padding: 15px; text-align: center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:#cc8800;">🟡 WAIT</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:black;">🟡 WAIT</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
     
-    # CRUDE Signal (in INR)
-    crude_signal, crude_price_usd, _ = get_strict_signal("CRUDE", nifty_trend, "NEUTRAL")
-    crude_price_inr = crude_price_usd * usd_inr if crude_price_usd > 0 else 0
     with col3:
         if crude_signal == "BUY":
-            st.markdown(f'<div style="background:#00ff88; border-radius: 15px; padding: 15px; text-align: center;"><h4>🛢️ CRUDE</h4><h3 style="color:#00ff88;">🟢 BUY</h3><p>₹{crude_price_inr:.2f}</p><small>${crude_price_usd:.2f}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🛢️ CRUDE</h4><h3 style="color:white;">🟢 BUY</h3><p>${crude_price:.2f}</p></div>', unsafe_allow_html=True)
         elif crude_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius: 15px; padding: 15px; text-align: center;"><h4>🛢️ CRUDE</h4><h3 style="color:#ff4444;">🔴 SELL</h3><p>₹{crude_price_inr:.2f}</p><small>${crude_price_usd:.2f}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🛢️ CRUDE</h4><h3 style="color:white;">🔴 SELL</h3><p>${crude_price:.2f}</p></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="background:#ffe0b3; border-radius: 15px; padding: 15px; text-align: center;"><h4>🛢️ CRUDE</h4><h3 style="color:#cc8800;">🟡 WAIT</h3><p>₹{crude_price_inr:.2f}</p><small>${crude_price_usd:.2f}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🛢️ CRUDE</h4><h3 style="color:black;">🟡 WAIT</h3><p>${crude_price:.2f}</p></div>', unsafe_allow_html=True)
     
-    # NG Signal (in INR)
-    ng_signal, ng_price_usd, _ = get_strict_signal("NATURALGAS", nifty_trend, "NEUTRAL")
-    ng_price_inr = ng_price_usd * usd_inr if ng_price_usd > 0 else 0
     with col4:
         if ng_signal == "BUY":
-            st.markdown(f'<div style="background:#00ff88; border-radius: 15px; padding: 15px; text-align: center;"><h4>🌿 NG</h4><h3 style="color:#00ff88;">🟢 BUY</h3><p>₹{ng_price_inr:.2f}</p><small>${ng_price_usd:.2f}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🌿 NG</h4><h3 style="color:white;">🟢 BUY</h3><p>${ng_price:.2f}</p></div>', unsafe_allow_html=True)
         elif ng_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius: 15px; padding: 15px; text-align: center;"><h4>🌿 NG</h4><h3 style="color:#ff4444;">🔴 SELL</h3><p>₹{ng_price_inr:.2f}</p><small>${ng_price_usd:.2f}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🌿 NG</h4><h3 style="color:white;">🔴 SELL</h3><p>${ng_price:.2f}</p></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="background:#ffe0b3; border-radius: 15px; padding: 15px; text-align: center;"><h4>🌿 NG</h4><h3 style="color:#cc8800;">🟡 WAIT</h3><p>₹{ng_price_inr:.2f}</p><small>${ng_price_usd:.2f}</small></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🌿 NG</h4><h3 style="color:black;">🟡 WAIT</h3><p>${ng_price:.2f}</p></div>', unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # ================= DAILY TRADE LIMITS =================
-    st.markdown("#### 📊 DAILY TRADE LIMITS")
+    # ================= DAILY TRADE COUNTS (SIMPLE) =================
+    st.markdown("#### 📊 DAILY TRADE COUNTS")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("NIFTY", f"B:{st.session_state.daily_trade_count['NIFTY']['buy']}/1 | S:{st.session_state.daily_trade_count['NIFTY']['sell']}/1")
-    with col2:
-        st.metric("BANKNIFTY", f"B:{st.session_state.daily_trade_count['BANKNIFTY']['buy']}/1 | S:{st.session_state.daily_trade_count['BANKNIFTY']['sell']}/1")
+        st.metric("NIFTY BUY", st.session_state.daily_trade_count['NIFTY']['buy'])
+        st.metric("NIFTY SELL", st.session_state.daily_trade_count['NIFTY']['sell'])
     with col3:
-        st.metric("CRUDE", f"B:{st.session_state.daily_trade_count['CRUDE']['buy']}/1 | S:{st.session_state.daily_trade_count['CRUDE']['sell']}/1")
+        st.metric("CRUDE BUY", st.session_state.daily_trade_count['CRUDE']['buy'])
+        st.metric("CRUDE SELL", st.session_state.daily_trade_count['CRUDE']['sell'])
     with col4:
-        st.metric("NG", f"B:{st.session_state.daily_trade_count['NATURALGAS']['buy']}/1 | S:{st.session_state.daily_trade_count['NATURALGAS']['sell']}/1")
+        st.metric("NG BUY", st.session_state.daily_trade_count['NATURALGAS']['buy'])
+        st.metric("NG SELL", st.session_state.daily_trade_count['NATURALGAS']['sell'])
     
     st.markdown("---")
     
     # ================= TP SETTINGS =================
-    st.markdown("#### 🎯 TARGET PROFIT SETTINGS")
-    
-    # NIFTY TP
-    st.markdown("##### 🇮🇳 NIFTY")
+    st.markdown("#### NIFTY TP")
     c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
     with c1: st.number_input("Lots",1,50,st.session_state.nifty_lots,key="n_l")
     with c2: st.number_input("TP1",1,100,st.session_state.nifty_tp1,key="n_t1")
@@ -1852,8 +1803,7 @@ with tab5:
     with c6: st.number_input("TP3",1,100,st.session_state.nifty_tp3,key="n_t3")
     with c7: st.checkbox("ON",st.session_state.nifty_tp3_enabled,key="n_en3")
     
-    # CRUDE TP
-    st.markdown("##### 🛢️ CRUDE")
+    st.markdown("#### CRUDE TP")
     c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
     with c1: st.number_input("Lots",1,50,st.session_state.crude_lots,key="c_l")
     with c2: st.number_input("TP1",1,100,st.session_state.crude_tp1,key="c_t1")
@@ -1863,8 +1813,7 @@ with tab5:
     with c6: st.number_input("TP3",1,100,st.session_state.crude_tp3,key="c_t3")
     with c7: st.checkbox("ON",st.session_state.crude_tp3_enabled,key="c_en3")
     
-    # NG TP
-    st.markdown("##### 🌿 NATURAL GAS")
+    st.markdown("#### NG TP")
     c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
     with c1: st.number_input("Lots",1,50,st.session_state.ng_lots,key="g_l")
     with c2: st.number_input("TP1",1,50,st.session_state.ng_tp1,key="g_t1")
