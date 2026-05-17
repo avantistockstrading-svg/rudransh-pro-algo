@@ -392,61 +392,6 @@ def monitor_today_results():
                         send_telegram(f"📊 RESULT: {company.get('name', symbol)} - {result_type}")
     except Exception as e:
         print(f"Error: {e}")
-# ================= MONITOR RESULTS =================
-def monitor_today_results():
-    """OVI Results monitor करून journal मध्ये add करा"""
-    try:
-        pending = get_pending_results()
-        for company in pending:
-            symbol = company.get('symbol', '')
-            if symbol:
-                earnings = get_company_earnings(symbol)
-                if earnings:
-                    revenue = earnings.get('revenue', 0)
-                    prev_revenue = earnings.get('revenue', 0)
-                    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-                    
-                    if revenue_growth > 10:
-                        result_type = "POSITIVE"
-                        signal = "BUY"
-                    elif revenue_growth < -5:
-                        result_type = "NEGATIVE"
-                        signal = "SELL"
-                    else:
-                        result_type = "NEUTRAL"
-                        signal = "WAIT"
-                    
-                    already_alerted = False
-                    for alert in st.session_state.result_alerts:
-                        if alert.get('company') == company.get('name'):
-                            already_alerted = True
-                            break
-                    
-                    if not already_alerted and result_type != "NEUTRAL":
-                        st.session_state.result_alerts.append({
-                            'company': company.get('name', symbol),
-                            'date': get_ist_now().strftime('%Y-%m-%d'),
-                            'time': get_ist_now().strftime('%H:%M:%S'),
-                            'verdict': result_type,
-                            'signal': signal
-                        })
-                        
-                        # Journal मध्ये result entry add करा
-                        st.session_state.trade_journal.append({
-                            "No": len(st.session_state.trade_journal) + 1,
-                            "Time": get_ist_now().strftime('%H:%M:%S'),
-                            "System": "📈 OVI RESULTS",
-                            "Symbol": company.get('name', symbol),
-                            "Type": result_type,
-                            "Signal": signal,
-                            "Entry": "-",
-                            "Exit": "-",
-                            "P&L (₹)": 0,
-                            "Status": f"RESULT DECLARED - {result_type}"
-                        })
-                        send_telegram(f"📊 OVI: {company.get('name', symbol)} - {result_type} - {signal}")
-    except Exception as e:
-        print(f"Monitor results error: {e}")
 
 # ================= CHECK & EXECUTE WOLF ORDERS =================
 def check_and_execute_orders_with_journal():
