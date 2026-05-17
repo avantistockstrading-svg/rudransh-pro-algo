@@ -253,14 +253,58 @@ SECTOR_MAPPING = {
     "CIPLA": "PHARMA", "COALINDIA": "METALS", "DIVISLAB": "PHARMA", "DRREDDY": "PHARMA"
 }
 
-# ================= PENDING RESULTS =================
-PENDING_RESULTS = [
-    {"name": "Bharat Electronics", "symbol": "BEL"},
-    {"name": "BPCL", "symbol": "BPCL"},
-    {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE"},
-    {"name": "Mankind Pharma", "symbol": "MANKIND"},
-    {"name": "PI Industries", "symbol": "PIIND"},
-]
+# ================= EARNINGS CALENDAR API (AUTO DAILY UPDATE) =================
+def get_today_earnings():
+    """FMP Earnings Calendar API वरून आजच्या results ची list मिळवा"""
+    try:
+        today = get_ist_now().strftime('%Y-%m-%d')
+        url = f"https://financialmodelingprep.com/stable/earnings-calendar?from={today}&to={today}&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            earnings_list = []
+            for item in data:
+                # फक्त भारतीय कंपन्या फिल्टर करायच्या असल्यास
+                if '.NS' in item.get('symbol', '') or item.get('symbol') in ['RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK', 'INFY', 'HINDUNILVR', 'ITC', 'SBIN', 'BHARTIARTL', 'KOTAKBANK', 'AXISBANK', 'LT', 'DMART', 'SUNPHARMA', 'BAJFINANCE', 'TITAN', 'MARUTI', 'TATAMOTORS', 'TATASTEEL', 'WIPRO', 'HCLTECH', 'ONGC', 'NTPC', 'POWERGRID', 'ULTRACEMCO', 'ADANIPORTS', 'ADANIENT', 'ASIANPAINT', 'BAJAJFINSV', 'BRITANNIA', 'CIPLA', 'COALINDIA', 'DIVISLAB', 'DRREDDY', 'EICHERMOT', 'GRASIM', 'HDFCLIFE', 'HEROMOTOCO', 'HINDALCO', 'IOC', 'INDUSINDBK', 'JSWSTEEL', 'M&M', 'NESTLEIND', 'PIDILITIND', 'SBILIFE', 'SHREECEM', 'SIEMENS', 'SRF', 'TATACONSUM', 'TATAPOWER', 'TECHM', 'UPL', 'VEDL', 'YESBANK', 'ZYDUSLIFE']:
+                    earnings_list.append({
+                        'name': item.get('symbol', '').replace('.NS', ''),
+                        'symbol': item.get('symbol', '').replace('.NS', ''),
+                        'date': item.get('date', today),
+                        'eps_estimated': item.get('epsEstimated'),
+                        'eps_actual': item.get('epsActual')
+                    })
+            return earnings_list
+        return []
+    except Exception as e:
+        print(f"Earnings Calendar Error: {e}")
+        return []
+
+# PENDING_RESULTS आता dynamic असेल
+def get_pending_results():
+    """Dynamic results list - daily update होईल"""
+    earnings = get_today_earnings()
+    if earnings:
+        return earnings
+    # Fallback (API error असल्यास)
+    return [
+        {"name": "Bharat Electronics", "symbol": "BEL"},
+        {"name": "BPCL", "symbol": "BPCL"},
+        {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE"},
+        {"name": "Mankind Pharma", "symbol": "MANKIND"},
+        {"name": "PI Industries", "symbol": "PIIND"},
+    ]
+
+# monitor_today_results function मध्ये हा बदल करा
+def monitor_today_results():
+    """Monitor results of companies announcing today - DAILY AUTO UPDATE"""
+    today_results = get_pending_results()  # Dynamic list
+    
+    for company in today_results:
+        if f"{company['symbol']}_processed" in st.session_state:
+            continue
+        earnings = get_company_earnings(company['symbol'])
+        if earnings:
+            # ... बाकी कोड तसाच ठेवा
 
 # ================= FMP API FUNCTIONS =================
 def check_fmp_api():
