@@ -422,40 +422,338 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🐺 WOLF ORDER", "🌸 SANSKRUTI MARKET", "📰 VAISHNAVI NEWS", "📈 OVI RESULTS", "⚙️ SAHYADRI SETTINGS"
 ])
 
-# ================= TAB 1: WOLF ORDER =================
+# ================= TAB 1: WOLF ORDER BOOK (COLOR CODED PROFESSIONAL UI) =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK")
-    st.markdown(f"*Total {len(FO_SCRIPTS)} Symbols | CE/PE Options*")
+    st.markdown("*Advanced F&O Order Management System*")
     
-    with st.expander("➕ PLACE ORDER", expanded=False):
-        cols = st.columns(7)
-        with cols[0]: sym = st.selectbox("Symbol", FO_SCRIPTS, key="sym")
-        with cols[1]: opt = st.selectbox("Option", OPTION_TYPES, key="opt")
-        with cols[2]: strike = st.number_input("Strike", 1, 500000, 24300, key="strike")
-        with cols[3]: qty = st.number_input("Lots", 1, 100, 1, key="qty")
-        with cols[4]: buy_above = st.number_input("Buy Above", 1, 500000, 100, key="buy")
-        with cols[5]: sl = st.number_input("SL", 1, 500000, 80, key="sl")
-        with cols[6]: target = st.number_input("Target", 1, 500000, 150, key="target")
+    st.markdown("---")
+    
+    # ================= ORDER STATISTICS DASHBOARD =================
+    st.markdown("#### 📊 Order Statistics")
+    
+    total_orders = len(st.session_state.wolf_orders)
+    pending_orders = len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING'])
+    active_orders_count = len(st.session_state.active_orders)
+    completed_orders = len([o for o in st.session_state.wolf_orders if o['status'] == 'COMPLETED']) if 'COMPLETED' in [o.get('status') for o in st.session_state.wolf_orders] else 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00b4d8;">
+            <span style="font-size:28px;">📋</span>
+            <h3 style="margin:0; color:#00b4d8;">{total_orders}</h3>
+            <p style="margin:0; color:#aaa;">Total Orders</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #ffaa00;">
+            <span style="font-size:28px;">⏳</span>
+            <h3 style="margin:0; color:#ffaa00;">{pending_orders}</h3>
+            <p style="margin:0; color:#aaa;">Pending Orders</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00ff88;">
+            <span style="font-size:28px;">🟢</span>
+            <h3 style="margin:0; color:#00ff88;">{active_orders_count}</h3>
+            <p style="margin:0; color:#aaa;">Active Orders</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        success_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #88ff88;">
+            <span style="font-size:28px;">📈</span>
+            <h3 style="margin:0; color:#88ff88;">{success_rate:.0f}%</h3>
+            <p style="margin:0; color:#aaa;">Success Rate</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= PLACE ORDER SECTION =================
+    st.markdown("#### 🐺 Place New Wolf Order")
+    
+    with st.expander("➕ CLICK TO PLACE NEW ORDER", expanded=False):
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,180,216,0.1)); border-radius: 15px; padding: 20px; margin: 10px 0;">
+        """, unsafe_allow_html=True)
         
-        if st.button("🐺 PLACE ORDER", use_container_width=True):
-            if buy_above > sl and target > buy_above:
-                st.session_state.wolf_orders.append({
-                    'symbol': sym, 'option_type': opt, 'strike_price': strike, 'qty': qty,
-                    'buy_above': buy_above, 'sl': sl, 'target': target, 'status': 'PENDING'
-                })
-                st.success(f"✅ Order placed for {sym}")
-                st.rerun()
-            else:
-                st.error("Buy Above > SL and Target > Buy Above required")
+        col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+        
+        with col1:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#00ff88;">📊</span><br>
+                <span style="font-size:12px;">SYMBOL</span>
+            </div>
+            """, unsafe_allow_html=True)
+            sym = st.selectbox("Symbol", FO_SCRIPTS, key="wolf_sym_new", label_visibility="collapsed")
+        
+        with col2:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#88ff88;">🔄</span><br>
+                <span style="font-size:12px;">OPTION</span>
+            </div>
+            """, unsafe_allow_html=True)
+            opt = st.selectbox("Option", OPTION_TYPES, key="wolf_opt_new", label_visibility="collapsed")
+        
+        with col3:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#ffaa00;">🎯</span><br>
+                <span style="font-size:12px;">STRIKE</span>
+            </div>
+            """, unsafe_allow_html=True)
+            strike = st.number_input("Strike", min_value=1, max_value=500000, value=24300, step=50, key="wolf_strike_new", label_visibility="collapsed")
+        
+        with col4:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#00b4d8;">📦</span><br>
+                <span style="font-size:12px;">LOTS</span>
+            </div>
+            """, unsafe_allow_html=True)
+            qty = st.number_input("Lots", min_value=1, max_value=100, value=1, key="wolf_qty_new", label_visibility="collapsed")
+        
+        with col5:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#88ff88;">📈</span><br>
+                <span style="font-size:12px;">BUY ABOVE</span>
+            </div>
+            """, unsafe_allow_html=True)
+            buy_above = st.number_input("Buy Above", min_value=1, max_value=500000, value=100, step=10, key="wolf_buy_new", label_visibility="collapsed")
+        
+        with col6:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#ff6666;">🛡️</span><br>
+                <span style="font-size:12px;">STOP LOSS</span>
+            </div>
+            """, unsafe_allow_html=True)
+            sl = st.number_input("SL", min_value=1, max_value=500000, value=80, step=10, key="wolf_sl_new", label_visibility="collapsed")
+        
+        with col7:
+            st.markdown("""
+            <div style="text-align:center; padding:5px;">
+                <span style="color:#00ff88;">🎯</span><br>
+                <span style="font-size:12px;">TARGET</span>
+            </div>
+            """, unsafe_allow_html=True)
+            target = st.number_input("Target", min_value=1, max_value=500000, value=150, step=10, key="wolf_target_new", label_visibility="collapsed")
+        
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            if st.button("🐺 PLACE WOLF ORDER", use_container_width=True):
+                if buy_above > sl and target > buy_above:
+                    st.session_state.wolf_orders.append({
+                        'symbol': sym, 
+                        'option_type': opt, 
+                        'strike_price': strike, 
+                        'qty': qty,
+                        'buy_above': buy_above, 
+                        'sl': sl, 
+                        'target': target, 
+                        'status': 'PENDING',
+                        'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                        'placed_date': get_ist_now().strftime('%d %b')
+                    })
+                    send_telegram(f"🐺 WOLF ORDER: {sym} {opt} {strike} | Buy: {buy_above} | SL: {sl} | Target: {target}")
+                    voice_alert(f"Wolf order placed for {sym}")
+                    st.success(f"✅ Order placed for {sym}")
+                    st.rerun()
+                else:
+                    st.error("❌ Buy Above > SL and Target > Buy Above required")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
     
-    pending = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
-    if pending:
-        st.markdown("### ⏳ PENDING ORDERS")
-        pending_df = pd.DataFrame([{
-            'Symbol': o['symbol'], 'Option': o['option_type'], 'Strike': o['strike_price'],
-            'Lots': o['qty'], 'Buy Above': o['buy_above'], 'SL': o['sl'], 'Target': o['target']
-        } for o in pending])
-        st.dataframe(pending_df, use_container_width=True)
+    st.markdown("---")
+    
+    # ================= PENDING ORDERS SECTION =================
+    pending_orders_list = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
+    
+    if pending_orders_list:
+        st.markdown("#### ⏳ PENDING ORDERS")
+        st.markdown("*Orders waiting for price trigger*")
+        
+        for i, order in enumerate(pending_orders_list):
+            current_price = get_live_price(order['symbol'])
+            trigger_progress = min(100, int((current_price / order['buy_above']) * 100)) if current_price > 0 else 0
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, rgba(255,170,0,0.1), rgba(255,170,0,0.05)); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid #ffaa00;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                    <div>
+                        <span style="font-size:18px; font-weight:bold;">{order['symbol']}</span>
+                        <span style="background:#ffaa00; color:black; padding:2px 8px; border-radius:12px; font-size:12px; margin-left:10px;">{order['option_type']}</span>
+                        <span style="color:#aaa; margin-left:10px;">Strike: {order['strike_price']}</span>
+                    </div>
+                    <div>
+                        <span style="color:#ffaa00;">🟡 PENDING</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap;">
+                    <div><span style="color:#aaa;">📦 Lots:</span> <strong>{order['qty']}</strong></div>
+                    <div><span style="color:#aaa;">📈 Buy Above:</span> <strong style="color:#88ff88;">₹{order['buy_above']}</strong></div>
+                    <div><span style="color:#aaa;">🛡️ SL:</span> <strong style="color:#ff6666;">₹{order['sl']}</strong></div>
+                    <div><span style="color:#aaa;">🎯 Target:</span> <strong style="color:#00ff88;">₹{order['target']}</strong></div>
+                    <div><span style="color:#aaa;">⏰ Placed:</span> {order.get('placed_time', 'N/A')}</div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-size:12px;">
+                        <span>Trigger Progress</span>
+                        <span>{trigger_progress}%</span>
+                    </div>
+                    <div style="background:#333; border-radius:10px; height:6px; margin-top:5px;">
+                        <div style="background:#ffaa00; width:{trigger_progress}%; border-radius:10px; height:6px;"></div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col4:
+                if st.button(f"❌ Cancel", key=f"cancel_pending_{i}"):
+                    st.session_state.wolf_orders.remove(order)
+                    st.rerun()
+    else:
+        st.info("📭 No pending orders. Place a new order above.")
+    
+    st.markdown("---")
+    
+    # ================= ACTIVE ORDERS SECTION =================
+    if st.session_state.active_orders:
+        st.markdown("#### 🔴 ACTIVE ORDERS")
+        st.markdown("*Orders currently active with SL/Target monitoring*")
+        
+        for i, order in enumerate(st.session_state.active_orders):
+            current_price = get_live_price(order['symbol'])
+            entry = order['entry_price']
+            sl = order['sl']
+            target = order['target']
+            
+            if current_price > 0:
+                pnl_points = current_price - entry
+                pnl_percent = (pnl_points / entry) * 100
+                pnl_color = "#00ff88" if pnl_points > 0 else "#ff4444" if pnl_points < 0 else "#ffaa00"
+                pnl_icon = "▲" if pnl_points > 0 else "▼" if pnl_points < 0 else "●"
+                
+                # Progress to target
+                if target > entry:
+                    progress_to_target = min(100, int((current_price - entry) / (target - entry) * 100))
+                else:
+                    progress_to_target = 0
+            else:
+                pnl_points = 0
+                pnl_percent = 0
+                pnl_color = "#aaa"
+                pnl_icon = "●"
+                progress_to_target = 0
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,180,216,0.05)); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid #00ff88;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                    <div>
+                        <span style="font-size:18px; font-weight:bold;">{order['symbol']}</span>
+                        <span style="background:#00ff88; color:black; padding:2px 8px; border-radius:12px; font-size:12px; margin-left:10px;">ACTIVE</span>
+                    </div>
+                    <div>
+                        <span style="color:{pnl_color};">{pnl_icon} {pnl_points:+.2f} ({pnl_percent:+.2f}%)</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap;">
+                    <div><span style="color:#aaa;">📦 Lots:</span> <strong>{order['qty']}</strong></div>
+                    <div><span style="color:#aaa;">💰 Entry:</span> <strong>₹{entry:.2f}</strong></div>
+                    <div><span style="color:#aaa;">🛡️ SL:</span> <strong style="color:#ff6666;">₹{sl:.2f}</strong></div>
+                    <div><span style="color:#aaa;">🎯 Target:</span> <strong style="color:#00ff88;">₹{target:.2f}</strong></div>
+                    <div><span style="color:#aaa;">💵 Current:</span> <strong>₹{current_price:.2f}</strong></div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-size:12px;">
+                        <span>Progress to Target</span>
+                        <span>{progress_to_target}%</span>
+                    </div>
+                    <div style="background:#333; border-radius:10px; height:6px; margin-top:5px;">
+                        <div style="background:#00ff88; width:{progress_to_target}%; border-radius:10px; height:6px;"></div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("🔴 No active orders. Pending orders will become active when price triggers.")
+    
+    st.markdown("---")
+    
+    # ================= ORDER HISTORY / COMPLETED ORDERS =================
+    completed_orders_list = [o for o in st.session_state.wolf_orders if o.get('status') == 'COMPLETED']
+    
+    if completed_orders_list:
+        st.markdown("#### ✅ COMPLETED ORDERS")
+        st.markdown("*Orders that have been executed and closed*")
+        
+        for i, order in enumerate(completed_orders_list[-5:]):  # Show last 5 completed orders
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span><strong>{order['symbol']}</strong> {order['option_type']} {order['strike_price']}</span>
+                    <span style="color:#00b4d8;">✅ COMPLETED</span>
+                </div>
+                <div style="font-size:12px; color:#aaa;">
+                    Lots: {order['qty']} | Entry: ₹{order.get('entry_price', 'N/A')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= SEARCH/FILTER SECTION =================
+    st.markdown("#### 🔍 Search Orders")
+    
+    col1, col2 = st.columns([3,1])
+    with col1:
+        search_symbol = st.text_input("Search by Symbol", placeholder="Enter symbol (e.g., NIFTY, RELIANCE)", key="search_symbol")
+    with col2:
+        search_button = st.button("🔍 Search", use_container_width=True)
+    
+    if search_symbol:
+        filtered_orders = [o for o in st.session_state.wolf_orders if search_symbol.upper() in o['symbol']]
+        if filtered_orders:
+            st.markdown(f"**Found {len(filtered_orders)} orders for {search_symbol.upper()}:**")
+            for order in filtered_orders:
+                status_color = "#ffaa00" if order['status'] == 'PENDING' else "#00ff88" if order['status'] == 'ACTIVE' else "#00b4d8"
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 3px solid {status_color};">
+                    <b>{order['symbol']}</b> | {order['option_type']} {order['strike_price']} | Status: <span style="color:{status_color}">{order['status']}</span><br>
+                    Lots: {order['qty']} | Buy Above: {order['buy_above']} | SL: {order['sl']} | Target: {order['target']}
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.warning(f"No orders found for {search_symbol.upper()}")
+    
+    st.markdown("---")
+    
+    # ================= QUICK TIPS =================
+    with st.expander("ℹ️ How Wolf Order Book Works"):
+        st.markdown("""
+        <div style="padding: 10px;">
+        <b>🐺 Wolf Order Book Features:</b><br><br>
+        1. <b>Place Order:</b> Set your Buy Above price, Stop Loss, and Target<br>
+        2. <b>Pending Orders:</b> Orders waiting for price to reach Buy Above level<br>
+        3. <b>Active Orders:</b> Orders executed and monitoring SL/Target<br>
+        4. <b>Auto Square Off:</b> SL or Target hit = Auto exit<br>
+        5. <b>Telegram Alerts:</b> Get notified on every order execution<br><br>
+        <b>🎯 Tip:</b> Use CE for bullish view, PE for bearish view
+        </div>
+        """, unsafe_allow_html=True)
 
 # ================= FIXED GLOBAL MARKET DATA FUNCTIONS =================
 def get_global_market_data_fixed():
