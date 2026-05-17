@@ -422,10 +422,55 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🐺 WOLF ORDER", "🌸 SANSKRUTI MARKET", "📰 VAISHNAVI NEWS", "📈 OVI RESULTS", "⚙️ SAHYADRI SETTINGS"
 ])
 
-# ================= TAB 1: WOLF ORDER BOOK (COLOR CODED PROFESSIONAL UI) =================
+# ================= COMPLETE 220+ F&O SYMBOLS =================
+FO_SCRIPTS = [
+    # Indices & Commodity (6)
+    "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
+    
+    # TOP 50 NIFTY STOCKS
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC",
+    "SBIN", "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "DMART", "SUNPHARMA",
+    "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO",
+    "HCLTECH", "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO", "ADANIPORTS",
+    "ADANIENT", "ASIANPAINT", "BAJAJFINSV", "BRITANNIA", "CIPLA", "COALINDIA",
+    "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HDFCLIFE", "HEROMOTOCO",
+    "HINDALCO", "IOC", "INDUSINDBK", "JSWSTEEL", "M&M", "NESTLEIND",
+    "PIDILITIND", "SBILIFE", "SHREECEM", "SIEMENS", "SRF", "TATACONSUM",
+    
+    # NEXT 50 MIDCAP STOCKS
+    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE", "ABB", "APOLLOHOSP",
+    "ASHOKLEY", "ASTRAL", "AUROPHARMA", "BANDHANBNK", "BANKBARODA", "BEL", "BPCL",
+    "CANBK", "CHOLAFIN", "COFORGE", "DABUR", "DLF", "FEDERALBNK", "GAIL", "GODREJCP",
+    "GODREJPROP", "HAVELLS", "HDFCAMC", "HINDPETRO", "ICICIGI", "ICICIPRULI", "IDEA",
+    "INDIGO", "IRCTC", "JIOFIN", "JUBLFOOD", "LUPIN", "MANKIND", "MARICO", "MAXHEALTH",
+    "MCX", "MOTHERSON", "MPHASIS", "MUTHOOTFIN", "NAUKRI", "NHPC", "NMDC", "PEL",
+    "PFC", "PNB", "POLYCAB", "RECLTD", "RELIANCEPOWER", "SAIL", "SOLARINDS",
+    
+    # MORE F&O STOCKS (120+)
+    "360ONE", "ABCAPITAL", "ADANIENSOL", "ADANIGREEN", "ADANIPOWER", "ALKEM", "AMBER",
+    "AMBUJACEM", "ANGELONE", "APLAPOLLO", "AUBANK", "BAJAJHLDNG", "BALKRISIND",
+    "BATAINDIA", "BERGEPAINT", "BHARATFORG", "BHEL", "BIOCON", "BOSCHLTD", "CADILAHC",
+    "CAMS", "CAPLIPOINT", "CASTROLIND", "CCL", "CDSL", "CENTURYPLY", "CESC", "CGPOWER",
+    "CLEAN", "COCHINSHIP", "CONCOR", "COROMANDEL", "CROMPTON", "CUMMINSIND", "CYIENT",
+    "DALBHARAT", "DELHIVERY", "DIXON", "EASEMYTRIP", "EDELWEISS", "EMAMILTD",
+    "ENDURANCE", "ERIS", "ESCORTS", "EXIDEIND", "FACT", "FINCABLES", "FINEORG",
+    "FIVESTAR", "FORTIS", "GESHIP", "GLENMARK", "GMRINFRA", "GODREJAGRO", "GRANULES",
+    "GREAVESCOT", "GSPL", "GUFICBIO", "HAL", "HAPPSTMNDS", "HEIDELBERG", "HINDZINC",
+    "IBULHSGFIN", "IDBI", "IDFCFIRSTB", "IEX", "INDIAMART", "INDIANB", "INDUSTOWER",
+    "INOXWIND", "IREDA", "IRFC", "JINDALSTEL", "JSPL", "JSWENERGY", "KALYANKJIL",
+    "KAYNES", "KEI", "KFINTECH", "KPITTECH", "LAURUSLABS", "LICHSGFIN", "LODHA",
+    "LTF", "MANAPPURAM", "MFSL", "MOTILALOFS", "NATIONALUM", "NAMINDIA", "NBCC",
+    "NUVAMA", "OBEROIRLTY", "OIL", "OFSS", "PAYTM", "PAGEIND", "PATANJALI",
+    "PERSISTENT", "PETRONET", "PGEL", "PHOENIXLTD", "PIIND", "PNBHOUSING", "POLICYBZR",
+    "PRESTIGE", "RBLBANK", "RVNL", "SHRIRAMFIN", "SONACOMS", "SUPREMEIND", "SUZLON",
+    "SWIGGY", "TATAELXSI", "TIINDIA", "TORNTPHARM", "TRENT", "TVSMOTOR", "UNIONBANK",
+    "UNITEDSPIRITS", "UNOMINDA", "VBL", "VOLTAS", "WAAREEENER", "WELCORP", "ZEEL"
+]
+
+# ================= TAB 1: WOLF ORDER BOOK (UPDATED - NO SEARCH BOX) =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK")
-    st.markdown("*Advanced F&O Order Management System*")
+    st.markdown(f"*Total {len(FO_SCRIPTS)} F&O Symbols Available | CE/PE Options*")
     
     st.markdown("---")
     
@@ -435,7 +480,7 @@ with tab1:
     total_orders = len(st.session_state.wolf_orders)
     pending_orders = len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING'])
     active_orders_count = len(st.session_state.active_orders)
-    completed_orders = len([o for o in st.session_state.wolf_orders if o['status'] == 'COMPLETED']) if 'COMPLETED' in [o.get('status') for o in st.session_state.wolf_orders] else 0
+    completed_orders = len([o for o in st.session_state.wolf_orders if o.get('status') == 'COMPLETED'])
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -567,7 +612,7 @@ with tab1:
                         'placed_time': get_ist_now().strftime('%H:%M:%S'),
                         'placed_date': get_ist_now().strftime('%d %b')
                     })
-                    send_telegram(f"🐺 WOLF ORDER: {sym} {opt} {strike} | Buy: {buy_above} | SL: {sl} | Target: {target}")
+                    send_telegram(f"🐺 WOLF ORDER: {sym} {opt} {strike}")
                     voice_alert(f"Wolf order placed for {sym}")
                     st.success(f"✅ Order placed for {sym}")
                     st.rerun()
@@ -647,7 +692,6 @@ with tab1:
                 pnl_color = "#00ff88" if pnl_points > 0 else "#ff4444" if pnl_points < 0 else "#ffaa00"
                 pnl_icon = "▲" if pnl_points > 0 else "▼" if pnl_points < 0 else "●"
                 
-                # Progress to target
                 if target > entry:
                     progress_to_target = min(100, int((current_price - entry) / (target - entry) * 100))
                 else:
@@ -693,54 +737,6 @@ with tab1:
     
     st.markdown("---")
     
-    # ================= ORDER HISTORY / COMPLETED ORDERS =================
-    completed_orders_list = [o for o in st.session_state.wolf_orders if o.get('status') == 'COMPLETED']
-    
-    if completed_orders_list:
-        st.markdown("#### ✅ COMPLETED ORDERS")
-        st.markdown("*Orders that have been executed and closed*")
-        
-        for i, order in enumerate(completed_orders_list[-5:]):  # Show last 5 completed orders
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span><strong>{order['symbol']}</strong> {order['option_type']} {order['strike_price']}</span>
-                    <span style="color:#00b4d8;">✅ COMPLETED</span>
-                </div>
-                <div style="font-size:12px; color:#aaa;">
-                    Lots: {order['qty']} | Entry: ₹{order.get('entry_price', 'N/A')}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ================= SEARCH/FILTER SECTION =================
-    st.markdown("#### 🔍 Search Orders")
-    
-    col1, col2 = st.columns([3,1])
-    with col1:
-        search_symbol = st.text_input("Search by Symbol", placeholder="Enter symbol (e.g., NIFTY, RELIANCE)", key="search_symbol")
-    with col2:
-        search_button = st.button("🔍 Search", use_container_width=True)
-    
-    if search_symbol:
-        filtered_orders = [o for o in st.session_state.wolf_orders if search_symbol.upper() in o['symbol']]
-        if filtered_orders:
-            st.markdown(f"**Found {len(filtered_orders)} orders for {search_symbol.upper()}:**")
-            for order in filtered_orders:
-                status_color = "#ffaa00" if order['status'] == 'PENDING' else "#00ff88" if order['status'] == 'ACTIVE' else "#00b4d8"
-                st.markdown(f"""
-                <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 3px solid {status_color};">
-                    <b>{order['symbol']}</b> | {order['option_type']} {order['strike_price']} | Status: <span style="color:{status_color}">{order['status']}</span><br>
-                    Lots: {order['qty']} | Buy Above: {order['buy_above']} | SL: {order['sl']} | Target: {order['target']}
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.warning(f"No orders found for {search_symbol.upper()}")
-    
-    st.markdown("---")
-    
     # ================= QUICK TIPS =================
     with st.expander("ℹ️ How Wolf Order Book Works"):
         st.markdown("""
@@ -754,176 +750,16 @@ with tab1:
         <b>🎯 Tip:</b> Use CE for bullish view, PE for bearish view
         </div>
         """, unsafe_allow_html=True)
-
-# ================= FIXED GLOBAL MARKET DATA FUNCTIONS =================
-def get_global_market_data_fixed():
-    """Fetch global market indices data with fallback"""
-    global_indices = {
-        "🇺🇸 S&P 500": "SPY",      # Using ETF instead of ^GSPC
-        "🇺🇸 NASDAQ": "QQQ",       # Using ETF instead of ^IXIC
-        "🇺🇸 Dow Jones": "DIA",     # Using ETF instead of ^DJI
-        "🇯🇵 Nikkei 225": "EWJ",    # Japan ETF
-        "🇭🇰 Hang Seng": "EWH",     # Hong Kong ETF
-        "🇨🇳 Shanghai": "FXI",      # China Large-Cap ETF
-        "🇬🇧 FTSE 100": "EWU",      # UK ETF
-        "🇩🇪 DAX": "EWG",           # Germany ETF
-        "🇫🇷 CAC 40": "EWQ"         # France ETF
-    }
     
-    market_data = []
-    for name, symbol in global_indices.items():
-        try:
-            df = yf.download(symbol, period="5d", interval="1d", progress=False)
-            if not df.empty and len(df) > 1:
-                current = float(df['Close'].iloc[-1])
-                prev_close = float(df['Close'].iloc[-2])
-                change = current - prev_close
-                change_pct = (change / prev_close) * 100
-                
-                # Calculate trend based on 5-day EMA
-                if len(df) >= 5:
-                    ema5 = df['Close'].rolling(window=5).mean().iloc[-1]
-                    trend = "UP" if current > ema5 else "DOWN" if current < ema5 else "NEUTRAL"
-                else:
-                    trend = "UP" if change_pct > 0 else "DOWN" if change_pct < 0 else "NEUTRAL"
-                
-                market_data.append({
-                    'name': name,
-                    'symbol': symbol,
-                    'price': current,
-                    'change': change,
-                    'change_pct': change_pct,
-                    'trend': trend
-                })
-            else:
-                # Fallback data
-                market_data.append({
-                    'name': name,
-                    'symbol': symbol,
-                    'price': 0,
-                    'change': 0,
-                    'change_pct': 0,
-                    'trend': 'NEUTRAL',
-                    'error': True
-                })
-        except Exception as e:
-            market_data.append({
-                'name': name,
-                'symbol': symbol,
-                'price': 0,
-                'change': 0,
-                'change_pct': 0,
-                'trend': 'NEUTRAL',
-                'error': True
-            })
+    st.markdown("---")
     
-    return market_data
-
-def get_commodity_data_fixed():
-    """Fetch commodity data"""
-    commodities = [
-        {"name": "Gold", "symbol": "GC=F", "icon": "🥇"},
-        {"name": "Silver", "symbol": "SI=F", "icon": "🥈"},
-        {"name": "Copper", "symbol": "HG=F", "icon": "🔴"},
-        {"name": "Natural Gas", "symbol": "NG=F", "icon": "🌿"},
-        {"name": "Crude Oil", "symbol": "CL=F", "icon": "🛢️"}
-    ]
-    
-    commodity_data = []
-    for commodity in commodities:
-        try:
-            df = yf.download(commodity['symbol'], period="2d", interval="1d", progress=False)
-            if not df.empty and len(df) > 1:
-                current = float(df['Close'].iloc[-1])
-                prev = float(df['Close'].iloc[-2])
-                change_pct = ((current - prev) / prev) * 100
-                commodity_data.append({
-                    'name': commodity['name'],
-                    'symbol': commodity['symbol'],
-                    'icon': commodity['icon'],
-                    'price': current,
-                    'change_pct': change_pct,
-                    'error': False
-                })
-            else:
-                commodity_data.append({
-                    'name': commodity['name'],
-                    'symbol': commodity['symbol'],
-                    'icon': commodity['icon'],
-                    'price': 0,
-                    'change_pct': 0,
-                    'error': True
-                })
-        except:
-            commodity_data.append({
-                'name': commodity['name'],
-                'symbol': commodity['symbol'],
-                'icon': commodity['icon'],
-                'price': 0,
-                'change_pct': 0,
-                'error': True
-            })
-    
-    return commodity_data
-
-def get_indian_market_data_fixed():
-    """Fetch Indian market data"""
-    try:
-        # NIFTY
-        nifty = yf.download("^NSEI", period="5d", interval="1d", progress=False)
-        nifty_data = {'name': '🇮🇳 NIFTY 50', 'price': 0, 'change_pct': 0, 'trend': 'NEUTRAL', 'error': True}
-        
-        if not nifty.empty and len(nifty) > 1:
-            nifty_current = float(nifty['Close'].iloc[-1])
-            nifty_prev = float(nifty['Close'].iloc[-2])
-            nifty_pct = ((nifty_current - nifty_prev) / nifty_prev) * 100
-            if len(nifty) >= 5:
-                ema5 = nifty['Close'].rolling(window=5).mean().iloc[-1]
-                nifty_trend = "UP" if nifty_current > ema5 else "DOWN" if nifty_current < ema5 else "NEUTRAL"
-            else:
-                nifty_trend = "UP" if nifty_pct > 0 else "DOWN" if nifty_pct < 0 else "NEUTRAL"
-            nifty_data = {'name': '🇮🇳 NIFTY 50', 'price': nifty_current, 'change_pct': nifty_pct, 'trend': nifty_trend, 'error': False}
-        
-        # BANK NIFTY
-        banknifty = yf.download("^NSEBANK", period="5d", interval="1d", progress=False)
-        bank_data = {'name': '🏦 BANK NIFTY', 'price': 0, 'change_pct': 0, 'trend': 'NEUTRAL', 'error': True}
-        
-        if not banknifty.empty and len(banknifty) > 1:
-            bank_current = float(banknifty['Close'].iloc[-1])
-            bank_prev = float(banknifty['Close'].iloc[-2])
-            bank_pct = ((bank_current - bank_prev) / bank_prev) * 100
-            if len(banknifty) >= 5:
-                bank_ema5 = banknifty['Close'].rolling(window=5).mean().iloc[-1]
-                bank_trend = "UP" if bank_current > bank_ema5 else "DOWN" if bank_current < bank_ema5 else "NEUTRAL"
-            else:
-                bank_trend = "UP" if bank_pct > 0 else "DOWN" if bank_pct < 0 else "NEUTRAL"
-            bank_data = {'name': '🏦 BANK NIFTY', 'price': bank_current, 'change_pct': bank_pct, 'trend': bank_trend, 'error': False}
-        
-        # CRUDE OIL (in INR)
-        crude = yf.download("CL=F", period="2d", interval="1d", progress=False)
-        crude_data = {'name': '🛢️ CRUDE OIL', 'price': 0, 'change_pct': 0, 'trend': 'NEUTRAL', 'error': True}
-        
-        if not crude.empty and len(crude) > 1:
-            crude_current = float(crude['Close'].iloc[-1])
-            crude_prev = float(crude['Close'].iloc[-2])
-            crude_pct = ((crude_current - crude_prev) / crude_prev) * 100
-            usd_inr = 87.5
-            crude_data = {'name': '🛢️ CRUDE OIL', 'price': crude_current * usd_inr, 'change_pct': crude_pct, 'trend': "UP" if crude_pct > 0 else "DOWN" if crude_pct < 0 else "NEUTRAL", 'error': False}
-        
-        # NATURAL GAS
-        ng = yf.download("NG=F", period="2d", interval="1d", progress=False)
-        ng_data = {'name': '🌿 NATURAL GAS', 'price': 0, 'change_pct': 0, 'trend': 'NEUTRAL', 'error': True}
-        
-        if not ng.empty and len(ng) > 1:
-            ng_current = float(ng['Close'].iloc[-1])
-            ng_prev = float(ng['Close'].iloc[-2])
-            ng_pct = ((ng_current - ng_prev) / ng_prev) * 100
-            usd_inr = 87.5
-            ng_data = {'name': '🌿 NATURAL GAS', 'price': ng_current * usd_inr, 'change_pct': ng_pct, 'trend': "UP" if ng_pct > 0 else "DOWN" if ng_pct < 0 else "NEUTRAL", 'error': False}
-        
-        return [nifty_data, bank_data, crude_data, ng_data]
-    except Exception as e:
-        return []
+    # ================= TOTAL SYMBOLS COUNT DISPLAY =================
+    st.markdown(f"""
+    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; text-align: center;">
+        <span style="color:#00b4d8;">📊 Total F&O Symbols Available: <strong>{len(FO_SCRIPTS)}</strong></span>
+        <span style="color:#aaa; margin-left: 20px;">| Indices: 4 | Commodity: 2 | Stocks: {len(FO_SCRIPTS)-6}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ================= UPDATED TAB 2: SANSKRUTI MARKET =================
 with tab2:
