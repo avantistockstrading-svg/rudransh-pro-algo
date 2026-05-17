@@ -1839,3 +1839,144 @@ with st.sidebar:
 # ================= FOOTER =================
 st.markdown("---")
 st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | All Features Real")
+
+# ================= MISSING FUNCTIONS =================
+
+def monitor_today_results():
+    """Today चे results monitor करा"""
+    try:
+        pending = get_pending_results()
+        for company in pending:
+            symbol = company.get('symbol', '')
+            if symbol:
+                earnings = get_company_earnings(symbol)
+                if earnings:
+                    revenue = earnings.get('revenue', 0)
+                    prev_revenue = earnings.get('revenue', 0)
+                    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
+                    
+                    if revenue_growth > 10:
+                        result_type = "POSITIVE"
+                    elif revenue_growth < -5:
+                        result_type = "NEGATIVE"
+                    else:
+                        result_type = "NEUTRAL"
+                    
+                    already_alerted = False
+                    for alert in st.session_state.result_alerts:
+                        if alert.get('company') == company.get('name'):
+                            already_alerted = True
+                            break
+                    
+                    if not already_alerted and result_type != "NEUTRAL":
+                        st.session_state.result_alerts.append({
+                            'company': company.get('name', symbol),
+                            'date': get_ist_now().strftime('%Y-%m-%d'),
+                            'time': get_ist_now().strftime('%H:%M:%S'),
+                            'verdict': result_type
+                        })
+                        send_telegram(f"📊 RESULT: {company.get('name', symbol)} - {result_type}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+def check_and_execute_orders_with_journal():
+    """Wolf orders execute करा"""
+    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
+    
+    for order in pending_orders:
+        current_price = get_live_price(order['symbol'])
+        
+        if current_price > 0 and current_price >= order.get('buy_above', 0):
+            order['status'] = 'EXECUTED'
+            order['entry_price'] = current_price
+            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
+            
+            active_order = {
+                'symbol': order['symbol'],
+                'option_type': order.get('option_type', 'CALL (CE)'),
+                'strike_price': order.get('strike_price', 0),
+                'qty': order.get('qty', 1),
+                'entry_price': current_price,
+                'entry_time': order['entry_time'],
+                'sl': order.get('sl', current_price * 0.95),
+                'target': order.get('target', current_price * 1.05)
+            }
+            st.session_state.active_orders.append(active_order)
+            add_to_journal(active_order)
+            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price}")
+
+def monitor_active_orders_with_pnl():
+    """Active orders चे SL/Target check करा"""
+    orders_to_remove = []
+    
+    for i, order in enumerate(st.session_state.active_orders):
+        current_price = get_live_price(order['symbol'])
+        
+        if current_price <= 0:
+            continue
+        
+        if order['option_type'] == "CALL (CE)":
+            if current_price <= order['sl']:
+                orders_to_remove.append((i, order, current_price, "SL HIT"))
+            elif current_price >= order['target']:
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+        else:
+            if current_price >= order['sl']:
+                orders_to_remove.append((i, order, current_price, "SL HIT"))
+            elif current_price <= order['target']:
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+    
+    for idx, order, exit_price, reason in reversed(orders_to_remove):
+        add_to_journal(order, exit_price, reason)
+        st.session_state.active_orders.pop(idx)
+
+def auto_trade_from_signal_with_journal():
+    """Auto trade execute करा signals वरून"""
+    nifty_trend = get_nifty_trend()
+    symbols_to_check = ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"]
+    
+    for symbol in symbols_to_check:
+        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
+        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
+        
+        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
+            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+            trade_type = "BUY" if signal == "BUY" else "SELL"
+            can_trade = can_take_trade(symbol, trade_type)
+            
+            if not already_active and can_trade and is_trading_time(symbol):
+                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
+                
+                # Strike price calculate करा
+                if symbol in ["NIFTY", "BANKNIFTY"]:
+                    strike_interval = 50 if symbol == "NIFTY" else 100
+                    strike_price = math.floor(price / strike_interval) * strike_interval
+                else:
+                    strike_price = math.floor(price / 10) * 10
+                
+                sl_percent = st.session_state.auto_trade_sl_percent / 100
+                target_percent = st.session_state.auto_trade_target_percent / 100
+                
+                if signal == "BUY":
+                    sl_price = price * (1 - sl_percent)
+                    target_price = price * (1 + target_percent)
+                else:
+                    sl_price = price * (1 + sl_percent)
+                    target_price = price * (1 - target_percent)
+                
+                order = {
+                    'symbol': symbol,
+                    'option_type': option_type,
+                    'strike_price': strike_price,
+                    'qty': st.session_state.auto_trade_qty,
+                    'entry_price': price,
+                    'entry_time': get_ist_now().strftime('%H:%M:%S'),
+                    'sl': sl_price,
+                    'target': target_price,
+                    'signal_type': f'AUTO_{signal}'
+                }
+                
+                st.session_state.active_orders.append(order)
+                increment_trade_count(symbol, trade_type)
+                add_to_journal(order)
+                send_telegram(f"🤖 AUTO {signal}: {symbol} at ₹{price}")
