@@ -363,8 +363,35 @@ def monitor_today_results():
         for company in pending:
             symbol = company.get('symbol', '')
             if symbol:
-                earnings = get_company_ear
-
+                earnings = get_company_earnings(symbol)
+                if earnings:
+                    revenue = earnings.get('revenue', 0)
+                    prev_revenue = earnings.get('revenue', 0)
+                    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
+                    
+                    if revenue_growth > 10:
+                        result_type = "POSITIVE"
+                    elif revenue_growth < -5:
+                        result_type = "NEGATIVE"
+                    else:
+                        result_type = "NEUTRAL"
+                    
+                    already_alerted = False
+                    for alert in st.session_state.result_alerts:
+                        if alert.get('company') == company.get('name'):
+                            already_alerted = True
+                            break
+                    
+                    if not already_alerted and result_type != "NEUTRAL":
+                        st.session_state.result_alerts.append({
+                            'company': company.get('name', symbol),
+                            'date': get_ist_now().strftime('%Y-%m-%d'),
+                            'time': get_ist_now().strftime('%H:%M:%S'),
+                            'verdict': result_type
+                        })
+                        send_telegram(f"📊 RESULT: {company.get('name', symbol)} - {result_type}")
+    except Exception as e:
+        print(f"Error: {e}")
 # ================= MONITOR RESULTS =================
 def monitor_today_results():
     """OVI Results monitor करून journal मध्ये add करा"""
