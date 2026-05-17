@@ -2282,6 +2282,219 @@ def auto_trade_from_signal_with_journal():
                 add_to_journal(order)
                 send_telegram(f"⚙️ SAHYADRI AUTO {signal}: {symbol} at ₹{price}")
 
+# ================= WOLF AUTO F&O TRADE =================
+def wolf_auto_fo_trade():
+    """WOLF AUTO F&O - स्ट्रिक्ट कंडिशन्सनुसार CALL/PUT खरेदी करा"""
+    
+    nifty_trend = get_nifty_trend()
+    nifty_positive = (nifty_trend == "POSITIVE")
+    nifty_negative = (nifty_trend == "NEGATIVE")
+    
+    # 220+ F&O SCRIPTS वरून फक्त काही स्क्रिप्स (किंवा सगळ्यांसाठी)
+    symbols_to_check = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", 
+                        "INFY", "SBIN", "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", 
+                        "DMART", "SUNPHARMA", "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS",
+                        "TATASTEEL", "WIPRO", "HCLTECH", "ONGC", "NTPC", "POWERGRID"]
+    
+    for symbol in symbols_to_check:
+        # स्किप करा जर आधीच active order असेल
+        already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+        if already_active:
+            continue
+        
+        # स्किप करा जर आधीच pending order असेल
+        already_pending = any(o['symbol'] == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
+        if already_pending:
+            continue
+        
+        # स्किप करा जर ट्रेडिंग टाइम नसेल
+        if not is_trading_time(symbol):
+            continue
+        
+        # स्किप करा जर daily limit पूर्ण झाली असेल
+        trade_type = "BUY"  # आत्ता फक्त BUY साठी
+        if not can_take_trade(symbol, trade_type):
+            continue
+        
+        # Technical Indicators मिळवा
+        indicators = get_technical_indicators(symbol)
+        if indicators is None:
+            continue
+        
+        # Sector Trend मिळवा
+        sector = SECTOR_MAPPING.get(symbol, "NIFTY")
+        sector_trend = get_sector_trend(sector)
+        sector_bullish = (sector_trend == "BULLISH")
+        sector_bearish = (sector_trend == "BEARISH")
+        
+        # MTF Trends
+        trend5_up = get_mtf_trend(symbol, "5m") == "UP"
+        trend15_up = get_mtf_trend(symbol, "15m") == "UP"
+        trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
+        
+        # ========== STRICT BUY FILTER ==========
+        strong_bull_stock = (indicators["ema9"] > indicators["ema20"] and
+                             indicators["current_price"] > indicators["ema200"] and
+                             indicators["rsi"] >= 60 and
+                             indicators["adx"] >= 25 and
+                             indicators["volume_filter"] and
+                             indicators["strong_bull"] and
+                             indicators["current_price"] > indicators["c1_high"])
+        
+        ema_buy = (nifty_positive and
+                   not indicators["sideways"] and
+                   sector_bullish and
+                   indicators["ema9"] > indicators["ema20"] and
+                   indicators["current_price"] > indicators["ema200"] and
+                   indicators["rsi"] >= 60 and
+                   indicators["adx"] >= 25 and
+                   indicators["volume_filter"] and
+                   indicators["strong_bull"] and
+                   indicators["current_price"] > indicators["c1_high"] and
+                   trend5_up and trend15_up and trend1h_up)
+        
+        # ========== STRICT SELL FILTER (PUT) ==========
+        strong_bear_stock = (indicators["ema9"] < indicators["ema20"] and
+                             indicators["current_price"] < indicators["ema200"] and
+                             indicators["rsi"] <= 40 and
+                             indicators["adx"] >= 25 and
+                             indicators["volume_filter"] and
+                             indicators["strong_bear"] and
+                             indicators["current_price"] < indicators["c1_low"])
+        
+        ema_sell = (nifty_negative and
+                    not indicators["sideways"] and
+                    sector_bearish and
+                    indicators["ema9"] < indicators["ema20"] and
+                    indicators["current_price"] < indicators["ema200"] and
+                    indicators["rsi"] <= 40 and
+                    indicators["adx"] >= 25 and
+                    indicators["volume_filter"] and
+                    indicators["strong_bear"] and
+                    indicators["current_price"] < indicators["c1_low"] and
+                    not trend5_up and not trend15_up and not trend1h_up)
+        
+        # ========== EXECUTE BUY ORDER ==========
+        if ema_buy or strong_bull_stock:
+            current_price = indicators["current_price"]
+            
+            # Option Type: CALL (CE)
+            option_type = "CALL (CE)"
+            
+            # Strike Price
+            if symbol in ["NIFTY", "BANKNIFTY"]:
+                strike_interval = 50 if symbol == "NIFTY" else 100
+                strike_price = math.floor(current_price / strike_interval) * strike_interval
+            else:
+                strike_price = math.floor(current_price / 10) * 10
+            
+            # TP1, TP2, SL
+            entry_price = current_price
+            tp1_percent = 0.10   # 10%
+            tp2_percent = 0.20   # 20%
+            sl_percent = 0.10    # 10% SL
+            
+            tp1_price = entry_price * (1 + tp1_percent)
+            tp2_price = entry_price * (1 + tp2_percent)
+            sl_price = entry_price * (1 - sl_percent)
+            
+            # Pending Order मध्ये ठेवा
+            st.session_state.wolf_orders.append({
+                'symbol': symbol,
+                'option_type': option_type,
+                'strike_price': strike_price,
+                'qty': 1,
+                'buy_above': current_price,
+                'sl': sl_price,
+                'target': tp2_price,
+                'tp1': tp1_price,
+                'tp1_book_percent': 50,
+                'status': 'PENDING',
+                'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                'auto_trade': True,
+                'result_based': False,
+                'signal_type': '🐺 WOLF AUTO',
+                'signal': 'BUY'
+            })
+            
+            increment_trade_count(symbol, "BUY")
+            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} {option_type} @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | SL:{sl_price:.2f}")
+            
+            # Journal Entry
+            st.session_state.trade_journal.append({
+                "No": len(st.session_state.trade_journal) + 1,
+                "Time": get_ist_now().strftime('%H:%M:%S'),
+                "System": "🐺 WOLF AUTO",
+                "Symbol": f"{symbol} {option_type} {strike_price}",
+                "Type": "BUY",
+                "Signal": "STRICT CONDITION",
+                "Entry": round(entry_price, 2),
+                "Exit": "-",
+                "P&L (₹)": 0,
+                "Status": f"PENDING - Limit {entry_price:.2f}"
+            })
+        
+        # ========== EXECUTE SELL ORDER (PUT) ==========
+        elif ema_sell or strong_bear_stock:
+            current_price = indicators["current_price"]
+            
+            # Option Type: PUT (PE)
+            option_type = "PUT (PE)"
+            
+            # Strike Price
+            if symbol in ["NIFTY", "BANKNIFTY"]:
+                strike_interval = 50 if symbol == "NIFTY" else 100
+                strike_price = math.floor(current_price / strike_interval) * strike_interval
+            else:
+                strike_price = math.floor(current_price / 10) * 10
+            
+            # TP1, TP2, SL for PUT
+            entry_price = current_price
+            tp1_percent = 0.10   # 10%
+            tp2_percent = 0.20   # 20%
+            sl_percent = 0.10    # 10% SL
+            
+            # PUT साठी price कमी होतो तेव्हा profit
+            tp1_price = entry_price * (1 - tp1_percent)
+            tp2_price = entry_price * (1 - tp2_percent)
+            sl_price = entry_price * (1 + sl_percent)
+            
+            # Pending Order मध्ये ठेवा
+            st.session_state.wolf_orders.append({
+                'symbol': symbol,
+                'option_type': option_type,
+                'strike_price': strike_price,
+                'qty': 1,
+                'buy_above': current_price,
+                'sl': sl_price,
+                'target': tp2_price,
+                'tp1': tp1_price,
+                'tp1_book_percent': 50,
+                'status': 'PENDING',
+                'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                'auto_trade': True,
+                'result_based': False,
+                'signal_type': '🐺 WOLF AUTO',
+                'signal': 'SELL'
+            })
+            
+            increment_trade_count(symbol, "SELL")
+            send_telegram(f"🐺 WOLF AUTO SELL (PUT): {symbol} {option_type} @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | SL:{sl_price:.2f}")
+            
+            # Journal Entry
+            st.session_state.trade_journal.append({
+                "No": len(st.session_state.trade_journal) + 1,
+                "Time": get_ist_now().strftime('%H:%M:%S'),
+                "System": "🐺 WOLF AUTO",
+                "Symbol": f"{symbol} {option_type} {strike_price}",
+                "Type": "SELL",
+                "Signal": "STRICT CONDITION",
+                "Entry": round(entry_price, 2),
+                "Exit": "-",
+                "P&L (₹)": 0,
+                "Status": f"PENDING - Limit {entry_price:.2f}"
+            })
+
 # ================= FOOTER =================
 st.markdown("---")
 st.caption(f"🐺 {APP_NAME} v{APP_VERSION} | {APP_AUTHOR} | {APP_LOCATION} | All Features Real")
