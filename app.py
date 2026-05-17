@@ -312,6 +312,235 @@ def get_pending_results():
     # API error असल्यास empty list return करा
     return []
 
+# ================= MONITOR RESULTS =================
+def monitor_today_results():
+    """OVI Results monitor करून journal मध्ये add करा"""
+    try:
+        pending = get_pending_results()
+        for company in pending:
+            symbol = company.get('symbol', '')
+            if symbol:
+                earnings = get_company_earnings(symbol)
+                if earnings:
+                    revenue = earnings.get('revenue', 0)
+                    prev_revenue = earnings.get('revenue', 0)
+                    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
+                    
+                    if revenue_growth > 10:
+                        result_type = "POSITIVE"
+                        signal = "BUY"
+                    elif revenue_growth < -5:
+                        result_type = "NEGATIVE"
+                        signal = "SELL"
+                    else:
+                        result_type = "NEUTRAL"
+                        signal = "WAIT"
+                    
+                    already_alerted = False
+                    for alert in st.session_state.result_alerts:
+                        if alert.get('company') == company.get('name'):
+                            already_alerted = True
+                            break
+                    
+                    if not already_alerted and result_type != "NEUTRAL":
+                        st.session_state.result_alerts.append({
+                            'company': company.get('name', symbol),
+                            'date': get_ist_now().strftime('%Y-%m-%d'),
+                            'time': get_ist_now().strftime('%H:%M:%S'),
+                            'verdict': result_type,
+                            'signal': signal
+                        })
+                        
+                        # Journal मध्ये result entry add करा
+                        st.session_state.trade_journal.append({
+                            "No": len(st.session_state.trade_journal) + 1,
+                            "Time": get_ist_now().strftime('%H:%M:%S'),
+                            "System": "📈 OVI RESULTS",
+                            "Symbol": company.get('name', symbol),
+                            "Type": result_type,
+                            "Signal": signal,
+                            "Entry": "-",
+                            "Exit": "-",
+                            "P&L (₹)": 0,
+                            "Status": f"RESULT DECLARED - {result_type}"
+                        })
+                        send_telegram(f"📊 OVI: {company.get('name', symbol)} - {result_type} - {signal}")
+    except Exception as e:
+        print(f"Monitor results error: {e}")
+
+# ================= CHECK & EXECUTE WOLF ORDERS =================
+def check_and_execute_orders_with_journal():
+    """Wolf orders execute करा आणि journal मध्ये add करा"""
+    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
+    
+    for order in pending_orders:
+        current_price = get_live_price(order['symbol'])
+        
+        if current_price > 0 and current_price >= order.get('buy_above', 0):
+            order['status'] = 'EXECUTED'
+            order['entry_price'] = current_price
+            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
+            
+            active_order = {
+                'symbol': order['symbol'],
+                'option_type': order.get('option_type', 'CALL (CE)'),
+                'strike_price': order.get('strike_price', 0),
+                'qty': order.get('qty', 1),
+                'entry_price': current_price,
+                'entry_time': order['entry_time'],
+                'sl': order.get('sl', current_price * 0.95),
+                'target': order.get('target', current_price * 1.05),
+                'signal_type': '🐺 WOLF'
+            }
+            st.session_state.active_orders.append(active_order)
+            
+            # Journal मध्ये entry add करा
+            st.session_state.trade_journal.append({
+                "No": len(st.session_state.trade_journal) + 1,
+                "Time": order['entry_time'],
+                "System": "🐺 WOLF",
+                "Symbol": f"{order['symbol']} {order.get('option_type', '')} {order.get('strike_price', '')}",
+                "Type": "BUY",
+                "Signal": order.get('signal_type', 'MANUAL'),
+                "Entry": round(current_price, 2),
+                "Exit": "-",
+                "P&L (₹)": 0,
+                "Status": "ACTIVE"
+            })
+            
+            send_telegram(f"🐺 WOLF EXECUTED: {order['symbol']} at ₹{current_price}")
+            voice_alert(f"Wolf order executed for {order['symbol']}")
+
+def monitor_active_orders_with_pnl():
+    """Active orders monitor करा आणि exit झाल्यावर journal update करा"""
+    orders_to_remove = []
+    
+    for i, order in enumerate(st.session_state.active_orders):
+        current_price = get_live_price(order['symbol'])
+        
+        if current_price <= 0:
+            continue
+        
+        if order['option_type'] == "CALL (CE)":
+            if current_price <= order['sl']:
+                exit_reason = "SL HIT"
+                exit_price = current_price
+                orders_to_remove.append((i, order, exit_price, exit_reason))
+            elif current_price >= order['target']:
+                exit_reason = "TARGET HIT"
+                exit_price = current_price
+                orders_to_remove.append((i, order, exit_price, exit_reason))
+        else:
+            if current_price >= order['sl']:
+                exit_reason = "SL HIT"
+                exit_price = current_price
+                orders_to_remove.append((i, order, exit_price, exit_reason))
+            elif current_price <= order['target']:
+                exit_reason = "TARGET HIT"
+                exit_price = current_price
+                orders_to_remove.append((i, order, exit_price, exit_reason))
+    
+    for idx, order, exit_price, reason in reversed(orders_to_remove):
+        # P&L calculate करा
+        multiplier = 50 if order['symbol'] == "NIFTY" else 25 if order['symbol'] == "BANKNIFTY" else 100
+        if order['option_type'] == "CALL (CE)":
+            pnl_points = exit_price - order['entry_price']
+        else:
+            pnl_points = order['entry_price'] - exit_price
+        pnl_value = pnl_points * order['qty'] * multiplier
+        
+        # Journal मध्ये exit update करा
+        for journal_entry in st.session_state.trade_journal:
+            if journal_entry.get('Status') == "ACTIVE" and journal_entry.get('Entry') == order['entry_price']:
+                journal_entry['Exit'] = round(exit_price, 2)
+                journal_entry['P&L (₹)'] = round(pnl_value, 2)
+                journal_entry['Status'] = f"CLOSED - {reason}"
+                journal_entry['Time'] = f"{journal_entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
+                break
+        else:
+            # New journal entry for exit
+            st.session_state.trade_journal.append({
+                "No": len(st.session_state.trade_journal) + 1,
+                "Time": get_ist_now().strftime('%H:%M:%S'),
+                "System": order.get('signal_type', 'UNKNOWN'),
+                "Symbol": f"{order['symbol']} {order['option_type']}",
+                "Type": "CLOSE",
+                "Signal": reason,
+                "Entry": round(order['entry_price'], 2),
+                "Exit": round(exit_price, 2),
+                "P&L (₹)": round(pnl_value, 2),
+                "Status": reason
+            })
+        
+        st.session_state.active_orders.pop(idx)
+        send_telegram(f"📊 {order.get('signal_type', 'ORDER')} CLOSED: {order['symbol']} - {reason} | P&L: ₹{pnl_value:.2f}")
+
+def auto_trade_from_signal_with_journal():
+    """SAHYADRI सिस्टीम वरून auto trade करा"""
+    nifty_trend = get_nifty_trend()
+    symbols_to_check = ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"]
+    
+    for symbol in symbols_to_check:
+        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
+        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
+        
+        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
+            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+            trade_type = "BUY" if signal == "BUY" else "SELL"
+            can_trade = can_take_trade(symbol, trade_type)
+            
+            if not already_active and can_trade and is_trading_time(symbol):
+                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
+                
+                # Strike price calculate करा
+                if symbol in ["NIFTY", "BANKNIFTY"]:
+                    strike_interval = 50 if symbol == "NIFTY" else 100
+                    strike_price = math.floor(price / strike_interval) * strike_interval
+                else:
+                    strike_price = math.floor(price / 10) * 10
+                
+                sl_percent = st.session_state.auto_trade_sl_percent / 100
+                target_percent = st.session_state.auto_trade_target_percent / 100
+                
+                if signal == "BUY":
+                    sl_price = price * (1 - sl_percent)
+                    target_price = price * (1 + target_percent)
+                else:
+                    sl_price = price * (1 + sl_percent)
+                    target_price = price * (1 - target_percent)
+                
+                order = {
+                    'symbol': symbol,
+                    'option_type': option_type,
+                    'strike_price': strike_price,
+                    'qty': st.session_state.auto_trade_qty,
+                    'entry_price': price,
+                    'entry_time': get_ist_now().strftime('%H:%M:%S'),
+                    'sl': sl_price,
+                    'target': target_price,
+                    'signal_type': '⚙️ SAHYADRI'
+                }
+                
+                st.session_state.active_orders.append(order)
+                increment_trade_count(symbol, trade_type)
+                
+                # Journal मध्ये SAHYADRI trade add करा
+                st.session_state.trade_journal.append({
+                    "No": len(st.session_state.trade_journal) + 1,
+                    "Time": order['entry_time'],
+                    "System": "⚙️ SAHYADRI",
+                    "Symbol": f"{symbol} {option_type} {strike_price}",
+                    "Type": signal,
+                    "Signal": f"AUTO - {signal}",
+                    "Entry": round(price, 2),
+                    "Exit": "-",
+                    "P&L (₹)": 0,
+                    "Status": "ACTIVE"
+                })
+                
+                send_telegram(f"⚙️ SAHYADRI AUTO {signal}: {symbol} at ₹{price} | SL: ₹{sl_price} | Target: ₹{target_price}")
+                voice_alert(f"Sahyadri auto {signal} for {symbol}")
+
 # ================= PENDING RESULTS (Dynamic) =================
 PENDING_RESULTS = get_pending_results()
 
@@ -697,38 +926,6 @@ def process_result_and_trade(company_name, symbol, result_type):
         send_telegram(f"📊 RESULT: {company_name} - {signal} {option_type}")
         return True, f"{signal} order placed"
     return False, "Price not available"
-
-# ================= EARNINGS CALENDAR API (AUTO DAILY UPDATE) =================
-def get_today_earnings():
-    """FMP Earnings Calendar API वरून आजच्या results ची list मिळवा"""
-    try:
-        today = get_ist_now().strftime('%Y-%m-%d')
-        url = f"https://financialmodelingprep.com/stable/earnings-calendar?from={today}&to={today}&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            earnings_list = []
-            for item in data:
-                symbol = item.get('symbol', '').replace('.NS', '')
-                earnings_list.append({
-                    'name': symbol,
-                    'symbol': symbol,
-                    'date': item.get('date', today),
-                    'eps_estimated': item.get('epsEstimated'),
-                    'eps_actual': item.get('epsActual')
-                })
-            return earnings_list
-        return []
-    except Exception as e:
-        print(f"Earnings Calendar Error: {e}")
-        return []
-
-def get_pending_results():
-    """Dynamic results list - daily update होईल"""
-    earnings = get_today_earnings()
-    if earnings:
-        return earnings
-    return []
 # ================= UI HEADER =================
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
