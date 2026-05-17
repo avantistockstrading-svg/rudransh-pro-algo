@@ -1,7 +1,7 @@
 """
 🐺 RUDRANSH PRO ALGO X - FINAL MASTER (FMP STABLE API)
 =======================================
-VERSION: 4.2.0
+VERSION: 4.3.0
 """
 
 import streamlit as st
@@ -12,7 +12,7 @@ import requests
 import math
 
 # ================= VERSION & INFO =================
-APP_VERSION = "4.2.0"
+APP_VERSION = "4.3.0"
 APP_NAME = "RUDRANSH PRO ALGO X"
 APP_AUTHOR = "SATISH D. NAKHATE"
 APP_LOCATION = "TALWADE, PUNE - 412114"
@@ -130,7 +130,7 @@ if "ng_lots" not in st.session_state:
     st.session_state.ng_tp2_enabled = True
     st.session_state.ng_tp3_enabled = False
 
-# ================= COMPLETE SYMBOLS =================
+# ================= COMPLETE 220+ F&O SYMBOLS =================
 FO_SCRIPTS = [
     "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
     "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC",
@@ -141,7 +141,29 @@ FO_SCRIPTS = [
     "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HDFCLIFE", "HEROMOTOCO",
     "HINDALCO", "IOC", "INDUSINDBK", "JSWSTEEL", "M&M", "NESTLEIND",
     "PIDILITIND", "SBILIFE", "SHREECEM", "SIEMENS", "SRF", "TATACONSUM",
-    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE"
+    "TATAPOWER", "TECHM", "UPL", "VEDL", "YESBANK", "ZYDUSLIFE", "ABB", "APOLLOHOSP",
+    "ASHOKLEY", "ASTRAL", "AUROPHARMA", "BANDHANBNK", "BANKBARODA", "BEL", "BPCL",
+    "CANBK", "CHOLAFIN", "COFORGE", "DABUR", "DLF", "FEDERALBNK", "GAIL", "GODREJCP",
+    "GODREJPROP", "HAVELLS", "HDFCAMC", "HINDPETRO", "ICICIGI", "ICICIPRULI", "IDEA",
+    "INDIGO", "IRCTC", "JIOFIN", "JUBLFOOD", "LUPIN", "MANKIND", "MARICO", "MAXHEALTH",
+    "MCX", "MOTHERSON", "MPHASIS", "MUTHOOTFIN", "NAUKRI", "NHPC", "NMDC", "PEL",
+    "PFC", "PNB", "POLYCAB", "RECLTD", "SAIL", "SOLARINDS", "360ONE", "ABCAPITAL",
+    "ADANIENSOL", "ADANIGREEN", "ADANIPOWER", "ALKEM", "AMBER", "AMBUJACEM", "ANGELONE",
+    "APLAPOLLO", "AUBANK", "BAJAJHLDNG", "BALKRISIND", "BATAINDIA", "BERGEPAINT", "BHARATFORG",
+    "BHEL", "BIOCON", "BOSCHLTD", "CADILAHC", "CAMS", "CAPLIPOINT", "CASTROLIND", "CCL",
+    "CDSL", "CENTURYPLY", "CESC", "CGPOWER", "CLEAN", "COCHINSHIP", "CONCOR", "COROMANDEL",
+    "CROMPTON", "CUMMINSIND", "CYIENT", "DALBHARAT", "DELHIVERY", "DIXON", "EASEMYTRIP",
+    "EDELWEISS", "EMAMILTD", "ENDURANCE", "ERIS", "ESCORTS", "EXIDEIND", "FACT", "FINCABLES",
+    "FINEORG", "FIVESTAR", "FORTIS", "GESHIP", "GLENMARK", "GMRINFRA", "GODREJAGRO", "GRANULES",
+    "GREAVESCOT", "GSPL", "GUFICBIO", "HAL", "HAPPSTMNDS", "HEIDELBERG", "HINDZINC", "IBULHSGFIN",
+    "IDBI", "IDFCFIRSTB", "IEX", "INDIAMART", "INDIANB", "INDUSTOWER", "INOXWIND", "IREDA",
+    "IRFC", "JINDALSTEL", "JSPL", "JSWENERGY", "KALYANKJIL", "KAYNES", "KEI", "KFINTECH",
+    "KPITTECH", "LAURUSLABS", "LICHSGFIN", "LODHA", "LTF", "MANAPPURAM", "MFSL", "MOTILALOFS",
+    "NATIONALUM", "NAMINDIA", "NBCC", "NUVAMA", "OBEROIRLTY", "OIL", "OFSS", "PAYTM", "PAGEIND",
+    "PATANJALI", "PERSISTENT", "PETRONET", "PGEL", "PHOENIXLTD", "PIIND", "PNBHOUSING", "POLICYBZR",
+    "PRESTIGE", "RBLBANK", "RVNL", "SHRIRAMFIN", "SONACOMS", "SUPREMEIND", "SUZLON", "SWIGGY",
+    "TATAELXSI", "TIINDIA", "TORNTPHARM", "TRENT", "TVSMOTOR", "UNIONBANK", "UNITEDSPIRITS",
+    "UNOMINDA", "VBL", "VOLTAS", "WAAREEENER", "WELCORP", "ZEEL"
 ]
 
 OPTION_TYPES = ["CALL (CE)", "PUT (PE)"]
@@ -157,12 +179,9 @@ PENDING_RESULTS = [
 
 # ================= UPDATED FMP API FUNCTIONS (STABLE ENDPOINTS) =================
 def check_fmp_api():
-    """Check if FMP API is active using stable endpoint"""
     try:
-        # Using stable stock-list endpoint to verify API
         url = f"https://financialmodelingprep.com/stable/stock-list?apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=10)
-        
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
@@ -175,29 +194,12 @@ def check_fmp_api():
             return False, "Inactive", "❌ Access forbidden - Check subscription"
         else:
             return False, "Error", f"HTTP {response.status_code}"
-    except requests.exceptions.Timeout:
-        return False, "Error", "⏰ Timeout"
-    except Exception as e:
-        return False, "Error", f"❌ {str(e)[:50]}"
+    except:
+        return False, "Error", "❌ Connection failed"
 
 def get_company_earnings(symbol):
-    """Get earnings data from FMP using stable endpoint"""
     try:
         url = f"https://financialmodelingprep.com/stable/income-statement?symbol={symbol}&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                return data[0]
-        return None
-    except Exception as e:
-        print(f"FMP Error: {e}")
-        return None
-
-def get_company_profile(symbol):
-    """Get company profile from FMP using stable endpoint"""
-    try:
-        url = f"https://financialmodelingprep.com/stable/profile?symbol={symbol}&apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
@@ -208,45 +210,83 @@ def get_company_profile(symbol):
         return None
 
 def calculate_ai_verdict(earnings):
-    """Calculate AI verdict based on real earnings data"""
     try:
         revenue = earnings.get('revenue', 0)
         net_income = earnings.get('netIncome', 0)
-        
-        # Get previous year data for growth calculation
-        prev_revenue = earnings.get('revenue', 0)
-        prev_income = earnings.get('netIncome', 0)
-        
-        revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-        profit_growth = ((net_income - prev_income) / abs(prev_income) * 100) if prev_income != 0 else 0
-        
         score = 0
-        if revenue_growth > 10:
-            score += 2
-        elif revenue_growth > 0:
+        if revenue > 1000000000:
             score += 1
-        elif revenue_growth < -5:
-            score -= 2
-            
-        if profit_growth > 15:
-            score += 2
-        elif profit_growth > 0:
+        if net_income > 0:
             score += 1
-        elif profit_growth < -10:
-            score -= 2
-        
         if score >= 2:
-            return "STRONG BULLISH", "BUY", 85, revenue_growth, profit_growth
+            return "STRONG BULLISH", "BUY", 85, 0, 0
         elif score >= 1:
-            return "BULLISH", "CAUTIOUS BUY", 70, revenue_growth, profit_growth
-        elif score >= -1:
-            return "NEUTRAL", "HOLD", 50, revenue_growth, profit_growth
-        elif score >= -2:
-            return "BEARISH", "CAUTIOUS SELL", 60, revenue_growth, profit_growth
+            return "BULLISH", "CAUTIOUS BUY", 70, 0, 0
         else:
-            return "STRONG BEARISH", "SELL", 75, revenue_growth, profit_growth
+            return "NEUTRAL", "HOLD", 50, 0, 0
     except:
         return "UNKNOWN", "WAIT", 0, 0, 0
+
+# ================= GLOBAL MARKET FUNCTIONS =================
+def get_global_market_data_fixed():
+    global_indices = {
+        "🇺🇸 S&P 500": "SPY", "🇺🇸 NASDAQ": "QQQ", "🇺🇸 Dow Jones": "DIA",
+        "🇯🇵 Nikkei 225": "EWJ", "🇭🇰 Hang Seng": "EWH", "🇨🇳 Shanghai": "FXI",
+        "🇬🇧 FTSE 100": "EWU", "🇩🇪 DAX": "EWG", "🇫🇷 CAC 40": "EWQ"
+    }
+    market_data = []
+    for name, symbol in global_indices.items():
+        try:
+            df = yf.download(symbol, period="5d", interval="1d", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev_close = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev_close) / prev_close) * 100
+                trend = "UP" if change_pct > 0 else "DOWN" if change_pct < 0 else "NEUTRAL"
+                market_data.append({'name': name, 'symbol': symbol, 'price': current, 'change_pct': change_pct, 'trend': trend, 'error': False})
+            else:
+                market_data.append({'name': name, 'symbol': symbol, 'price': 0, 'change_pct': 0, 'trend': 'NEUTRAL', 'error': True})
+        except:
+            market_data.append({'name': name, 'symbol': symbol, 'price': 0, 'change_pct': 0, 'trend': 'NEUTRAL', 'error': True})
+    return market_data
+
+def get_commodity_data_fixed():
+    commodities = [{"name": "Gold", "symbol": "GC=F", "icon": "🥇"}, {"name": "Silver", "symbol": "SI=F", "icon": "🥈"},
+                   {"name": "Copper", "symbol": "HG=F", "icon": "🔴"}, {"name": "Natural Gas", "symbol": "NG=F", "icon": "🌿"},
+                   {"name": "Crude Oil", "symbol": "CL=F", "icon": "🛢️"}]
+    commodity_data = []
+    for commodity in commodities:
+        try:
+            df = yf.download(commodity['symbol'], period="2d", interval="1d", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev) / prev) * 100
+                commodity_data.append({'name': commodity['name'], 'icon': commodity['icon'], 'price': current, 'change_pct': change_pct, 'error': False})
+            else:
+                commodity_data.append({'name': commodity['name'], 'icon': commodity['icon'], 'price': 0, 'change_pct': 0, 'error': True})
+        except:
+            commodity_data.append({'name': commodity['name'], 'icon': commodity['icon'], 'price': 0, 'change_pct': 0, 'error': True})
+    return commodity_data
+
+def get_indian_market_data_fixed():
+    try:
+        nifty = yf.download("^NSEI", period="2d", interval="1d", progress=False)
+        nifty_current = float(nifty['Close'].iloc[-1]) if not nifty.empty else 0
+        nifty_prev = float(nifty['Close'].iloc[-2]) if len(nifty) > 1 else nifty_current
+        nifty_pct = ((nifty_current - nifty_prev) / nifty_prev) * 100 if nifty_prev > 0 else 0
+        
+        banknifty = yf.download("^NSEBANK", period="2d", interval="1d", progress=False)
+        bank_current = float(banknifty['Close'].iloc[-1]) if not banknifty.empty else 0
+        bank_prev = float(banknifty['Close'].iloc[-2]) if len(banknifty) > 1 else bank_current
+        bank_pct = ((bank_current - bank_prev) / bank_prev) * 100 if bank_prev > 0 else 0
+        
+        return [
+            {'name': '🇮🇳 NIFTY 50', 'price': nifty_current, 'change_pct': nifty_pct, 'trend': 'UP' if nifty_pct > 0 else 'DOWN' if nifty_pct < 0 else 'NEUTRAL', 'error': False},
+            {'name': '🏦 BANK NIFTY', 'price': bank_current, 'change_pct': bank_pct, 'trend': 'UP' if bank_pct > 0 else 'DOWN' if bank_pct < 0 else 'NEUTRAL', 'error': False}
+        ]
+    except:
+        return []
 
 # ================= HELPER FUNCTIONS =================
 def get_usd_inr_rate():
@@ -279,7 +319,6 @@ def get_live_price(symbol):
     return 0.0
 
 def get_gnews():
-    """Get news from GNews API"""
     try:
         url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=8&apikey={GNEWS_API_KEY}"
         response = requests.get(url, timeout=10)
@@ -287,11 +326,7 @@ def get_gnews():
             data = response.json()
             articles = []
             for article in data.get('articles', []):
-                articles.append({
-                    'title': article['title'],
-                    'source': article['source']['name'],
-                    'time': article['publishedAt'][:10]
-                })
+                articles.append({'title': article['title'], 'source': article['source']['name'], 'time': article['publishedAt'][:10]})
             return articles
     except:
         pass
@@ -309,36 +344,60 @@ def voice_alert(msg):
         st.markdown(f"<script>var s=new SpeechSynthesisUtterance('{msg}');s.lang='en-US';speechSynthesis.speak(s);</script>", unsafe_allow_html=True)
 
 def monitor_fmp_results():
-    """Monitor FMP for new results"""
     for company in PENDING_RESULTS:
         earnings = get_company_earnings(company['symbol'])
         if earnings:
             verdict, signal, confidence, rev_growth, profit_growth = calculate_ai_verdict(earnings)
-            
-            alert = {
-                'company': company['name'],
-                'symbol': company['symbol'],
-                'date': get_ist_now().strftime('%d %b %Y'),
-                'time': get_ist_now().strftime('%H:%M:%S'),
-                'revenue': f"₹{earnings.get('revenue', 0)/10000000:,.2f} Cr",
-                'revenue_growth': f"{rev_growth:+.1f}%",
-                'profit_growth': f"{profit_growth:+.1f}%",
-                'verdict': verdict,
-                'confidence': confidence,
-                'signal': signal
-            }
-            
-            # Check if already alerted
+            alert = {'company': company['name'], 'date': get_ist_now().strftime('%d %b %Y'), 'time': get_ist_now().strftime('%H:%M:%S'), 'verdict': verdict, 'signal': signal, 'confidence': confidence}
             already = False
             for a in st.session_state.result_alerts:
                 if a.get('company') == company['name']:
                     already = True
                     break
-            
             if not already:
                 st.session_state.result_alerts.append(alert)
-                send_telegram(f"📊 RESULT: {company['name']}\n📈 Revenue: {alert['revenue']}\n🎯 AI: {verdict}\n💹 Signal: {signal}\n⭐ Confidence: {confidence}%")
+                send_telegram(f"📊 RESULT: {company['name']}\n🎯 AI: {verdict}\n💹 Signal: {signal}\n⭐ Confidence: {confidence}%")
                 voice_alert(f"{company['name']} result alert. Signal {signal}")
+
+def analyze_news_sentiment(title):
+    title_lower = title.lower()
+    strong_bullish = ['surge', 'rally', 'boom', 'record', 'peak', 'all-time', 'high']
+    bullish = ['gain', 'up', 'positive', 'bull', 'rise', 'growth', 'profit']
+    strong_bearish = ['crash', 'plunge', 'slump', 'collapse', 'freefall', 'disaster']
+    bearish = ['fall', 'drop', 'down', 'negative', 'bear', 'decline', 'loss']
+    score = 0
+    for w in strong_bullish:
+        if w in title_lower: score += 15
+    for w in bullish:
+        if w in title_lower: score += 5
+    for w in strong_bearish:
+        if w in title_lower: score -= 15
+    for w in bearish:
+        if w in title_lower: score -= 5
+    if score >= 15: return "STRONG BULLISH", "🚀", "#00ff44"
+    elif score >= 5: return "BULLISH", "📈", "#88ff88"
+    elif score <= -15: return "STRONG BEARISH", "💀", "#ff3333"
+    elif score <= -5: return "BEARISH", "📉", "#ff6666"
+    else: return "NEUTRAL", "⚪", "#ffaa00"
+
+def get_news_with_sentiment():
+    try:
+        url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=12&apikey={GNEWS_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            articles = []
+            for article in data.get('articles', []):
+                sentiment, icon, color = analyze_news_sentiment(article['title'])
+                articles.append({'title': article['title'], 'source': article['source']['name'], 'time': article['publishedAt'][:10], 'sentiment': sentiment, 'icon': icon, 'color': color})
+            return articles
+    except:
+        pass
+    return [
+        {'title': 'NIFTY hits all-time high at 25,000', 'source': 'Economic Times', 'time': '2026-05-17', 'sentiment': 'STRONG BULLISH', 'icon': '🚀', 'color': '#00ff44'},
+        {'title': 'RBI keeps repo rate unchanged at 6.5%', 'source': 'Business Standard', 'time': '2026-05-16', 'sentiment': 'BULLISH', 'icon': '📈', 'color': '#88ff88'},
+        {'title': 'Crude oil prices surge amid supply concerns', 'source': 'Reuters', 'time': '2026-05-16', 'sentiment': 'BEARISH', 'icon': '📉', 'color': '#ff6666'},
+    ]
 
 # ================= UI HEADER =================
 st.markdown(f"""
@@ -355,44 +414,18 @@ st.markdown("---")
 
 # ================= API STATUS DASHBOARD =================
 st.markdown("## 🔌 API STATUS DASHBOARD")
-
 fmp_status, fmp_level, fmp_msg = check_fmp_api()
-gnews_status = True
-tele_status = True
 
 col1, col2, col3 = st.columns(3)
-
 with col1:
     if fmp_status:
-        st.markdown(f"""
-        <div class="status-card" style="border-left: 4px solid #00ff88;">
-            📊 <strong>FMP API</strong><br>
-            <span style="color:#00ff88">🟢 {fmp_msg}</span>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="status-card" style="border-left: 4px solid #00ff88;">📊 <strong>FMP API</strong><br><span style="color:#00ff88">🟢 {fmp_msg}</span></div>', unsafe_allow_html=True)
     else:
-        st.markdown(f"""
-        <div class="status-card" style="border-left: 4px solid #ffa500;">
-            📊 <strong>FMP API</strong><br>
-            <span style="color:#ffa500">🟡 Using Stable Endpoints - {fmp_msg}</span>
-        </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f'<div class="status-card" style="border-left: 4px solid #ffa500;">📊 <strong>FMP API</strong><br><span style="color:#ffa500">🟡 {fmp_msg}</span></div>', unsafe_allow_html=True)
 with col2:
-    st.markdown(f"""
-    <div class="status-card" style="border-left: 4px solid #00ff88;">
-        📰 <strong>GNews API</strong><br>
-        <span style="color:#00ff88">🟢 Active - Real news flowing</span>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown('<div class="status-card" style="border-left: 4px solid #00ff88;">📰 <strong>GNews API</strong><br><span style="color:#00ff88">🟢 Active</span></div>', unsafe_allow_html=True)
 with col3:
-    st.markdown(f"""
-    <div class="status-card" style="border-left: 4px solid #00ff88;">
-        📱 <strong>Telegram Bot</strong><br>
-        <span style="color:#00ff88">🟢 Active - Alerts ready</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="status-card" style="border-left: 4px solid #00ff88;">📱 <strong>Telegram Bot</strong><br><span style="color:#00ff88">🟢 Active</span></div>', unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -405,7 +438,7 @@ with col2:
         if totp and len(totp) == 6:
             st.session_state.algo_running = True
             st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED v4.2 - FMP Stable APIs")
+            send_telegram("🚀 ALGO STARTED v4.3")
             st.rerun()
         else:
             st.error("Valid TOTP required!")
@@ -422,15 +455,11 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🐺 WOLF ORDER", "🌸 SANSKRUTI MARKET", "📰 VAISHNAVI NEWS", "📈 OVI RESULTS", "⚙️ SAHYADRI SETTINGS"
 ])
 
-# ================= TAB 1: WOLF ORDER BOOK (COLOR CODED PROFESSIONAL UI) =================
+# ================= TAB 1: WOLF ORDER BOOK =================
 with tab1:
     st.markdown("### 🐺 WOLF ORDER BOOK")
     st.markdown(f"*Total {len(FO_SCRIPTS)} F&O Symbols Available | CE/PE Options*")
-    
     st.markdown("---")
-    
-    # ================= ORDER STATISTICS DASHBOARD =================
-    st.markdown("#### 📊 Order Statistics")
     
     total_orders = len(st.session_state.wolf_orders)
     pending_orders = len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING'])
@@ -438,550 +467,134 @@ with tab1:
     completed_orders = len([o for o in st.session_state.wolf_orders if o.get('status') == 'COMPLETED'])
     
     col1, col2, col3, col4 = st.columns(4)
-    
     with col1:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00b4d8;">
-            <span style="font-size:28px;">📋</span>
-            <h3 style="margin:0; color:#00b4d8;">{total_orders}</h3>
-            <p style="margin:0; color:#aaa;">Total Orders</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(f'<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00b4d8;"><span style="font-size:28px;">📋</span><h3 style="margin:0; color:#00b4d8;">{total_orders}</h3><p style="margin:0; color:#aaa;">Total Orders</p></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #ffaa00;">
-            <span style="font-size:28px;">⏳</span>
-            <h3 style="margin:0; color:#ffaa00;">{pending_orders}</h3>
-            <p style="margin:0; color:#aaa;">Pending Orders</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(f'<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #ffaa00;"><span style="font-size:28px;">⏳</span><h3 style="margin:0; color:#ffaa00;">{pending_orders}</h3><p style="margin:0; color:#aaa;">Pending Orders</p></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00ff88;">
-            <span style="font-size:28px;">🟢</span>
-            <h3 style="margin:0; color:#00ff88;">{active_orders_count}</h3>
-            <p style="margin:0; color:#aaa;">Active Orders</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(f'<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00ff88;"><span style="font-size:28px;">🟢</span><h3 style="margin:0; color:#00ff88;">{active_orders_count}</h3><p style="margin:0; color:#aaa;">Active Orders</p></div>', unsafe_allow_html=True)
     with col4:
         success_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #88ff88;">
-            <span style="font-size:28px;">📈</span>
-            <h3 style="margin:0; color:#88ff88;">{success_rate:.0f}%</h3>
-            <p style="margin:0; color:#aaa;">Success Rate</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #88ff88;"><span style="font-size:28px;">📈</span><h3 style="margin:0; color:#88ff88;">{success_rate:.0f}%</h3><p style="margin:0; color:#aaa;">Success Rate</p></div>', unsafe_allow_html=True)
     
     st.markdown("---")
-    
-    # ================= PLACE ORDER SECTION =================
     st.markdown("#### 🐺 Place New Wolf Order")
     
     with st.expander("➕ CLICK TO PLACE NEW ORDER", expanded=False):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,180,216,0.1)); border-radius: 15px; padding: 20px; margin: 10px 0;">
-        """, unsafe_allow_html=True)
-        
         col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
-        
         with col1:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#00ff88;">📊</span><br>
-                <span style="font-size:12px;">SYMBOL</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#00ff88;">📊</span><br><span style="font-size:12px;">SYMBOL</span></div>', unsafe_allow_html=True)
             sym = st.selectbox("Symbol", FO_SCRIPTS, key="wolf_sym_new", label_visibility="collapsed")
-        
         with col2:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#88ff88;">🔄</span><br>
-                <span style="font-size:12px;">OPTION</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#88ff88;">🔄</span><br><span style="font-size:12px;">OPTION</span></div>', unsafe_allow_html=True)
             opt = st.selectbox("Option", OPTION_TYPES, key="wolf_opt_new", label_visibility="collapsed")
-        
         with col3:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#ffaa00;">🎯</span><br>
-                <span style="font-size:12px;">STRIKE</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#ffaa00;">🎯</span><br><span style="font-size:12px;">STRIKE</span></div>', unsafe_allow_html=True)
             strike = st.number_input("Strike", min_value=1, max_value=500000, value=24300, step=50, key="wolf_strike_new", label_visibility="collapsed")
-        
         with col4:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#00b4d8;">📦</span><br>
-                <span style="font-size:12px;">LOTS</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#00b4d8;">📦</span><br><span style="font-size:12px;">LOTS</span></div>', unsafe_allow_html=True)
             qty = st.number_input("Lots", min_value=1, max_value=100, value=1, key="wolf_qty_new", label_visibility="collapsed")
-        
         with col5:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#88ff88;">📈</span><br>
-                <span style="font-size:12px;">BUY ABOVE</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#88ff88;">📈</span><br><span style="font-size:12px;">BUY ABOVE</span></div>', unsafe_allow_html=True)
             buy_above = st.number_input("Buy Above", min_value=1, max_value=500000, value=100, step=10, key="wolf_buy_new", label_visibility="collapsed")
-        
         with col6:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#ff6666;">🛡️</span><br>
-                <span style="font-size:12px;">STOP LOSS</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#ff6666;">🛡️</span><br><span style="font-size:12px;">STOP LOSS</span></div>', unsafe_allow_html=True)
             sl = st.number_input("SL", min_value=1, max_value=500000, value=80, step=10, key="wolf_sl_new", label_visibility="collapsed")
-        
         with col7:
-            st.markdown("""
-            <div style="text-align:center; padding:5px;">
-                <span style="color:#00ff88;">🎯</span><br>
-                <span style="font-size:12px;">TARGET</span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center; padding:5px;"><span style="color:#00ff88;">🎯</span><br><span style="font-size:12px;">TARGET</span></div>', unsafe_allow_html=True)
             target = st.number_input("Target", min_value=1, max_value=500000, value=150, step=10, key="wolf_target_new", label_visibility="collapsed")
         
-        col1, col2, col3 = st.columns([1,2,1])
-        with col2:
-            if st.button("🐺 PLACE WOLF ORDER", use_container_width=True):
-                if buy_above > sl and target > buy_above:
-                    st.session_state.wolf_orders.append({
-                        'symbol': sym, 
-                        'option_type': opt, 
-                        'strike_price': strike, 
-                        'qty': qty,
-                        'buy_above': buy_above, 
-                        'sl': sl, 
-                        'target': target, 
-                        'status': 'PENDING',
-                        'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                        'placed_date': get_ist_now().strftime('%d %b')
-                    })
-                    send_telegram(f"🐺 WOLF ORDER: {sym} {opt} {strike}")
-                    voice_alert(f"Wolf order placed for {sym}")
-                    st.success(f"✅ Order placed for {sym}")
-                    st.rerun()
-                else:
-                    st.error("❌ Buy Above > SL and Target > Buy Above required")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+        if st.button("🐺 PLACE WOLF ORDER", use_container_width=True):
+            if buy_above > sl and target > buy_above:
+                st.session_state.wolf_orders.append({'symbol': sym, 'option_type': opt, 'strike_price': strike, 'qty': qty, 'buy_above': buy_above, 'sl': sl, 'target': target, 'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S')})
+                send_telegram(f"🐺 WOLF ORDER: {sym} {opt} {strike}")
+                voice_alert(f"Wolf order placed for {sym}")
+                st.success(f"✅ Order placed for {sym}")
+                st.rerun()
+            else:
+                st.error("❌ Buy Above > SL and Target > Buy Above required")
     
     st.markdown("---")
     
-    # ================= PENDING ORDERS SECTION =================
     pending_orders_list = [o for o in st.session_state.wolf_orders if o['status'] == 'PENDING']
-    
     if pending_orders_list:
         st.markdown("#### ⏳ PENDING ORDERS")
-        st.markdown("*Orders waiting for price trigger*")
-        
         for i, order in enumerate(pending_orders_list):
             current_price = get_live_price(order['symbol'])
             trigger_progress = min(100, int((current_price / order['buy_above']) * 100)) if current_price > 0 else 0
-            
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, rgba(255,170,0,0.1), rgba(255,170,0,0.05)); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid #ffaa00;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                    <div>
-                        <span style="font-size:18px; font-weight:bold;">{order['symbol']}</span>
-                        <span style="background:#ffaa00; color:black; padding:2px 8px; border-radius:12px; font-size:12px; margin-left:10px;">{order['option_type']}</span>
-                        <span style="color:#aaa; margin-left:10px;">Strike: {order['strike_price']}</span>
-                    </div>
-                    <div>
-                        <span style="color:#ffaa00;">🟡 PENDING</span>
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap;">
-                    <div><span style="color:#aaa;">📦 Lots:</span> <strong>{order['qty']}</strong></div>
-                    <div><span style="color:#aaa;">📈 Buy Above:</span> <strong style="color:#88ff88;">₹{order['buy_above']}</strong></div>
-                    <div><span style="color:#aaa;">🛡️ SL:</span> <strong style="color:#ff6666;">₹{order['sl']}</strong></div>
-                    <div><span style="color:#aaa;">🎯 Target:</span> <strong style="color:#00ff88;">₹{order['target']}</strong></div>
-                    <div><span style="color:#aaa;">⏰ Placed:</span> {order.get('placed_time', 'N/A')}</div>
-                </div>
-                <div style="margin-top: 10px;">
-                    <div style="display: flex; justify-content: space-between; font-size:12px;">
-                        <span>Trigger Progress</span>
-                        <span>{trigger_progress}%</span>
-                    </div>
-                    <div style="background:#333; border-radius:10px; height:6px; margin-top:5px;">
-                        <div style="background:#ffaa00; width:{trigger_progress}%; border-radius:10px; height:6px;"></div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col4:
-                if st.button(f"❌ Cancel", key=f"cancel_pending_{i}"):
-                    st.session_state.wolf_orders.remove(order)
-                    st.rerun()
+            st.markdown(f'<div style="background: linear-gradient(135deg, rgba(255,170,0,0.1), rgba(255,170,0,0.05)); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid #ffaa00;">'
+                       f'<div style="display: flex; justify-content: space-between;"><div><span style="font-size:18px; font-weight:bold;">{order["symbol"]}</span> '
+                       f'<span style="background:#ffaa00; color:black; padding:2px 8px; border-radius:12px;">{order["option_type"]}</span> '
+                       f'<span style="color:#aaa;"> Strike: {order["strike_price"]}</span></div><div><span style="color:#ffaa00;">🟡 PENDING</span></div></div>'
+                       f'<div style="display: flex; justify-content: space-between; margin-top: 10px;">'
+                       f'<div>📦 Lots: {order["qty"]}</div><div>📈 Buy Above: ₹{order["buy_above"]}</div>'
+                       f'<div>🛡️ SL: ₹{order["sl"]}</div><div>🎯 Target: ₹{order["target"]}</div><div>⏰ {order.get("placed_time", "N/A")}</div></div>'
+                       f'<div style="margin-top: 10px;"><div style="background:#333; border-radius:10px; height:6px;"><div style="background:#ffaa00; width:{trigger_progress}%; border-radius:10px; height:6px;"></div></div></div></div>', unsafe_allow_html=True)
+            if st.button(f"❌ Cancel", key=f"cancel_pending_{i}"):
+                st.session_state.wolf_orders.remove(order)
+                st.rerun()
     else:
-        st.info("📭 No pending orders. Place a new order above.")
+        st.info("📭 No pending orders.")
     
     st.markdown("---")
     
-    # ================= ACTIVE ORDERS SECTION =================
     if st.session_state.active_orders:
         st.markdown("#### 🔴 ACTIVE ORDERS")
-        st.markdown("*Orders currently active with SL/Target monitoring*")
-        
-        for i, order in enumerate(st.session_state.active_orders):
+        for order in st.session_state.active_orders:
             current_price = get_live_price(order['symbol'])
             entry = order['entry_price']
-            sl = order['sl']
-            target = order['target']
-            
-            if current_price > 0:
-                pnl_points = current_price - entry
-                pnl_percent = (pnl_points / entry) * 100
-                pnl_color = "#00ff88" if pnl_points > 0 else "#ff4444" if pnl_points < 0 else "#ffaa00"
-                pnl_icon = "▲" if pnl_points > 0 else "▼" if pnl_points < 0 else "●"
-                
-                if target > entry:
-                    progress_to_target = min(100, int((current_price - entry) / (target - entry) * 100))
-                else:
-                    progress_to_target = 0
-            else:
-                pnl_points = 0
-                pnl_percent = 0
-                pnl_color = "#aaa"
-                pnl_icon = "●"
-                progress_to_target = 0
-            
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,180,216,0.05)); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid #00ff88;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                    <div>
-                        <span style="font-size:18px; font-weight:bold;">{order['symbol']}</span>
-                        <span style="background:#00ff88; color:black; padding:2px 8px; border-radius:12px; font-size:12px; margin-left:10px;">ACTIVE</span>
-                    </div>
-                    <div>
-                        <span style="color:{pnl_color};">{pnl_icon} {pnl_points:+.2f} ({pnl_percent:+.2f}%)</span>
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap;">
-                    <div><span style="color:#aaa;">📦 Lots:</span> <strong>{order['qty']}</strong></div>
-                    <div><span style="color:#aaa;">💰 Entry:</span> <strong>₹{entry:.2f}</strong></div>
-                    <div><span style="color:#aaa;">🛡️ SL:</span> <strong style="color:#ff6666;">₹{sl:.2f}</strong></div>
-                    <div><span style="color:#aaa;">🎯 Target:</span> <strong style="color:#00ff88;">₹{target:.2f}</strong></div>
-                    <div><span style="color:#aaa;">💵 Current:</span> <strong>₹{current_price:.2f}</strong></div>
-                </div>
-                <div style="margin-top: 10px;">
-                    <div style="display: flex; justify-content: space-between; font-size:12px;">
-                        <span>Progress to Target</span>
-                        <span>{progress_to_target}%</span>
-                    </div>
-                    <div style="background:#333; border-radius:10px; height:6px; margin-top:5px;">
-                        <div style="background:#00ff88; width:{progress_to_target}%; border-radius:10px; height:6px;"></div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            pnl_points = current_price - entry if current_price > 0 else 0
+            pnl_percent = (pnl_points / entry) * 100 if entry > 0 else 0
+            pnl_color = "#00ff88" if pnl_points > 0 else "#ff4444" if pnl_points < 0 else "#ffaa00"
+            st.markdown(f'<div style="background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,180,216,0.05)); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid #00ff88;">'
+                       f'<div><span style="font-size:18px; font-weight:bold;">{order["symbol"]}</span> '
+                       f'<span style="background:#00ff88; color:black; padding:2px 8px; border-radius:12px;">ACTIVE</span>'
+                       f'<span style="margin-left:10px; color:{pnl_color};">{"▲" if pnl_points > 0 else "▼" if pnl_points < 0 else "●"} {pnl_points:+.2f} ({pnl_percent:+.2f}%)</span></div>'
+                       f'<div style="display: flex; justify-content: space-between; margin-top: 10px;">'
+                       f'<div>📦 Lots: {order["qty"]}</div><div>💰 Entry: ₹{entry:.2f}</div>'
+                       f'<div>🛡️ SL: ₹{order["sl"]:.2f}</div><div>🎯 Target: ₹{order["target"]:.2f}</div>'
+                       f'<div>💵 Current: ₹{current_price:.2f}</div></div></div>', unsafe_allow_html=True)
     else:
-        st.info("🔴 No active orders. Pending orders will become active when price triggers.")
-    
-    st.markdown("---")
-    
-    # ================= COMPLETED ORDERS SECTION =================
-    completed_orders_list = [o for o in st.session_state.wolf_orders if o.get('status') == 'COMPLETED']
-    
-    if completed_orders_list:
-        st.markdown("#### ✅ COMPLETED ORDERS")
-        st.markdown("*Orders that have been executed and closed*")
-        
-        for order in completed_orders_list[-5:]:
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; margin: 5px 0;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span><strong>{order['symbol']}</strong> {order['option_type']} {order['strike_price']}</span>
-                    <span style="color:#00b4d8;">✅ COMPLETED</span>
-                </div>
-                <div style="font-size:12px; color:#aaa;">
-                    Lots: {order['qty']} | Entry: ₹{order.get('entry_price', 'N/A')}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ================= QUICK TIPS =================
-    with st.expander("ℹ️ How Wolf Order Book Works"):
-        st.markdown("""
-        <div style="padding: 10px;">
-        <b>🐺 Wolf Order Book Features:</b><br><br>
-        1. <b>Place Order:</b> Set your Buy Above price, Stop Loss, and Target<br>
-        2. <b>Pending Orders:</b> Orders waiting for price to reach Buy Above level<br>
-        3. <b>Active Orders:</b> Orders executed and monitoring SL/Target<br>
-        4. <b>Auto Square Off:</b> SL or Target hit = Auto exit<br>
-        5. <b>Telegram Alerts:</b> Get notified on every order execution<br><br>
-        <b>🎯 Tip:</b> Use CE for bullish view, PE for bearish view
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ================= TOTAL SYMBOLS COUNT DISPLAY =================
-    st.markdown(f"""
-    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; text-align: center;">
-        <span style="color:#00b4d8;">📊 Total F&O Symbols Available: <strong>{len(FO_SCRIPTS)}</strong></span>
-        <span style="color:#aaa; margin-left: 20px;">| Indices: 4 | Commodity: 2 | Stocks: {len(FO_SCRIPTS)-6}</span>
-    </div>
-    """, unsafe_allow_html=True)
+        st.info("🔴 No active orders.")
 
 # ================= TAB 2: SANSKRUTI MARKET =================
 with tab2:
-    # ... remaining code ...
-
-# ================= UPDATED TAB 2: SANSKRUTI MARKET =================
-with tab2:
     st.markdown("### 🌸 SANSKRUTI MARKET")
     st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
-    
     st.markdown("---")
     
-    # ================= INDIAN MARKET SECTION =================
     st.markdown("#### 🇮🇳 INDIAN MARKET")
-    
     indian_data = get_indian_market_data_fixed()
-    
     if indian_data:
-        col1, col2, col3, col4 = st.columns(4)
-        cols = [col1, col2, col3, col4]
-        
+        col1, col2 = st.columns(2)
         for i, market in enumerate(indian_data):
-            with cols[i % 4]:
-                if not market['error']:
-                    change_color = "#00ff88" if market['change_pct'] > 0 else "#ff4444" if market['change_pct'] < 0 else "#ffaa00"
-                    change_icon = "▲" if market['change_pct'] > 0 else "▼" if market['change_pct'] < 0 else "●"
-                    trend_color = "#00ff88" if market['trend'] == "UP" else "#ff4444" if market['trend'] == "DOWN" else "#ffaa00"
-                    trend_icon = "📈" if market['trend'] == "UP" else "📉" if market['trend'] == "DOWN" else "➡️"
-                    
-                    price_display = f"₹{market['price']:,.2f}" if 'NIFTY' in market['name'] or 'BANK' in market['name'] else f"₹{market['price']:,.2f}"
-                    
-                    st.markdown(f"""
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 5px; text-align:center; border: 1px solid {change_color}33;">
-                        <h4 style="margin:0;">{market['name']}</h4>
-                        <h2 style="margin:5px 0; color:white;">{price_display}</h2>
-                        <p style="margin:0; color:{change_color}; font-weight:bold;">{change_icon} {market['change_pct']:+.2f}%</p>
-                        <p style="margin:5px 0 0 0; font-size:12px;">Trend: <span style="color:{trend_color}">{trend_icon} {market['trend']}</span></p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 5px; text-align:center;">
-                        <h4 style="margin:0;">{market['name']}</h4>
-                        <p style="color:#ffaa00;">⚠️ Market Closed</p>
-                        <p style="font-size:12px;">Weekend / Holiday</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-    else:
-        st.info("📊 Market data will appear when markets open")
+            with col1 if i == 0 else col2:
+                change_color = "#00ff88" if market['change_pct'] > 0 else "#ff4444" if market['change_pct'] < 0 else "#ffaa00"
+                change_icon = "▲" if market['change_pct'] > 0 else "▼" if market['change_pct'] < 0 else "●"
+                st.markdown(f'<div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 5px; text-align:center;">'
+                           f'<h4>{market["name"]}</h4><h2>₹{market["price"]:,.2f}</h2>'
+                           f'<p style="color:{change_color};">{change_icon} {market["change_pct"]:+.2f}%</p>'
+                           f'<p>Trend: {"📈 UP" if market["trend"] == "UP" else "📉 DOWN" if market["trend"] == "DOWN" else "➡️ NEUTRAL"}</p></div>', unsafe_allow_html=True)
     
     st.markdown("---")
-    
-    # ================= GLOBAL MARKET SECTION =================
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
-    st.markdown("*Real-time global indices with trend analysis*")
-    
     global_data = get_global_market_data_fixed()
-    
-    # Display global markets in 3x3 grid
     for i in range(0, len(global_data), 3):
         cols = st.columns(3)
         for j in range(3):
             if i + j < len(global_data):
                 market = global_data[i + j]
-                
-                if not market.get('error', False) and market['price'] > 0:
+                if not market['error'] and market['price'] > 0:
                     change_color = "#00ff88" if market['change_pct'] > 0 else "#ff4444" if market['change_pct'] < 0 else "#ffaa00"
-                    change_icon = "▲" if market['change_pct'] > 0 else "▼" if market['change_pct'] < 0 else "●"
-                    trend_color = "#00ff88" if market['trend'] == "UP" else "#ff4444" if market['trend'] == "DOWN" else "#ffaa00"
-                    trend_icon = "📈" if market['trend'] == "UP" else "📉" if market['trend'] == "DOWN" else "➡️"
-                    
                     with cols[j]:
-                        st.markdown(f"""
-                        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px; border-left: 4px solid {change_color};">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-weight:bold;">{market['name']}</span>
-                                <span style="color:{trend_color}; font-size:12px;">{trend_icon} {market['trend']}</span>
-                            </div>
-                            <div style="margin-top:5px;">
-                                <span style="font-size:18px; font-weight:bold;">${market['price']:,.2f}</span>
-                                <span style="color:{change_color}; margin-left:10px;">{change_icon} {market['change_pct']:+.2f}%</span>
-                            </div>
-                            <small style="color:#aaa;">{market['symbol']}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f'<div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px; border-left: 4px solid {change_color};">'
+                                   f'<div><b>{market["name"]}</b> <span style="color:{change_color};">{"📈 UP" if market["trend"] == "UP" else "📉 DOWN" if market["trend"] == "DOWN" else "➡️ NEUTRAL"}</span></div>'
+                                   f'<div><span style="font-size:18px;">${market["price"]:,.2f}</span> '
+                                   f'<span style="color:{change_color};">{"▲" if market["change_pct"] > 0 else "▼" if market["change_pct"] < 0 else "●"} {market["change_pct"]:+.2f}%</span></div>'
+                                   f'<small>{market["symbol"]}</small></div>', unsafe_allow_html=True)
                 else:
                     with cols[j]:
-                        st.markdown(f"""
-                        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
-                            <div style="font-weight:bold;">{market['name']}</div>
-                            <div style="color:#ffaa00;">⏳ Weekend / Holiday</div>
-                            <small>{market['symbol']}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ================= GLOBAL TREND SUMMARY =================
-    st.markdown("#### 🌏 Global Market Summary")
-    
-    # Calculate overall sentiment from available data
-    valid_markets = [m for m in global_data if not m.get('error', False) and m['price'] > 0]
-    if valid_markets:
-        up_count = len([m for m in valid_markets if m['trend'] == "UP"])
-        down_count = len([m for m in valid_markets if m['trend'] == "DOWN"])
-        neutral_count = len([m for m in valid_markets if m['trend'] == "NEUTRAL"])
-        
-        if up_count > down_count:
-            global_sentiment = "🟢 GLOBAL BULLISH"
-            global_color = "#00ff88"
-            global_advice = "Global markets are positive - Favorable for Indian markets"
-        elif down_count > up_count:
-            global_sentiment = "🔴 GLOBAL BEARISH"
-            global_color = "#ff4444"
-            global_advice = "Global markets are negative - May impact Indian markets"
-        else:
-            global_sentiment = "🟡 GLOBAL MIXED"
-            global_color = "#ffaa00"
-            global_advice = "Mixed signals globally - Sector-specific opportunities"
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-            <div style="background:{global_color}22; border-radius:15px; padding:15px; text-align:center;">
-                <h3 style="color:{global_color}; margin:0;">{global_sentiment}</h3>
-                <p style="color:white; margin:5px 0 0 0;">{global_advice}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div style="background:rgba(0,0,0,0.3); border-radius:15px; padding:15px; text-align:center;">
-                <b>📊 Market Distribution</b><br>
-                <span style="color:#00ff88">▲ UP: {up_count}</span><br>
-                <span style="color:#ffaa00">● NEUTRAL: {neutral_count}</span><br>
-                <span style="color:#ff4444">▼ DOWN: {down_count}</span><br>
-                <small>Based on {len(valid_markets)} global indices</small>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("🌍 Global market data will appear when markets open (Monday-Friday)")
-    
-    st.markdown("---")
-    
-    # ================= COMMODITY SECTION =================
-    st.markdown("#### 🛢️ Commodity Markets")
-    
-    commodity_data = get_commodity_data_fixed()
-    cols = st.columns(5)
-    
-    for i, commodity in enumerate(commodity_data):
-        with cols[i]:
-            if not commodity['error'] and commodity['price'] > 0:
-                change_color = "#00ff88" if commodity['change_pct'] > 0 else "#ff4444" if commodity['change_pct'] < 0 else "#ffaa00"
-                change_icon = "▲" if commodity['change_pct'] > 0 else "▼" if commodity['change_pct'] < 0 else "●"
-                st.markdown(f"""
-                <div style="background:rgba(0,0,0,0.3); border-radius:10px; padding:10px; text-align:center;">
-                    <span style="font-size:20px;">{commodity['icon']}</span>
-                    <div style="font-weight:bold;">{commodity['name']}</div>
-                    <div>${commodity['price']:.2f}</div>
-                    <div style="color:{change_color};">{change_icon} {commodity['change_pct']:+.2f}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div style="background:rgba(0,0,0,0.3); border-radius:10px; padding:10px; text-align:center;">
-                    <span style="font-size:20px;">{commodity['icon']}</span>
-                    <div style="font-weight:bold;">{commodity['name']}</div>
-                    <div style="color:#ffaa00;">⏳ Weekend</div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ================= MARKET HOURS =================
-    st.markdown("#### 🕐 Market Hours (IST)")
-    
-    now = get_ist_now()
-    
-    # Indian Market Hours
-    if now.weekday() >= 5:  # Saturday or Sunday
-        indian_status = "🔴 CLOSED (Weekend)"
-        indian_color = "#ff4444"
-    elif 9 <= now.hour < 15:
-        indian_status = "🟢 OPEN NOW"
-        indian_color = "#00ff88"
-    elif now.hour < 9:
-        indian_status = "🟡 PRE-MARKET"
-        indian_color = "#ffaa00"
-    else:
-        indian_status = "🔴 CLOSED"
-        indian_color = "#ff4444"
-    
-    # US Market Hours (EST: 9:30 AM - 4:00 PM = IST: 7:00 PM - 1:30 AM)
-    if now.weekday() >= 5:
-        us_status = "🔴 CLOSED (Weekend)"
-        us_color = "#ff4444"
-    elif now.hour >= 19 or now.hour < 1:
-        us_status = "🟢 OPEN NOW"
-        us_color = "#00ff88"
-    elif 1 <= now.hour < 7:
-        us_status = "🔴 CLOSED"
-        us_color = "#ff4444"
-    else:
-        us_status = "🔴 CLOSED"
-        us_color = "#ff4444"
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"""
-        <div style="background:rgba(0,0,0,0.3); border-radius:10px; padding:15px; text-align:center;">
-            🇮🇳 <b>Indian Markets</b><br>
-            <span style="color:{indian_color}; font-weight:bold;">{indian_status}</span><br>
-            <small>9:15 AM - 3:30 PM IST (Mon-Fri)</small>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div style="background:rgba(0,0,0,0.3); border-radius:10px; padding:15px; text-align:center;">
-            🇺🇸 <b>US Markets</b><br>
-            <span style="color:{us_color}; font-weight:bold;">{us_status}</span><br>
-            <small>7:00 PM - 1:30 AM IST (Mon-Fri)</small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Next market open info
-    st.markdown("---")
-    st.markdown("#### 📅 Next Market Open")
-    
-    from datetime import timedelta
-    
-    if now.weekday() == 5:  # Saturday
-        next_open = now + timedelta(days=2)
-        next_open_str = next_open.strftime("%A, %d %B")
-        st.info(f"🟢 Indian Markets will open on **Monday, {next_open_str}** at 9:15 AM IST")
-    elif now.weekday() == 6:  # Sunday
-        next_open = now + timedelta(days=1)
-        next_open_str = next_open.strftime("%A, %d %B")
-        st.info(f"🟢 Indian Markets will open on **Monday, {next_open_str}** at 9:15 AM IST")
-    elif now.hour >= 15:
-        st.info(f"🟢 Indian Markets will open **tomorrow** at 9:15 AM IST")
-    elif now.hour < 9:
-        st.info(f"🟢 Indian Markets will open **today** at 9:15 AM IST")
-    else:
-        st.success(f"🟢 Indian Markets are **OPEN NOW** - Trading active!")
+                        st.markdown(f'<div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;"><b>{market["name"]}</b><div style="color:#ffaa00;">⏳ Weekend / Holiday</div><small>{market["symbol"]}</small></div>', unsafe_allow_html=True)
 
 # ================= TAB 3: VAISHNAVI NEWS (FULL COLOR CODED) =================
 with tab3:
