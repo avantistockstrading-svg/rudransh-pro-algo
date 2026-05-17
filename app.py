@@ -1866,23 +1866,16 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # ================= QUICK ACTIONS =================
+        # QUICK ACTIONS
     st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 10px 0;">
         <h4 style="margin:0 0 10px 0; color:#00b4d8;">⚡ QUICK ACTIONS</h4>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🐺 New Order", use_container_width=True):
-            st.info("Go to WOLF ORDER tab")
-    with col2:
-        if st.button("📊 Refresh", use_container_width=True):
-            st.rerun()
+    if st.button("🔄 Refresh Data", use_container_width=True):
+        st.rerun()
     
     st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.markdown("---")
     
     # ================= MARKET SENTIMENT MINI =================
     st.markdown("""
