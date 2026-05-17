@@ -43,111 +43,35 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { border-radius: 10px; padding: 10px 20px; }
     .stTabs [aria-selected="true"] { background: linear-gradient(135deg, #00ff88, #00b4d8); color: white; }
     .status-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin: 10px 0; }
+
+    /* ================= MOBILE RESPONSIVE CSS ================= */
+    @media only screen and (max-width: 768px) {
+        .stApp { padding: 5px !important; }
+        h1 { font-size: 24px !important; }
+        h2 { font-size: 20px !important; }
+        h3 { font-size: 18px !important; }
+        .stButton > button { width: 100% !important; font-size: 14px !important; padding: 8px 12px !important; }
+        .stTabs [data-baseweb="tab-list"] { gap: 8px !important; flex-wrap: wrap !important; }
+        .stTabs [data-baseweb="tab"] { padding: 6px 12px !important; font-size: 12px !important; }
+        .row-widget.stColumns { flex-wrap: wrap !important; }
+        .row-widget.stColumns > div { flex: 1 1 100% !important; min-width: 100% !important; margin-bottom: 10px !important; }
+        .live-time { font-size: 18px !important; }
+        .css-1r6slb0, .css-1y4p8pa { padding: 10px !important; margin: 5px 0 !important; }
+        .status-card { padding: 8px !important; font-size: 11px !important; }
+        .stNumberInput input { font-size: 14px !important; padding: 6px !important; }
+        .stTextInput input { font-size: 14px !important; padding: 8px !important; }
+        .stAlert { padding: 8px !important; font-size: 12px !important; }
+    }
+
+    @media only screen and (max-width: 480px) {
+        .stTabs [data-baseweb="tab"] { padding: 4px 8px !important; font-size: 10px !important; }
+        h1 { font-size: 20px !important; }
+        h2 { font-size: 18px !important; }
+        h3 { font-size: 16px !important; }
+        .live-time { font-size: 14px !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
-
-/* ================= MOBILE RESPONSIVE CSS ================= */
-@media only screen and (max-width: 768px) {
-    /* Main container padding */
-    .stApp {
-        padding: 5px !important;
-    }
-    
-    /* Headers font size */
-    h1 {
-        font-size: 24px !important;
-    }
-    h2 {
-        font-size: 20px !important;
-    }
-    h3 {
-        font-size: 18px !important;
-    }
-    
-    /* Buttons full width on mobile */
-    .stButton > button {
-        width: 100% !important;
-        font-size: 14px !important;
-        padding: 8px 12px !important;
-    }
-    
-    /* Tabs styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px !important;
-        flex-wrap: wrap !important;
-    }
-    .stTabs [data-baseweb="tab"] {
-        padding: 6px 12px !important;
-        font-size: 12px !important;
-    }
-    
-    /* Columns stack on mobile */
-    .row-widget.stColumns {
-        flex-wrap: wrap !important;
-    }
-    .row-widget.stColumns > div {
-        flex: 1 1 100% !important;
-        min-width: 100% !important;
-        margin-bottom: 10px !important;
-    }
-    
-    /* Live time */
-    .live-time {
-        font-size: 18px !important;
-    }
-    
-    /* Cards */
-    .css-1r6slb0, .css-1y4p8pa {
-        padding: 10px !important;
-        margin: 5px 0 !important;
-    }
-    
-    /* Status cards */
-    .status-card {
-        padding: 8px !important;
-        font-size: 11px !important;
-    }
-    
-    /* Number input fields */
-    .stNumberInput input {
-        font-size: 14px !important;
-        padding: 6px !important;
-    }
-    
-    /* Text input fields */
-    .stTextInput input {
-        font-size: 14px !important;
-        padding: 8px !important;
-    }
-    
-    /* Alert boxes */
-    .stAlert {
-        padding: 8px !important;
-        font-size: 12px !important;
-    }
-}
-
-/* Extra small devices (phones, 480px and down) */
-@media only screen and (max-width: 480px) {
-    .stTabs [data-baseweb="tab"] {
-        padding: 4px 8px !important;
-        font-size: 10px !important;
-    }
-    
-    h1 {
-        font-size: 20px !important;
-    }
-    h2 {
-        font-size: 18px !important;
-    }
-    h3 {
-        font-size: 16px !important;
-    }
-    
-    .live-time {
-        font-size: 14px !important;
-    }
-}
 
 # ================= TIMEZONE =================
 IST = timezone(timedelta(hours=5, minutes=30))
