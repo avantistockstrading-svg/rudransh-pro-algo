@@ -312,6 +312,59 @@ def get_pending_results():
     # API error असल्यास empty list return करा
     return []
 
+# ================= JOURNAL SYSTEM FUNCTIONS =================
+
+def add_to_journal_with_system(order, system_name, exit_price=None, exit_reason=None):
+    """Journal मध्ये trade add करा system name + time सह"""
+    
+    entry_price = order['entry_price']
+    qty = order['qty']
+    
+    # Multiplier calculate
+    if order['symbol'] in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
+        multiplier = 50 if order['symbol'] == "NIFTY" else 25
+    elif order['symbol'] in ["CRUDE", "NATURALGAS"]:
+        multiplier = 100
+    else:
+        multiplier = 100
+    
+    if exit_price:
+        if order['option_type'] == "CALL (CE)":
+            pnl_points = exit_price - entry_price
+        else:
+            pnl_points = entry_price - exit_price
+        pnl_value = pnl_points * qty * multiplier
+        status = exit_reason
+    else:
+        pnl_value = 0
+        status = "OPEN"
+        exit_price = 0
+    
+    trade_record = {
+        "No": len(st.session_state.trade_journal) + 1,
+        "⏰ Time": get_ist_now().strftime('%H:%M:%S'),
+        "🎯 System": system_name,
+        "📊 Symbol": f"{order['symbol']} {order['option_type']} {order.get('strike_price', '')}",
+        "🔄 Type": order.get('signal_type', 'MANUAL'),
+        "📦 Lots": order['qty'],
+        "📥 Entry": round(entry_price, 2),
+        "📤 Exit": round(exit_price, 2) if exit_price else "-",
+        "💰 P&L": f"₹{round(pnl_value, 2)}",
+        "📍 Status": status
+    }
+    
+    st.session_state.trade_journal.append(trade_record)
+    st.session_state.daily_pnl += pnl_value
+
+def monitor_today_results():
+    """OVI Results monitor करा"""
+    try:
+        pending = get_pending_results()
+        for company in pending:
+            symbol = company.get('symbol', '')
+            if symbol:
+                earnings = get_company_ear
+
 # ================= MONITOR RESULTS =================
 def monitor_today_results():
     """OVI Results monitor करून journal मध्ये add करा"""
@@ -2095,7 +2148,7 @@ def check_and_execute_orders_with_journal():
                 'target': order.get('target', current_price * 1.05)
             }
             st.session_state.active_orders.append(active_order)
-            add_to_journal(active_order)
+            add_to_journal_with_system(active_order, "🐺 WOLF")
             send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price}")
 
 def monitor_active_orders_with_pnl():
