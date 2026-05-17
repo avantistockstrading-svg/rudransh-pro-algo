@@ -2083,6 +2083,8 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     if st.session_state.auto_trade_enabled:
         auto_trade_from_signal_with_journal()
     
+    wolf_auto_fo_trade()   # WOLF AUTO F&O - CE/PE खरेदी
+    
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
 # ================= SIDEBAR =================
