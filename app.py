@@ -1304,31 +1304,58 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
     
-    # CRUDE OIL Box (in INR)
-    with col3:
-        if crude_current_usd > 0:
-            trend_label, trend_icon, trend_color = get_trend_label(crude_pct)
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
-                <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
-                <h2 style="margin:5px 0;">₹{crude_current_inr:,.2f}</h2>
-                <p style="margin:0; color:{trend_color if crude_pct > 0 else '#ff4444' if crude_pct < 0 else '#ffaa00'}; font-weight:bold;">
-                    {crude_pct:+.2f}%
-                </p>
-                <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
-                    {trend_icon} {trend_label}
-                </p>
-                <small style="color:#aaa;">${crude_current_usd:.2f} USD</small>
-            </div>
-            """, unsafe_allow_html=True)
+    # CRUDE OIL Box (REAL-TIME)
+# Get live price
+crude_live_usd = get_live_price("CRUDE")
+crude_live_inr = crude_live_usd * usd_inr if crude_live_usd > 0 else 0
+
+# Get previous close for percentage
+try:
+    crude_hist = yf.download("CL=F", period="2d", interval="1d", progress=False)
+    if crude_hist is not None and not crude_hist.empty and 'Close' in crude_hist.columns:
+        crude_prev_usd = float(crude_hist['Close'].iloc[-2]) if len(crude_hist) > 1 else crude_live_usd
+        crude_pct = ((crude_live_usd - crude_prev_usd) / crude_prev_usd) * 100 if crude_prev_usd > 0 else 0
+    else:
+        crude_pct = 0
+except:
+    crude_pct = 0
+
+with col3:
+    if crude_live_usd > 0:
+        # Determine trend based on percentage
+        if crude_pct > 1.0:
+            trend_label, trend_icon, trend_color = "STRONG BULLISH", "🚀", "#00ff44"
+        elif crude_pct > 0.2:
+            trend_label, trend_icon, trend_color = "BULLISH", "📈", "#88ff88"
+        elif crude_pct < -1.0:
+            trend_label, trend_icon, trend_color = "STRONG BEARISH", "💀", "#ff3333"
+        elif crude_pct < -0.2:
+            trend_label, trend_icon, trend_color = "BEARISH", "📉", "#ff6666"
         else:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
-                <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
-                <p>🔴 Market Closed</p>
-                <p style="font-size:12px;">Opens Monday</p>
-            </div>
-            """, unsafe_allow_html=True)
+            trend_label, trend_icon, trend_color = "SIDEWAYS", "➡️", "#ffaa00"
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
+            <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
+            <h2 style="margin:5px 0;">₹{crude_live_inr:,.2f}</h2>
+            <p style="margin:0; color:{trend_color if crude_pct > 0 else '#ff4444' if crude_pct < 0 else '#ffaa00'}; font-weight:bold;">
+                {crude_pct:+.2f}%
+            </p>
+            <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
+                {trend_icon} {trend_label}
+            </p>
+            <small style="color:#aaa;">${crude_live_usd:.2f} USD</small>
+            <small style="color:#aaa; display:block;">🕐 {get_ist_now().strftime('%H:%M:%S')} IST</small>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
+            <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
+            <p>🔴 Market Closed / Loading...</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
     
     # NATURAL GAS Box (in INR)
     with col4:
