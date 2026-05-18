@@ -1112,7 +1112,7 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET (ERROR FREE) =================
+# ================= TAB 2: SANSKRUTI MARKET (LIVE GLOBAL DATA) =================
 with tab2:
     st.markdown("### 🌸 SANSKRUTI MARKET")
     st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
@@ -1123,7 +1123,7 @@ with tab2:
     
     usd_inr = get_usd_inr_rate()
     
-    # Get real NIFTY data with error handling
+    # Get real NIFTY data
     nifty = None
     banknifty = None
     crude = None
@@ -1187,7 +1187,6 @@ with tab2:
         ng_current_inr = 0
         ng_pct = 0
     
-    # Function to get trend label
     def get_trend_label(change_pct):
         if change_pct > 1.0:
             return "STRONG BULLISH", "🚀", "#00ff44"
@@ -1252,7 +1251,7 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
     
-    # CRUDE OIL Box (in INR)
+    # CRUDE OIL Box
     with col3:
         if crude_current_usd > 0:
             trend_label, trend_icon, trend_color = get_trend_label(crude_pct)
@@ -1278,7 +1277,7 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
     
-    # NATURAL GAS Box (in INR)
+    # NATURAL GAS Box
     with col4:
         if ng_current_usd > 0:
             trend_label, trend_icon, trend_color = get_trend_label(ng_pct)
@@ -1306,45 +1305,32 @@ with tab2:
     
     st.markdown("---")
     
-            # ================= GLOBAL MARKET SECTION =================
+    # ================= GLOBAL MARKET SECTION (UPDATED WITH CORRECT TICKERS) =================
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
-    # Global indices list (WITHOUT flag in name)
+    # योग्य TICKERS (हा सर्वात महत्वाचा बदल आहे)
     global_indices = {
-        "S&P 500": "SPY",
-        "NASDAQ": "QQQ",
-        "Dow Jones": "DIA",
-        "Nikkei 225": "EWJ",
-        "Hang Seng": "EWH",
-        "Shanghai": "FXI",
-        "FTSE 100": "EWU",
-        "DAX": "EWG",
-        "CAC 40": "EWQ",
-        "GOLD": "GC=F",
-        "SILVER": "SI=F"
+        "S&P 500": {"ticker": "^GSPC", "flag": "🇺🇸", "currency": "$", "etf": "SPY"},
+        "NASDAQ": {"ticker": "^IXIC", "flag": "🇺🇸", "currency": "$", "etf": "QQQ"},
+        "Dow Jones": {"ticker": "^DJI", "flag": "🇺🇸", "currency": "$", "etf": "DIA"},
+        "Nikkei 225": {"ticker": "^N225", "flag": "🇯🇵", "currency": "¥", "etf": "EWJ"},
+        "Hang Seng": {"ticker": "^HSI", "flag": "🇭🇰", "currency": "HK$", "etf": "EWH"},
+        "Shanghai": {"ticker": "000001.SS", "flag": "🇨🇳", "currency": "¥", "etf": "FXI"},
+        "FTSE 100": {"ticker": "^FTSE", "flag": "🇬🇧", "currency": "£", "etf": "EWU"},
+        "DAX": {"ticker": "^GDAXI", "flag": "🇩🇪", "currency": "€", "etf": "EWG"},
+        "CAC 40": {"ticker": "^FCHI", "flag": "🇫🇷", "currency": "€", "etf": "EWQ"},
+        "GOLD": {"ticker": "GC=F", "flag": "🥇", "currency": "$", "etf": "GC=F"},
+        "SILVER": {"ticker": "SI=F", "flag": "🥈", "currency": "$", "etf": "SI=F"}
     }
     
-    # Flag mapping (name without flag)
-    flag_map = {
-        "S&P 500": "🇺🇸",
-        "NASDAQ": "🇺🇸",
-        "Dow Jones": "🇺🇸",
-        "Nikkei 225": "🇯🇵",
-        "Hang Seng": "🇭🇰",
-        "Shanghai": "🇨🇳",
-        "FTSE 100": "🇬🇧",
-        "DAX": "🇩🇪",
-        "CAC 40": "🇫🇷",
-        "GOLD": "🌍",
-        "SILVER": "🌍"
-    }
+    # Refresh button
+    col_refresh, col_empty = st.columns([1, 5])
+    with col_refresh:
+        if st.button("🔄 REFRESH", use_container_width=True):
+            st.rerun()
     
-    # Icon mapping for special items
-    icon_map = {
-        "GOLD": "🥇",
-        "SILVER": "🥈"
-    }
+    st.markdown("---")
     
     # Display in rows of 4
     items = list(global_indices.items())
@@ -1352,13 +1338,14 @@ with tab2:
         cols = st.columns(4)
         for j in range(4):
             if i + j < len(items):
-                name, symbol = items[i + j]
-                flag = flag_map.get(name, "🌍")
-                icon = icon_map.get(name, "")
-                display_name = f"{flag} {icon} {name}".strip()
+                name, info = items[i + j]
+                flag = info["flag"]
+                ticker = info["ticker"]
+                currency = info["currency"]
+                etf = info["etf"]
                 
                 try:
-                    df = yf.download(symbol, period="5d", interval="1d", progress=False)
+                    df = yf.download(ticker, period="5d", interval="1d", progress=False)
                     if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
                         current = float(df['Close'].iloc[-1])
                         prev = float(df['Close'].iloc[-2])
@@ -1392,32 +1379,32 @@ with tab2:
                             st.markdown(f"""
                             <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px; border-left: 4px solid {change_color};">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight:bold;">{display_name}</span>
+                                    <span style="font-weight:bold;">{flag} {name}</span>
                                     <span style="background:{trend_color}; border-radius:15px; padding:2px 8px; font-size:10px; color:black; font-weight:bold;">{trend_icon} {trend_label}</span>
                                 </div>
                                 <div style="margin-top: 8px;">
-                                    <span style="font-size: 18px; font-weight: bold;">${current:,.2f}</span>
+                                    <span style="font-size: 18px; font-weight: bold;">{currency}{current:,.2f}</span>
                                     <span style="color:{change_color}; margin-left: 10px;">{change_icon} {change_pct:+.2f}%</span>
                                 </div>
-                                <small style="color:#aaa;">{symbol}</small>
+                                <small style="color:#aaa;">ETF: {etf}</small>
                             </div>
                             """, unsafe_allow_html=True)
                     else:
                         with cols[j]:
                             st.markdown(f"""
                             <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
-                                <div style="font-weight:bold;">{display_name}</div>
+                                <div style="font-weight:bold;">{flag} {name}</div>
                                 <div style="color:#ffaa00;">🔴 Market Closed</div>
-                                <small style="color:#aaa;">{symbol}</small>
+                                <small style="color:#aaa;">{ticker}</small>
                             </div>
                             """, unsafe_allow_html=True)
                 except Exception as e:
                     with cols[j]:
                         st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
-                            <div style="font-weight:bold;">{display_name}</div>
-                            <div style="color:#ffaa00;">🔴 Market Closed</div>
-                            <small style="color:#aaa;">{symbol}</small>
+                            <div style="font-weight:bold;">{flag} {name}</div>
+                            <div style="color:#ffaa00;">🔴 Data Error</div>
+                            <small style="color:#aaa;">{ticker}</small>
                         </div>
                         """, unsafe_allow_html=True)
     
@@ -1426,11 +1413,10 @@ with tab2:
     # ================= GLOBAL TREND SUMMARY =================
     st.markdown("#### 🌏 Global Market Summary")
     
-    # Calculate global sentiment from real data
     valid_markets = []
-    for name, symbol in global_indices.items():
+    for name, info in global_indices.items():
         try:
-            df = yf.download(symbol, period="5d", interval="1d", progress=False)
+            df = yf.download(info["ticker"], period="5d", interval="1d", progress=False)
             if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
                 current = float(df['Close'].iloc[-1])
                 prev = float(df['Close'].iloc[-2])
