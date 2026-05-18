@@ -1161,16 +1161,11 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET (ERROR FREE) =================
+# ================= TAB 2: SANSKRUTI MARKET =================
 with tab2:
     # Auto refresh every 30 seconds
     st_autorefresh(interval=30000, key="sanskriti_refresh")
     
-    st.markdown("### 🌸 SANSKRUTI MARKET")
-    st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
-    ...
-            
-with tab2:
     st.markdown("### 🌸 SANSKRUTI MARKET")
     st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
     st.markdown("---")
