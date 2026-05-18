@@ -1112,8 +1112,6 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-step by step karato tu typeing karu nakos 
-
 # ================= TAB 2: SANSKRUTI MARKET (ERROR FREE) =================
 with tab2:
     st.markdown("### 🌸 SANSKRUTI MARKET")
