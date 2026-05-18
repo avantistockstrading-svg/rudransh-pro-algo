@@ -669,7 +669,7 @@ def get_technical_indicators(symbol):
     except:
         return None
 
-# ================= STRICT SIGNAL =================
+# ================= STRICT SIGNAL (MATCHED WITH PINE SCRIPT) =================
 def get_strict_signal(symbol, nifty_trend, sector_trend):
     if symbol in ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"]:
         nifty_condition = nifty_trend == "POSITIVE" if symbol == "NIFTY" else True
@@ -682,21 +682,69 @@ def get_strict_signal(symbol, nifty_trend, sector_trend):
     if indicators is None:
         return "WAIT", 0, None
     
+    # MTF Trends
     trend5_up = get_mtf_trend(symbol, "5m") == "UP"
     trend15_up = get_mtf_trend(symbol, "15m") == "UP"
     trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
     
-    buy_conditions = (nifty_condition and sector_condition and not indicators["sideways"] and
-                      indicators["ema9"] > indicators["ema20"] and indicators["current_price"] > indicators["ema200"] and
-                      indicators["rsi"] >= 55 and indicators["adx"] >= 22 and indicators["volume_filter"] and
-                      indicators["strong_bull"] and indicators["current_price"] > indicators["c1_high"] and
-                      trend5_up and trend15_up and trend1h_up)
+    # NIFTY Trends
+    nifty_positive = (nifty_trend == "POSITIVE")
+    nifty_negative = (nifty_trend == "NEGATIVE")
     
-    sell_conditions = (nifty_trend == "NEGATIVE" and not indicators["sideways"] and
-                       indicators["ema9"] < indicators["ema20"] and indicators["current_price"] < indicators["ema200"] and
-                       indicators["rsi"] <= 45 and indicators["adx"] >= 22 and indicators["volume_filter"] and
-                       indicators["strong_bear"] and indicators["current_price"] < indicators["c1_low"] and
-                       not trend5_up and not trend15_up and not trend1h_up)
+    # Sector Trends
+    sector_bullish = (sector_trend == "BULLISH")
+    sector_bearish = (sector_trend == "BEARISH")
+    
+    # Sideways
+    sideways = indicators["sideways"]
+    
+    # strongBullStock (Pine Script प्रमाणे - RSI 60, ADX 25)
+    strong_bull_stock = (
+        indicators["ema9"] > indicators["ema20"] and
+        indicators["current_price"] > indicators["ema200"] and
+        indicators["rsi"] >= 60 and
+        indicators["adx"] >= 25 and
+        indicators["volume_filter"] and
+        indicators["strong_bull"] and
+        indicators["current_price"] > indicators["c1_high"]
+    )
+    
+    # strongBearStock (Pine Script प्रमाणे - RSI 40, ADX 25)
+    strong_bear_stock = (
+        indicators["ema9"] < indicators["ema20"] and
+        indicators["current_price"] < indicators["ema200"] and
+        indicators["rsi"] <= 40 and
+        indicators["adx"] >= 25 and
+        indicators["volume_filter"] and
+        indicators["strong_bear"] and
+        indicators["current_price"] < indicators["c1_low"]
+    )
+    
+    # BUY condition (Pine Script च्या emaBuy प्रमाणे)
+    buy_conditions = (
+        nifty_positive and
+        not nifty_negative and
+        not sideways and
+        sector_bullish and
+        strong_bull_stock and
+        trend5_up and
+        trend15_up and
+        trend1h_up and
+        indicators["current_price"] > indicators["ema20"]
+    )
+    
+    # SELL condition (Pine Script च्या emaSell प्रमाणे)
+    sell_conditions = (
+        nifty_negative and
+        not nifty_positive and
+        not sideways and
+        sector_bearish and
+        strong_bear_stock and
+        not trend5_up and
+        not trend15_up and
+        not trend1h_up and
+        indicators["current_price"] < indicators["ema20"]
+    )
     
     if buy_conditions:
         return "BUY", indicators["current_price"], indicators
