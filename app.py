@@ -1736,10 +1736,10 @@ with tab3:
         important_news = [n for n in news_articles if n['sentiment'] in ['STRONG BULLISH', 'STRONG BEARISH']]
         if important_news:
             voice_alert(f"Important news: {important_news[0]['sentiment']} sentiment detected. {important_news[0]['title'][:100]}")
-# ================= TAB 4: OVI RESULTS (UPDATED WITH COLORS & PREDICTIONS) =================
+# ================= TAB 4: OVI RESULTS (UPDATED WITH ACTUAL REACTIONS) =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - Q4 FY26 MONITORING")
-    st.markdown("*Real-time earnings monitoring with AI predictions*")
+    st.markdown("*Real-time earnings monitoring with AI predictions & market reactions*")
     
     if fmp_status:
         st.success("✅ FMP API Connected Successfully")
@@ -1748,30 +1748,48 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= PENDING RESULTS WITH PREDICTIONS =================
+    # ================= PENDING RESULTS WITH PREDICTIONS & ACTUAL REACTIONS =================
     PENDING_RESULTS_UPDATED = [
         {"name": "Bharat Electronics", "symbol": "BEL", "q4_date": "22 May 2026", "time": "3:30 PM", 
-         "prediction": "BULLISH", "confidence": 85, "sentiment": "🟢 Positive", "analyst_rating": "BUY"},
+         "prediction": "BULLISH", "confidence": 85, "sentiment": "🟢 Positive", "analyst_rating": "BUY",
+         "status": "PENDING", "actual_reaction": "", "reason": ""},
+        
         {"name": "BPCL", "symbol": "BPCL", "q4_date": "22 May 2026", "time": "3:30 PM", 
-         "prediction": "NEUTRAL", "confidence": 60, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD"},
+         "prediction": "NEUTRAL", "confidence": 60, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD",
+         "status": "PENDING", "actual_reaction": "", "reason": ""},
+        
         {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "q4_date": "22 May 2026", "time": "3:30 PM", 
-         "prediction": "STRONG BULLISH", "confidence": 90, "sentiment": "🟢 Strong Positive", "analyst_rating": "STRONG BUY"},
+         "prediction": "STRONG BULLISH", "confidence": 90, "sentiment": "🟢 Strong Positive", "analyst_rating": "STRONG BUY",
+         "status": "PENDING", "actual_reaction": "", "reason": ""},
+        
         {"name": "Mankind Pharma", "symbol": "MANKIND", "q4_date": "22 May 2026", "time": "3:30 PM", 
-         "prediction": "BULLISH", "confidence": 80, "sentiment": "🟢 Positive", "analyst_rating": "BUY"},
+         "prediction": "BULLISH", "confidence": 80, "sentiment": "🟢 Positive", "analyst_rating": "BUY",
+         "status": "PENDING", "actual_reaction": "", "reason": ""},
+        
         {"name": "PI Industries", "symbol": "PIIND", "q4_date": "22 May 2026", "time": "3:30 PM", 
-         "prediction": "BULLISH", "confidence": 75, "sentiment": "🟢 Positive", "analyst_rating": "BUY"},
-        {"name": "HDFC Bank", "symbol": "HDFCBANK", "q4_date": "15 May 2026", "time": "Declared", 
-         "prediction": "BULLISH", "confidence": 88, "sentiment": "🟢 Positive", "analyst_rating": "BUY", "status": "COMPLETED"},
-        {"name": "Reliance Industries", "symbol": "RELIANCE", "q4_date": "14 May 2026", "time": "Declared", 
-         "prediction": "NEUTRAL", "confidence": 55, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD", "status": "COMPLETED"},
-        {"name": "Infosys", "symbol": "INFY", "q4_date": "16 May 2026", "time": "Declared", 
-         "prediction": "BEARISH", "confidence": 65, "sentiment": "🔴 Negative", "analyst_rating": "SELL", "status": "COMPLETED"},
+         "prediction": "BULLISH", "confidence": 75, "sentiment": "🟢 Positive", "analyst_rating": "BUY",
+         "status": "PENDING", "actual_reaction": "", "reason": ""},
+        
+        {"name": "HDFC Bank", "symbol": "HDFCBANK", "q4_date": "15 May 2026", "time": "After Market", 
+         "prediction": "BULLISH", "confidence": 88, "sentiment": "🟢 Positive", "analyst_rating": "BUY", 
+         "status": "COMPLETED", "actual_reaction": "📈 STOCK UP 2.5%", 
+         "reason": "Strong loan growth & NII beat estimates"},
+        
+        {"name": "Reliance Industries", "symbol": "RELIANCE", "q4_date": "14 May 2026", "time": "After Market", 
+         "prediction": "NEUTRAL", "confidence": 55, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD", 
+         "status": "COMPLETED", "actual_reaction": "➡️ STOCK FLAT", 
+         "reason": "Retail & O2C business mixed results"},
+        
+        {"name": "Infosys", "symbol": "INFY", "q4_date": "16 May 2026", "time": "9:15 AM", 
+         "prediction": "BEARISH", "confidence": 65, "sentiment": "🔴 Negative", "analyst_rating": "SELL", 
+         "status": "COMPLETED", "actual_reaction": "📈 STOCK UP 3.2%", 
+         "reason": "Better than expected FY27 guidance & large deal wins"},
     ]
     
-    # Display as regular DataFrame first
+    # ================= MAIN TABLE =================
     st.markdown("#### 📊 Monitored Companies - Q4 FY26")
     
-    # Create DataFrame
+    # Create DataFrame with reaction column
     df_pending = pd.DataFrame([{
         "Company": c['name'],
         "Symbol": c['symbol'],
@@ -1780,10 +1798,11 @@ with tab4:
         "AI Prediction": c['prediction'],
         "Confidence": f"{c['confidence']}%",
         "Sentiment": c['sentiment'],
-        "Analyst Rating": c['analyst_rating']
+        "Analyst Rating": c['analyst_rating'],
+        "Status": c['status'],
+        "Actual Reaction": c.get('actual_reaction', '-') if c['status'] == "COMPLETED" else "-",
     } for c in PENDING_RESULTS_UPDATED])
     
-    # Display dataframe normally
     st.dataframe(df_pending, use_container_width=True, height=400)
     
     st.markdown("---")
@@ -1804,10 +1823,11 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= COLORED CARDS FOR EACH COMPANY =================
+    # ================= COMPANY CARDS WITH ACTUAL REACTIONS =================
     st.markdown("#### 📊 Company-wise Analysis Cards")
     
     for company in PENDING_RESULTS_UPDATED:
+        # Prediction color
         if company['prediction'] == "STRONG BULLISH":
             bg_color = "#00ff44"
             border_color = "#00cc33"
@@ -1829,6 +1849,10 @@ with tab4:
             border_color = "#cc2222"
             icon = "💀"
         
+        # Reaction color (green for up, red for down)
+        reaction = company.get('actual_reaction', '')
+        reaction_color = "#00ff88" if "UP" in reaction else "#ff4444" if "DOWN" in reaction else "#ffaa00"
+        
         st.markdown(f"""
         <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 5px solid {border_color};">
             <table style="width:100%;">
@@ -1841,8 +1865,10 @@ with tab4:
                 <tr>
                     <td><b>📊 Sentiment</b><br>{company['sentiment']}</td>
                     <td><b>⭐ Analyst Rating</b><br>{company['analyst_rating']}</td>
-                    <td colspan="2"><b>💡 Expected Action</b><br>{'BUY' if 'BULLISH' in company['prediction'] else 'HOLD' if company['prediction'] == 'NEUTRAL' else 'SELL'}</td>
+                    <td><b>📈 Expected Action</b><br>{'BUY' if 'BULLISH' in company['prediction'] else 'HOLD' if company['prediction'] == 'NEUTRAL' else 'SELL'}</td>
+                    <td><b>{'📉 Actual Reaction' if company['status'] == 'COMPLETED' else '🟡 Status'}</b><br><span style="color:{reaction_color};">{company['actual_reaction'] if company['status'] == 'COMPLETED' else '⏳ PENDING'}</span></td>
                 </tr>
+                {f'<tr><td colspan="4"><b>💡 Reason:</b> {company["reason"]}</td></tr>' if company.get('reason') else ''}
             </table>
         </div>
         """, unsafe_allow_html=True)
@@ -1854,8 +1880,9 @@ with tab4:
     bullish_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] in ["BULLISH", "STRONG BULLISH"]])
     bearish_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] in ["BEARISH", "STRONG BEARISH"]])
     neutral_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] == "NEUTRAL"])
+    completed_count = len([c for c in PENDING_RESULTS_UPDATED if c['status'] == "COMPLETED"])
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("📈 Bullish", bullish_count, delta=f"+{bullish_count}")
     with col2:
@@ -1863,7 +1890,24 @@ with tab4:
     with col3:
         st.metric("⚪ Neutral", neutral_count, delta="0")
     with col4:
+        st.metric("✅ Completed", completed_count, delta="Done")
+    with col5:
         st.metric("📊 Total", len(PENDING_RESULTS_UPDATED), delta="Active")
+    
+    st.markdown("---")
+    
+    # ================= MARKET LESSON =================
+    st.markdown("#### 📚 Important Market Lesson")
+    st.info("""
+    **INFOSYS केस स्टडी:** 
+    - AI Prediction: BEARISH (65% confidence)
+    - Analyst Rating: SELL
+    - Actual Result: 📈 STOCK UP 3.2%
+    - Reason: Better than expected FY27 guidance & large deal wins
+    
+    **शिकायला मिळालेलं धडे:** 
+    बाजार 'अपेक्षा' वर चालतो, फक्त निकालांवर नाही. जर निकाल वाईट आला पण अपेक्षेपेक्षा चांगला असेल तर share वर जातो!
+    """)
     
     st.markdown("---")
     
@@ -1871,11 +1915,12 @@ with tab4:
     if st.session_state.result_alerts:
         st.markdown("#### 🔔 Recent Result Alerts")
         for alert in st.session_state.result_alerts[-5:]:
-            verdict_color = "#00ff88" if "BULLISH" in str(alert.get('verdict', '')) else "#ff4444" if "BEARISH" in str(alert.get('verdict', '')) else "#ffaa00"
+            verdict_color = "#00ff88" if "POSITIVE" in str(alert.get('verdict', '')) else "#ff4444" if "NEGATIVE" in str(alert.get('verdict', '')) else "#ffaa00"
             st.markdown(f"""
             <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {verdict_color};">
-                <b>📊 {alert.get('company', 'Unknown')}</b> | {alert.get('date', '')} {alert.get('time', '')}<br>
-                📈 Revenue: {alert.get('revenue', 'N/A')} | AI: <span style="color:{verdict_color}">{alert.get('verdict', 'N/A')}</span> | Signal: {alert.get('signal', 'N/A')} | Confidence: {alert.get('confidence', 0)}%
+                <b>📊 {alert.get('company', 'Unknown')}</b> | 📅 {alert.get('date', '')} ⏰ {alert.get('time', '')}<br>
+                🤖 AI: <span style="color:{verdict_color}">{alert.get('verdict', 'N/A')}</span> | 📈 Reaction: {alert.get('reaction', 'N/A')}<br>
+                💡 {alert.get('reason', '')}
             </div>
             """, unsafe_allow_html=True)
     else:
