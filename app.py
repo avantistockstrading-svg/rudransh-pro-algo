@@ -1018,64 +1018,63 @@ now = get_ist_now()
 st.markdown(f"<div class='live-time'>🕐 {now.strftime('%H:%M:%S')} IST | 📅 {now.strftime('%d %B %Y')}</div>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ================= API STATUS DASHBOARD =================
-st.markdown("## 🔌 API STATUS DASHBOARD")
-fmp_status, fmp_level, fmp_msg = check_fmp_api()
+# ================= API STATUS & CONTROL PANEL (SIDE BY SIDE) =================
+st.markdown("## 🎮 SYSTEM DASHBOARD")
 
-col1, col2, col3 = st.columns(3)
-with col1:
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.markdown("### 🔌 API STATUS")
+    fmp_status, fmp_level, fmp_msg = check_fmp_api()
+    
     st.markdown(f'<div class="status-card" style="border-left: 4px solid #00ff88;">📊 <strong>FMP API</strong><br><span style="color:#00ff88">🟢 {fmp_msg}</span></div>', unsafe_allow_html=True)
-with col2:
     st.markdown('<div class="status-card" style="border-left: 4px solid #00ff88;">📰 <strong>GNews API</strong><br><span style="color:#00ff88">🟢 Active</span></div>', unsafe_allow_html=True)
-with col3:
     st.markdown('<div class="status-card" style="border-left: 4px solid #00ff88;">📱 <strong>Telegram Bot</strong><br><span style="color:#00ff88">🟢 Active</span></div>', unsafe_allow_html=True)
 
-st.markdown("---")
-
-# ================= CONTROL PANEL =================
-st.markdown("""
-<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 20px; padding: 20px; margin: 10px 0; border: 1px solid rgba(0,255,136,0.2);">
-    <h4 style="margin:0 0 15px 0; color:#00b4d8; text-align:center;">🎮 CONTROL PANEL</h4>
-""", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns([2, 1, 1])
-with col1:
+with col_right:
+    st.markdown("### 🎮 CONTROL PANEL")
+    st.markdown("""<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 20px; padding: 20px; border: 1px solid rgba(0,255,136,0.2);">""", unsafe_allow_html=True)
+    
     st.markdown("""<div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 5px 15px; border: 1px solid #00b4d8;"><label style="color:#00b4d8; font-size:12px;">🔐 6-DIGIT TOTP CODE</label></div>""", unsafe_allow_html=True)
-    totp = st.text_input("TOTP", type="password", placeholder="Enter 6-digit code", key="totp_main", label_visibility="collapsed")
-with col2:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🟢 START ALGO", use_container_width=True):
-        if totp and len(totp) == 6:
-            st.session_state.algo_running = True
-            st.session_state.totp_verified = True
-            send_telegram("🚀 ALGO STARTED v5.0")
-            st.success("✅ Algo Started Successfully!")
+    totp = st.text_input("TOTP", type="password", placeholder="Enter 6-digit code", key="totp_main_panel", label_visibility="collapsed")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("🟢 START ALGO", use_container_width=True):
+            if totp and len(totp) == 6:
+                st.session_state.algo_running = True
+                st.session_state.totp_verified = True
+                send_telegram("🚀 ALGO STARTED v5.0")
+                st.success("✅ Algo Started Successfully!")
+                st.rerun()
+            else:
+                st.error("❌ Valid 6-digit TOTP required!")
+    with col_btn2:
+        if st.button("🔴 STOP ALGO", use_container_width=True):
+            st.session_state.algo_running = False
+            send_telegram("🛑 ALGO STOPPED")
+            st.warning("⚠️ Algo Stopped!")
             st.rerun()
+    
+    st.markdown("---")
+    
+    col_status1, col_status2, col_status3 = st.columns(3)
+    with col_status1:
+        if st.session_state.algo_running:
+            st.markdown("""<div style="background: rgba(0,255,136,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00ff88;"><span style="color:#00ff88;">🟢 SYSTEM STATUS</span><br><span style="color:#00ff88;">● ACTIVE</span></div>""", unsafe_allow_html=True)
         else:
-            st.error("❌ Valid 6-digit TOTP required!")
-with col3:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔴 STOP ALGO", use_container_width=True):
-        st.session_state.algo_running = False
-        send_telegram("🛑 ALGO STOPPED")
-        st.warning("⚠️ Algo Stopped!")
-        st.rerun()
+            st.markdown("""<div style="background: rgba(255,68,68,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #ff4444;"><span style="color:#ff4444;">🔴 SYSTEM STATUS</span><br><span style="color:#ff4444;">● INACTIVE</span></div>""", unsafe_allow_html=True)
+    with col_status2:
+        if st.session_state.totp_verified:
+            st.markdown("""<div style="background: rgba(0,255,136,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00ff88;"><span style="color:#00ff88;">🔐 TOTP STATUS</span><br><span style="color:#00ff88;">✓ VERIFIED</span></div>""", unsafe_allow_html=True)
+        else:
+            st.markdown("""<div style="background: rgba(255,68,68,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #ff4444;"><span style="color:#ff4444;">🔐 TOTP STATUS</span><br><span style="color:#ff4444;">✗ NOT VERIFIED</span></div>""", unsafe_allow_html=True)
+    with col_status3:
+        now = get_ist_now()
+        st.markdown(f"""<div style="background: rgba(0,180,216,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00b4d8;"><span style="color:#00b4d8;">⏰ CURRENT TIME</span><br><span style="color:#00b4d8; font-size:14px;">{now.strftime('%H:%M:%S')} IST</span></div>""", unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.session_state.algo_running:
-        st.markdown("""<div style="background: rgba(0,255,136,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00ff88;"><span style="color:#00ff88;">🟢 SYSTEM STATUS</span><br><span style="color:#00ff88;">● ACTIVE</span></div>""", unsafe_allow_html=True)
-    else:
-        st.markdown("""<div style="background: rgba(255,68,68,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #ff4444;"><span style="color:#ff4444;">🔴 SYSTEM STATUS</span><br><span style="color:#ff4444;">● INACTIVE</span></div>""", unsafe_allow_html=True)
-with col2:
-    if st.session_state.totp_verified:
-        st.markdown("""<div style="background: rgba(0,255,136,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00ff88;"><span style="color:#00ff88;">🔐 TOTP STATUS</span><br><span style="color:#00ff88;">✓ VERIFIED</span></div>""", unsafe_allow_html=True)
-    else:
-        st.markdown("""<div style="background: rgba(255,68,68,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #ff4444;"><span style="color:#ff4444;">🔐 TOTP STATUS</span><br><span style="color:#ff4444;">✗ NOT VERIFIED</span></div>""", unsafe_allow_html=True)
-with col3:
-    st.markdown(f"""<div style="background: rgba(0,180,216,0.1); border-radius: 10px; padding: 8px; text-align: center; border: 1px solid #00b4d8;"><span style="color:#00b4d8;">⏰ CURRENT TIME</span><br><span style="color:#00b4d8; font-size:14px;">{now.strftime('%H:%M:%S')} IST</span></div>""", unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= TABS =================
