@@ -1353,80 +1353,76 @@ with tab2:
             """, unsafe_allow_html=True)
     
     st.markdown("---")
-
-    # ================= CRUDE OIL SENTIMENT DASHBOARD =================
-st.markdown("---")
-st.markdown("#### 🛢️ CRUDE OIL MARKET SENTIMENT")
-
-crude_sentiment = {
-    "STRONG BULLISH": ["🚀 Hormuz crisis: 20% global supply lost", "🚀 Global inventories approaching historic low"],
-    "BULLISH": ["📈 WTI at $106.64, Brent at $110.29", "📈 US crude inventories falling"],
-    "NEUTRAL": ["⚪ India has 60 days crude reserves", "⚪ Brazil record output 4.24M bpd"]
-}
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("""
-    <div style='background:rgba(0,255,68,0.15); border-left:4px solid #00ff44; padding:10px; border-radius:5px;'>
-        <b>🚀 STRONG BULLISH</b><br>
-        • Hormuz crisis: 20% supply lost<br>
-        • Global inventories at historic low
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-    <div style='background:rgba(0,255,68,0.1); border-left:4px solid #88ff88; padding:10px; border-radius:5px;'>
-        <b>📈 BULLISH</b><br>
-        • WTI $106.64, Brent $110.29<br>
-        • US crude inventories falling
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-    <div style='background:rgba(255,170,0,0.1); border-left:4px solid #ffaa00; padding:10px; border-radius:5px;'>
-        <b>⚪ NEUTRAL</b><br>
-        • India has 60 days crude reserves<br>
-        • Brazil record output 4.24M bpd
-    </div>
-    """, unsafe_allow_html=True)
-
-# ================= NATURAL GAS SENTIMENT DASHBOARD =================
-st.markdown("---")
-st.markdown("#### 🌿 NATURAL GAS MARKET SENTIMENT")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("""
-    <div style='background:rgba(0,255,68,0.1); border-left:4px solid #88ff88; padding:10px; border-radius:5px;'>
-        <b>📈 BULLISH</b><br>
-        • NG futures at $3.02 (+2.06%)<br>
-        • Weekly gain +6.60%
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-    <div style='background:rgba(255,68,68,0.1); border-left:4px solid #ff6666; padding:10px; border-radius:5px;'>
-        <b>📉 BEARISH</b><br>
-        • US NG inventories +85 Bcf<br>
-        • Inventories at 2,290 Bcf
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-    <div style='background:rgba(255,68,68,0.1); border-left:4px solid #ff6666; padding:10px; border-radius:5px;'>
-        <b>📉 BEARISH</b><br>
-        • European NG prices down 2.4%<br>
-        • TTF contract at 48.98 euros/MWh
-    </div>
-    """, unsafe_allow_html=True)
     
-            # ================= GLOBAL MARKET SECTION =================
+    # ================= CRUDE OIL SENTIMENT DASHBOARD =================
+    st.markdown("#### 🛢️ CRUDE OIL MARKET SENTIMENT")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div style='background:rgba(0,255,68,0.15); border-left:4px solid #00ff44; padding:10px; border-radius:5px;'>
+            <b>🚀 STRONG BULLISH</b><br>
+            • Hormuz crisis: 20% supply lost<br>
+            • Global inventories at historic low
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style='background:rgba(0,255,68,0.1); border-left:4px solid #88ff88; padding:10px; border-radius:5px;'>
+            <b>📈 BULLISH</b><br>
+            • WTI $106.64, Brent $110.29<br>
+            • US crude inventories falling
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div style='background:rgba(255,170,0,0.1); border-left:4px solid #ffaa00; padding:10px; border-radius:5px;'>
+            <b>⚪ NEUTRAL</b><br>
+            • India has 60 days crude reserves<br>
+            • Brazil record output 4.24M bpd
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= NATURAL GAS SENTIMENT DASHBOARD =================
+    st.markdown("#### 🌿 NATURAL GAS MARKET SENTIMENT")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div style='background:rgba(0,255,68,0.1); border-left:4px solid #88ff88; padding:10px; border-radius:5px;'>
+            <b>📈 BULLISH</b><br>
+            • NG futures at $3.02 (+2.06%)<br>
+            • Weekly gain +6.60%
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style='background:rgba(255,68,68,0.1); border-left:4px solid #ff6666; padding:10px; border-radius:5px;'>
+            <b>📉 BEARISH</b><br>
+            • US NG inventories +85 Bcf<br>
+            • Inventories at 2,290 Bcf
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div style='background:rgba(255,68,68,0.1); border-left:4px solid #ff6666; padding:10px; border-radius:5px;'>
+            <b>📉 BEARISH</b><br>
+            • European NG prices down 2.4%<br>
+            • TTF contract at 48.98 euros/MWh
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ================= GLOBAL MARKET SECTION =================
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
