@@ -2035,9 +2035,11 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     monitor_active_orders_with_pnl()
     
     if st.session_state.auto_trade_enabled:
-        auto_trade_from_signal_with_journal()
+        auto_trade_from_signal_with_journal()  # NIFTY साठी
+        wolf_auto_fo_trade()  # 👈 हे जोडा! F&O स्क्रिप्ससाठी
     
-    wolf_auto_fo_trade()   # WOLF AUTO F&O - CE/PE खरेदी
+    # हे सुद्धा जोडा - पेंडिंग ऑर्डरसाठी
+    check_and_execute_orders_with_journal()
     
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
@@ -2255,9 +2257,11 @@ def auto_trade_from_signal_with_journal():
                 
                 send_telegram(f"⏳ SAHYADRI: {symbol} {signal} | Signal@{price} | Limit Order PENDING @ {limit_price}")
 
-# ================= WOLF AUTO F&O TRADE =================
 def wolf_auto_fo_trade():
-    """WOLF AUTO F&O - EMA BUY आणि EMA SELL साठी (बिना common conditions)"""
+    """WOLF AUTO F&O - EMA BUY आणि EMA SELL (सर्व F&O स्क्रिप्ससाठी)"""
+    
+    if not st.session_state.auto_trade_enabled:  # 👈 हे जोडा
+        return
     
     nifty_trend = get_nifty_trend()
     nifty_positive = (nifty_trend == "POSITIVE")
@@ -2273,7 +2277,7 @@ def wolf_auto_fo_trade():
             continue
         
         # स्किप करा जर आधीच pending order असेल
-        already_pending = any(o['symbol'] == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
+        already_pending = any(o.get('symbol') == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
         if already_pending:
             continue
         
@@ -2331,9 +2335,12 @@ def wolf_auto_fo_trade():
             # Strike Price
             if symbol == "NIFTY":
                 strike_interval = 50
-                strike_price = math.floor(current_price / strike_interval) * strike_interval
+            elif symbol in ["CRUDE", "NATURALGAS"]:
+                strike_interval = 100
             else:
-                strike_price = math.floor(current_price / 10) * 10
+                strike_interval = 10
+            
+            strike_price = math.floor(current_price / strike_interval) * strike_interval
             
             # TP1, TP2, SL
             entry_price = current_price
@@ -2345,7 +2352,7 @@ def wolf_auto_fo_trade():
                 'symbol': symbol,
                 'option_type': option_type,
                 'strike_price': strike_price,
-                'qty': 1,
+                'qty': st.session_state.auto_trade_qty,  # 👈 settings मधून qty घ्या
                 'buy_above': current_price,
                 'sl': sl_price,
                 'target': tp2_price,
@@ -2358,7 +2365,8 @@ def wolf_auto_fo_trade():
                 'signal': 'BUY'
             })
             
-            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%)")
+            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
+            voice_alert(f"Wolf auto buy order placed for {symbol}")
         
         # ========== EXECUTE SELL ORDER (PUT) ==========
         elif ema_sell:
@@ -2368,9 +2376,12 @@ def wolf_auto_fo_trade():
             # Strike Price
             if symbol == "NIFTY":
                 strike_interval = 50
-                strike_price = math.floor(current_price / strike_interval) * strike_interval
+            elif symbol in ["CRUDE", "NATURALGAS"]:
+                strike_interval = 100
             else:
-                strike_price = math.floor(current_price / 10) * 10
+                strike_interval = 10
+            
+            strike_price = math.floor(current_price / strike_interval) * strike_interval
             
             # TP1, TP2, SL for PUT
             entry_price = current_price
@@ -2382,7 +2393,7 @@ def wolf_auto_fo_trade():
                 'symbol': symbol,
                 'option_type': option_type,
                 'strike_price': strike_price,
-                'qty': 1,
+                'qty': st.session_state.auto_trade_qty,  # 👈 settings मधून qty घ्या
                 'buy_above': current_price,
                 'sl': sl_price,
                 'target': tp2_price,
@@ -2395,4 +2406,5 @@ def wolf_auto_fo_trade():
                 'signal': 'SELL'
             })
             
-            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%)")
+            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
+            voice_alert(f"Wolf auto sell order placed for {symbol}")
