@@ -67,13 +67,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================= TIMEZONE (FIXED FOR CLOUD) =================
+from datetime import datetime, timedelta, timezone
+
 def get_ist_now():
-    """Returns current IST datetime - works on Local & Cloud"""
+    """Returns current IST datetime with timezone info"""
     utc_now = datetime.now(timezone.utc)
     ist_now = utc_now + timedelta(hours=5, minutes=30)
-    return ist_now
+    return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))  # tzinfo जोडले
 
-IST = timezone(timedelta(hours=5, minutes=30))
+# किंवा याप्रमाणे
+def get_ist_now():
+    return datetime.now(timezone(timedelta(hours=5, minutes=30)))
 
 # ================= TRADING HOURS =================
 def is_trading_time(symbol):
