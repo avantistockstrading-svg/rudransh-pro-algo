@@ -69,15 +69,28 @@ st.markdown("""
 # ================= TIMEZONE (FIXED FOR CLOUD) =================
 def get_ist_now():
     """Returns current IST datetime - works on Local & Cloud"""
-    # Get current UTC time
     utc_now = datetime.now(timezone.utc)
-    # Convert to IST (UTC + 5:30)
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now
 
-# Optional: Keep IST variable if needed elsewhere
 IST = timezone(timedelta(hours=5, minutes=30))
 
+# ================= TRADING HOURS =================
+def is_trading_time(symbol):
+    now = get_ist_now()
+    
+    if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
+        start_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
+        end_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    elif symbol in ["CRUDE", "NATURALGAS"]:
+        start_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        end_time = now.replace(hour=23, minute=30, second=0, microsecond=0)
+    else:
+        start_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
+        end_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    
+    is_weekday = now.weekday() < 5
+    return start_time <= now <= end_time and is_weekday
 # ================= APP LOCK =================
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
