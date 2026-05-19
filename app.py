@@ -66,11 +66,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= TIMEZONE =================
-IST = timezone(timedelta(hours=5, minutes=30))
-
+# ================= TIMEZONE (FIXED FOR CLOUD) =================
 def get_ist_now():
-    return datetime.now(IST)
+    """Returns current IST datetime - works on Local & Cloud"""
+    # Get current UTC time
+    utc_now = datetime.now(timezone.utc)
+    # Convert to IST (UTC + 5:30)
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    return ist_now
+
+# Optional: Keep IST variable if needed elsewhere
+IST = timezone(timedelta(hours=5, minutes=30))
 
 # ================= APP LOCK =================
 if "app_unlocked" not in st.session_state:
