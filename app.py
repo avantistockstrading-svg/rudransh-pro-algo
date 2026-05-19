@@ -66,31 +66,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= TIMEZONE (FIXED FOR CLOUD) =================
-def get_ist_now():
-    """Returns current IST datetime - works on Local & Cloud"""
-    utc_now = datetime.now(timezone.utc)
-    ist_now = utc_now - timedelta(hours=5, minutes=30)
-    return ist_now
-
-IST = timezone(timedelta(hours=5, minutes=30))
-
 # ================= TRADING HOURS =================
 def is_trading_time(symbol):
     now = get_ist_now()
     
+    # 🔥 DEBUG: Print current time and trading hours
+    st.write(f"🕐 Current IST: {now.strftime('%H:%M:%S')}")
+    
     if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
         start_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
         end_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+        st.write(f"NIFTY Trading: {start_time.strftime('%H:%M')} to {end_time.strftime('%H:%M')}")
     elif symbol in ["CRUDE", "NATURALGAS"]:
         start_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
         end_time = now.replace(hour=23, minute=30, second=0, microsecond=0)
+        st.write(f"COMMODITY Trading: {start_time.strftime('%H:%M')} to {end_time.strftime('%H:%M')}")
     else:
         start_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
         end_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
     
     is_weekday = now.weekday() < 5
-    return start_time <= now <= end_time and is_weekday
+    result = start_time <= now <= end_time and is_weekday
+    st.write(f"✅ Trading Time Result: {result}")
+    
+    return result
 # ================= APP LOCK =================
 if "app_unlocked" not in st.session_state:
     st.session_state.app_unlocked = False
