@@ -310,7 +310,6 @@ def get_pending_results():
     earnings = get_today_earnings()
     if earnings:
         return earnings
-    # API error असल्यास empty list return करा
     return []
 
 # ================= JOURNAL SYSTEM FUNCTIONS =================
@@ -321,7 +320,6 @@ def add_to_journal_with_system(order, system_name, exit_price=None, exit_reason=
     entry_price = order['entry_price']
     qty = order['qty']
     
-    # Multiplier calculate
     if order['symbol'] in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
         multiplier = 50 if order['symbol'] == "NIFTY" else 25
     elif order['symbol'] in ["CRUDE", "NATURALGAS"]:
@@ -396,7 +394,7 @@ def monitor_today_results():
 
 # ================= CHECK & EXECUTE WOLF ORDERS =================
 def check_and_execute_orders_with_journal():
-    """Wolf orders execute करा आणि journal मध्ये add करा"""
+    """Wolf orders execute करा"""
     pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
     
     for order in pending_orders:
@@ -419,26 +417,11 @@ def check_and_execute_orders_with_journal():
                 'signal_type': '🐺 WOLF'
             }
             st.session_state.active_orders.append(active_order)
-            
-            # Journal मध्ये entry add करा
-            st.session_state.trade_journal.append({
-                "No": len(st.session_state.trade_journal) + 1,
-                "Time": order['entry_time'],
-                "System": "🐺 WOLF",
-                "Symbol": f"{order['symbol']} {order.get('option_type', '')} {order.get('strike_price', '')}",
-                "Type": "BUY",
-                "Signal": order.get('signal_type', 'MANUAL'),
-                "Entry": round(current_price, 2),
-                "Exit": "-",
-                "P&L (₹)": 0,
-                "Status": "ACTIVE"
-            })
-            
-            send_telegram(f"🐺 WOLF EXECUTED: {order['symbol']} at ₹{current_price}")
-            voice_alert(f"Wolf order executed for {order['symbol']}")
+            add_to_journal(active_order)
+            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price}")
 
 def monitor_active_orders_with_pnl():
-    """Active orders monitor करा आणि exit झाल्यावर journal update करा"""
+    """Active orders चे SL/Target check करा"""
     orders_to_remove = []
     
     for i, order in enumerate(st.session_state.active_orders):
@@ -449,88 +432,18 @@ def monitor_active_orders_with_pnl():
         
         if order['option_type'] == "CALL (CE)":
             if current_price <= order['sl']:
-                exit_reason = "SL HIT"
-                exit_price = current_price
-                orders_to_remove.append((i, order, exit_price, exit_reason))
+                orders_to_remove.append((i, order, current_price, "SL HIT"))
             elif current_price >= order['target']:
-                exit_reason = "TARGET HIT"
-                exit_price = current_price
-                orders_to_remove.append((i, order, exit_price, exit_reason))
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
         else:
             if current_price >= order['sl']:
-                exit_reason = "SL HIT"
-                exit_price = current_price
-                orders_to_remove.append((i, order, exit_price, exit_reason))
+                orders_to_remove.append((i, order, current_price, "SL HIT"))
             elif current_price <= order['target']:
-                exit_reason = "TARGET HIT"
-                exit_price = current_price
-                orders_to_remove.append((i, order, exit_price, exit_reason))
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
     
     for idx, order, exit_price, reason in reversed(orders_to_remove):
-        # P&L calculate करा
-        multiplier = 50 if order['symbol'] == "NIFTY" else 25 if order['symbol'] == "BANKNIFTY" else 100
-        if order['option_type'] == "CALL (CE)":
-            pnl_points = exit_price - order['entry_price']
-        else:
-            pnl_points = order['entry_price'] - exit_price
-        pnl_value = pnl_points * order['qty'] * multiplier
-        
-        # Journal मध्ये exit update करा
-        for journal_entry in st.session_state.trade_journal:
-            if journal_entry.get('Status') == "ACTIVE" and journal_entry.get('Entry') == order['entry_price']:
-                journal_entry['Exit'] = round(exit_price, 2)
-                journal_entry['P&L (₹)'] = round(pnl_value, 2)
-                journal_entry['Status'] = f"CLOSED - {reason}"
-                journal_entry['Time'] = f"{journal_entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
-                break
-        else:
-            # New journal entry for exit
-            st.session_state.trade_journal.append({
-                "No": len(st.session_state.trade_journal) + 1,
-                "Time": get_ist_now().strftime('%H:%M:%S'),
-                "System": order.get('signal_type', 'UNKNOWN'),
-                "Symbol": f"{order['symbol']} {order['option_type']}",
-                "Type": "CLOSE",
-                "Signal": reason,
-                "Entry": round(order['entry_price'], 2),
-                "Exit": round(exit_price, 2),
-                "P&L (₹)": round(pnl_value, 2),
-                "Status": reason
-            })
-        
+        add_to_journal(order, exit_price, reason)
         st.session_state.active_orders.pop(idx)
-        send_telegram(f"📊 {order.get('signal_type', 'ORDER')} CLOSED: {order['symbol']} - {reason} | P&L: ₹{pnl_value:.2f}")
-def check_and_execute_orders_with_journal():
-    """Pending orders check करा आणि execute करा"""
-    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
-    
-    for order in pending_orders:
-        current_price = get_live_price(order['symbol'])
-        
-        if current_price <= 0:
-            continue
-        
-        # जर buy_below असेल (BUY किंवा SELL दोन्ही साठी)
-        if order.get('buy_below') is not None:
-            if current_price <= order['buy_below']:
-                order['status'] = 'EXECUTED'
-                order['entry_price'] = current_price
-                order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
-                
-                active_order = {
-                    'symbol': order['symbol'],
-                    'option_type': order.get('option_type', 'CALL (CE)'),
-                    'strike_price': order.get('strike_price', 0),
-                    'qty': order.get('qty', 1),
-                    'entry_price': current_price,
-                    'entry_time': order['entry_time'],
-                    'sl': order.get('sl', current_price * 0.95),
-                    'target': order.get('target', current_price * 1.05),
-                    'signal_type': order.get('signal_type', '⚙️ SAHYADRI')
-                }
-                st.session_state.active_orders.append(active_order)
-                add_to_journal(active_order)
-                send_telegram(f"✅ SAHYADRI EXECUTED: {order['symbol']} at ₹{current_price}")
 
 # ================= PENDING RESULTS (Dynamic) =================
 PENDING_RESULTS = get_pending_results()
@@ -659,8 +572,7 @@ def get_technical_indicators(symbol):
             c1_high = high.iloc[-1]
             c1_low = low.iloc[-1]
         
-        sideways = (45 < current_rsi < 55) and (adx < 20) if not pd.isna(adx) else False
-        
+        sideways = (45 < current_rsi < 55) and (adx < 20) if not pd.isna(adx) else False        
         return {
             "current_price": float(close.iloc[-1]), "ema9": float(ema9), "ema20": float(ema20),
             "ema200": float(ema200), "rsi": float(current_rsi), "adx": float(adx) if not pd.isna(adx) else 25,
@@ -670,7 +582,7 @@ def get_technical_indicators(symbol):
     except:
         return None
 
-# ================= STRICT SIGNAL (MATCHED WITH PINE SCRIPT) =================
+# ================= STRICT SIGNAL =================
 def get_strict_signal(symbol, nifty_trend, sector_trend):
     if symbol in ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"]:
         nifty_condition = nifty_trend == "POSITIVE" if symbol == "NIFTY" else True
@@ -683,23 +595,16 @@ def get_strict_signal(symbol, nifty_trend, sector_trend):
     if indicators is None:
         return "WAIT", 0, None
     
-    # MTF Trends
     trend5_up = get_mtf_trend(symbol, "5m") == "UP"
     trend15_up = get_mtf_trend(symbol, "15m") == "UP"
     trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
     
-    # NIFTY Trends
     nifty_positive = (nifty_trend == "POSITIVE")
     nifty_negative = (nifty_trend == "NEGATIVE")
-    
-    # Sector Trends
     sector_bullish = (sector_trend == "BULLISH")
     sector_bearish = (sector_trend == "BEARISH")
-    
-    # Sideways
     sideways = indicators["sideways"]
     
-    # strongBullStock (Pine Script प्रमाणे - RSI 60, ADX 25)
     strong_bull_stock = (
         indicators["ema9"] > indicators["ema20"] and
         indicators["current_price"] > indicators["ema200"] and
@@ -710,7 +615,6 @@ def get_strict_signal(symbol, nifty_trend, sector_trend):
         indicators["current_price"] > indicators["c1_high"]
     )
     
-    # strongBearStock (Pine Script प्रमाणे - RSI 40, ADX 25)
     strong_bear_stock = (
         indicators["ema9"] < indicators["ema20"] and
         indicators["current_price"] < indicators["ema200"] and
@@ -721,29 +625,23 @@ def get_strict_signal(symbol, nifty_trend, sector_trend):
         indicators["current_price"] < indicators["c1_low"]
     )
     
-    # BUY condition (Pine Script च्या emaBuy प्रमाणे)
     buy_conditions = (
         nifty_positive and
         not nifty_negative and
         not sideways and
         sector_bullish and
         strong_bull_stock and
-        trend5_up and
-        trend15_up and
-        trend1h_up and
+        trend5_up and trend15_up and trend1h_up and
         indicators["current_price"] > indicators["ema20"]
     )
     
-    # SELL condition (Pine Script च्या emaSell प्रमाणे)
     sell_conditions = (
         nifty_negative and
         not nifty_positive and
         not sideways and
         sector_bearish and
         strong_bear_stock and
-        not trend5_up and
-        not trend15_up and
-        not trend1h_up and
+        not trend5_up and not trend15_up and not trend1h_up and
         indicators["current_price"] < indicators["ema20"]
     )
     
@@ -895,29 +793,6 @@ def voice_alert(msg):
     if st.session_state.voice_enabled:
         st.markdown(f"<script>var s=new SpeechSynthesisUtterance('{msg}');s.lang='en-US';speechSynthesis.speak(s);</script>", unsafe_allow_html=True)
 
-def monitor_fmp_results():
-    for company in PENDING_RESULTS:
-        earnings = get_company_earnings(company['symbol'])
-        if earnings:
-            revenue = earnings.get('revenue', 0)
-            prev_revenue = earnings.get('revenue', 0)
-            revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-            if revenue_growth > 10:
-                result_type = "POSITIVE"
-            elif revenue_growth < -5:
-                result_type = "NEGATIVE"
-            else:
-                result_type = "NEUTRAL"
-            alert = {'company': company['name'], 'result': result_type, 'time': get_ist_now().strftime('%H:%M:%S')}
-            already = False
-            for a in st.session_state.result_alerts:
-                if a.get('company') == company['name']:
-                    already = True
-                    break
-            if not already:
-                st.session_state.result_alerts.append(alert)
-                send_telegram(f"📊 RESULT: {company['name']} - {result_type}")
-
 def analyze_news_sentiment(title):
     title_lower = title.lower()
     score = 0
@@ -945,6 +820,7 @@ def get_news_with_sentiment():
     except:
         pass
     return [{'title': 'NIFTY hits all-time high', 'source': 'Economic Times', 'time': get_ist_now().strftime('%Y-%m-%d'), 'sentiment': 'BULLISH', 'icon': '📈', 'color': '#88ff88'}]
+
 def process_result_and_trade(company_name, symbol, result_type):
     nifty_trend = get_nifty_trend()
     if result_type == "POSITIVE" and nifty_trend == "POSITIVE":
@@ -966,33 +842,31 @@ def process_result_and_trade(company_name, symbol, result_type):
         else:
             strike_price = math.floor(current_price / 10) * 10
         
-        # ========== TP आणि SL कॅल्क्युलेशन ==========
         entry_price = current_price
-        tp1_percent = 0.10   # 10%
-        tp2_percent = 0.20   # 20% (एकूण)
-        sl_percent = 0.15     # 15%
+        tp1_percent = 0.10
+        tp2_percent = 0.20
+        sl_percent = 0.15
         
         if signal == "BUY":
-            tp1_price = entry_price * (1 + tp1_percent)   # 10% वर TP1
-            tp2_price = entry_price * (1 + tp2_percent)   # 20% वर TP2 (Target)
-            sl_price = entry_price * (1 - sl_percent)     # 15% SL
-        else:  # SELL (PUT)
-            tp1_price = entry_price * (1 - tp1_percent)   # 10% वर TP1
-            tp2_price = entry_price * (1 - tp2_percent)   # 20% वर TP2 (Target)
-            sl_price = entry_price * (1 + sl_percent)     # 15% SL
+            tp1_price = entry_price * (1 + tp1_percent)
+            tp2_price = entry_price * (1 + tp2_percent)
+            sl_price = entry_price * (1 - sl_percent)
+        else:
+            tp1_price = entry_price * (1 - tp1_percent)
+            tp2_price = entry_price * (1 - tp2_percent)
+            sl_price = entry_price * (1 + sl_percent)
         
-        # Order मध्ये TP1, TP2, SL ठेवा
         st.session_state.wolf_orders.append({
             'symbol': symbol,
             'option_type': option_type,
             'strike_price': strike_price,
-            'qty': 1,  # 1 lot
+            'qty': 1,
             'buy_above': current_price,
             'sl': sl_price,
-            'target': tp2_price,  # Final Target (TP2)
-            'tp1': tp1_price,      # TP1 price
-            'tp1_percent': 50,     # TP1 वर 50% profit book
-            'tp2_percent': 50,     # TP2 वर 50% profit book
+            'target': tp2_price,
+            'tp1': tp1_price,
+            'tp1_percent': 50,
+            'tp2_percent': 50,
             'status': 'PENDING',
             'placed_time': get_ist_now().strftime('%H:%M:%S'),
             'auto_trade': True,
@@ -1162,19 +1036,16 @@ with tab1:
 
 # ================= TAB 2: SANSKRUTI MARKET =================
 with tab2:
-    # Auto refresh every 10 seconds for real-time
     st_autorefresh(interval=10000, key="sanskriti_refresh")
     
     st.markdown("### 🌸 SANSKRUTI MARKET")
     st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
     st.markdown("---")
     
-    # ================= INDIAN MARKET SECTION (4 BOXES) =================
     st.markdown("#### 🇮🇳 INDIAN MARKET")
     
     usd_inr = get_usd_inr_rate()
     
-    # ========== NIFTY 50 ==========
     try:
         nifty = yf.download("^NSEI", period="2d", interval="1m", progress=False)
         if nifty is not None and not nifty.empty and 'Close' in nifty.columns:
@@ -1188,7 +1059,6 @@ with tab2:
         nifty_current = 0
         nifty_pct = 0
     
-    # ========== BANK NIFTY ==========
     try:
         banknifty = yf.download("^NSEBANK", period="2d", interval="1m", progress=False)
         if banknifty is not None and not banknifty.empty and 'Close' in banknifty.columns:
@@ -1202,26 +1072,21 @@ with tab2:
         bank_current = 0
         bank_pct = 0
     
-    # ========== CRUDE OIL - LIVE MCX FUTURES PRICE ==========
     crude_live_usd = 0
     crude_live_inr = 0
     crude_pct = 0
     
     try:
-        # Try MCX Crude Futures first
         crude_mcx = yf.download("CRUDEOIL.NS", period="1d", interval="1m", progress=False)
         if crude_mcx is not None and not crude_mcx.empty and 'Close' in crude_mcx.columns:
             crude_live_inr = float(crude_mcx['Close'].iloc[-1])
-            # Get USD equivalent for reference
             crude_live_usd = crude_live_inr / usd_inr if usd_inr > 0 else 0
-            # Calculate percentage change
             if len(crude_mcx) > 1:
                 crude_prev = float(crude_mcx['Close'].iloc[-2])
                 crude_pct = ((crude_live_inr - crude_prev) / crude_prev) * 100 if crude_prev > 0 else 0
     except:
         pass
     
-    # Fallback to CL=F if MCX not available
     if crude_live_inr == 0:
         try:
             crude_cl = yf.download("CL=F", period="2d", interval="5m", progress=False)
@@ -1234,7 +1099,6 @@ with tab2:
         except:
             pass
     
-    # ========== NATURAL GAS - LIVE PRICE ==========
     ng_live_usd = 0
     ng_live_inr = 0
     ng_pct = 0
@@ -1250,7 +1114,6 @@ with tab2:
     except:
         pass
     
-    # Function to get trend label
     def get_trend_label(change_pct):
         if change_pct > 1.0:
             return "STRONG BULLISH", "🚀", "#00ff44"
@@ -1265,7 +1128,6 @@ with tab2:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # NIFTY Box
     with col1:
         if nifty_current > 0:
             trend_label, trend_icon, trend_color = get_trend_label(nifty_pct)
@@ -1291,7 +1153,6 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
     
-    # BANK NIFTY Box
     with col2:
         if bank_current > 0:
             trend_label, trend_icon, trend_color = get_trend_label(bank_pct)
@@ -1317,7 +1178,6 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
     
-    # CRUDE OIL Box (LIVE REAL-TIME MCX)
     with col3:
         if crude_live_inr > 0:
             if crude_pct > 1.0:
@@ -1353,7 +1213,6 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
     
-    # NATURAL GAS Box (LIVE REAL-TIME)
     with col4:
         if ng_live_usd > 0:
             if ng_pct > 1.0:
@@ -1391,10 +1250,9 @@ with tab2:
     
     st.markdown("---")
     
-    # ================= CRUDE OIL SENTIMENT DASHBOARD (REAL-TIME) =================
+    # CRUDE OIL SENTIMENT
     st.markdown("#### 🛢️ CRUDE OIL MARKET SENTIMENT")
     
-    # Real-time sentiment based on actual price movement
     if crude_pct > 0.5:
         real_sentiment = "STRONG BULLISH 🔥"
         real_color = "#00ff44"
@@ -1420,7 +1278,6 @@ with tab2:
     """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         st.markdown("""
         <div style='background:rgba(0,255,68,0.15); border-left:4px solid #00ff44; padding:10px; border-radius:5px;'>
@@ -1429,7 +1286,6 @@ with tab2:
             • Global inventories at historic low
         </div>
         """, unsafe_allow_html=True)
-    
     with col2:
         st.markdown("""
         <div style='background:rgba(0,255,68,0.1); border-left:4px solid #88ff88; padding:10px; border-radius:5px;'>
@@ -1438,7 +1294,6 @@ with tab2:
             • US crude inventories falling
         </div>
         """, unsafe_allow_html=True)
-    
     with col3:
         st.markdown("""
         <div style='background:rgba(255,170,0,0.1); border-left:4px solid #ffaa00; padding:10px; border-radius:5px;'>
@@ -1450,10 +1305,9 @@ with tab2:
     
     st.markdown("---")
     
-    # ================= NATURAL GAS SENTIMENT DASHBOARD (REAL-TIME) =================
+    # NATURAL GAS SENTIMENT
     st.markdown("#### 🌿 NATURAL GAS MARKET SENTIMENT")
     
-    # Real-time sentiment based on actual price movement
     if ng_pct > 0.5:
         ng_sentiment = "STRONG BULLISH 🔥"
         ng_color = "#00ff44"
@@ -1479,7 +1333,6 @@ with tab2:
     """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         st.markdown("""
         <div style='background:rgba(0,255,68,0.1); border-left:4px solid #88ff88; padding:10px; border-radius:5px;'>
@@ -1488,7 +1341,6 @@ with tab2:
             • Weekly gain +6.60%
         </div>
         """, unsafe_allow_html=True)
-    
     with col2:
         st.markdown("""
         <div style='background:rgba(255,68,68,0.1); border-left:4px solid #ff6666; padding:10px; border-radius:5px;'>
@@ -1497,7 +1349,6 @@ with tab2:
             • Inventories at 2,290 Bcf
         </div>
         """, unsafe_allow_html=True)
-    
     with col3:
         st.markdown("""
         <div style='background:rgba(255,68,68,0.1); border-left:4px solid #ff6666; padding:10px; border-radius:5px;'>
@@ -1509,23 +1360,15 @@ with tab2:
     
     st.markdown("---")
     
-    # ================= GLOBAL MARKET SECTION =================
+    # GLOBAL MARKET SECTION
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
-    # Global indices with direct symbols for real-time
     global_indices = {
-        "S&P 500": "^GSPC",
-        "NASDAQ": "^IXIC",
-        "Dow Jones": "^DJI",
-        "Nikkei 225": "^N225",
-        "Hang Seng": "^HSI",
-        "Shanghai": "000001.SS",
-        "FTSE 100": "^FTSE",
-        "DAX": "^GDAXI",
-        "CAC 40": "^FCHI",
-        "GOLD": "GC=F",
-        "SILVER": "SI=F"
+        "S&P 500": "^GSPC", "NASDAQ": "^IXIC", "Dow Jones": "^DJI",
+        "Nikkei 225": "^N225", "Hang Seng": "^HSI", "Shanghai": "000001.SS",
+        "FTSE 100": "^FTSE", "DAX": "^GDAXI", "CAC 40": "^FCHI",
+        "GOLD": "GC=F", "SILVER": "SI=F"
     }
     
     flag_map = {
@@ -1597,7 +1440,7 @@ with tab2:
                                 <small style="color:#aaa;">{symbol}</small>
                             </div>
                             """, unsafe_allow_html=True)
-                except Exception as e:
+                except:
                     with cols[j]:
                         st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
@@ -1609,7 +1452,6 @@ with tab2:
     
     st.markdown("---")
     
-    # ================= GLOBAL TREND SUMMARY =================
     st.markdown("#### 🌏 Global Market Summary")
     
     st.info("""
@@ -1620,7 +1462,7 @@ with tab2:
     - 🌍 Global Markets: Real-time data above
     """.format(crude_live_inr, crude_pct, ng_live_inr, ng_pct))
 
-# ================= TAB 3: VAISHNAVI NEWS (FULL COLOR CODED) =================
+# ================= TAB 3: VAISHNAVI NEWS =================
 with tab3:
     st.markdown("### 📰 VAISHNAVI NEWS")
     st.markdown("*Real-time business news with AI sentiment analysis*")
@@ -1631,7 +1473,6 @@ with tab3:
     
     st.markdown("---")
     
-    # ================= SENTIMENT COLOR GUIDE =================
     st.markdown("#### 🎨 Sentiment Color Guide:")
     col_a, col_b, col_c, col_d, col_e = st.columns(5)
     with col_a:
@@ -1647,92 +1488,14 @@ with tab3:
     
     st.markdown("---")
     
-    # ================= FUNCTION TO GET SENTIMENT FROM NEWS =================
-    def analyze_news_sentiment(title):
-        """Analyze sentiment from news title"""
-        title_lower = title.lower()
-        
-        # Strong Bullish keywords
-        strong_bullish_words = ['surge', 'rally', 'boom', 'record', 'peak', 'all-time', 'high', 'soars']
-        # Bullish keywords
-        bullish_words = ['gain', 'up', 'positive', 'bull', 'rise', 'growth', 'profit', 'upgrade', 'strong']
-        # Strong Bearish keywords
-        strong_bearish_words = ['crash', 'plunge', 'slump', 'collapse', 'freefall', 'disaster', 'meltdown']
-        # Bearish keywords
-        bearish_words = ['fall', 'drop', 'down', 'negative', 'bear', 'decline', 'loss', 'downgrade', 'weak']
-        
-        score = 0
-        for w in strong_bullish_words:
-            if w in title_lower:
-                score += 15
-        for w in bullish_words:
-            if w in title_lower:
-                score += 5
-        for w in strong_bearish_words:
-            if w in title_lower:
-                score -= 15
-        for w in bearish_words:
-            if w in title_lower:
-                score -= 5
-        
-        if score >= 15:
-            return "STRONG BULLISH", "🚀", "#00ff44"
-        elif score >= 5:
-            return "BULLISH", "📈", "#88ff88"
-        elif score <= -15:
-            return "STRONG BEARISH", "💀", "#ff3333"
-        elif score <= -5:
-            return "BEARISH", "📉", "#ff6666"
-        else:
-            return "NEUTRAL", "⚪", "#ffaa00"
-    
-    # ================= FETCH NEWS WITH SENTIMENT =================
-    def get_news_with_sentiment():
-        """Get news with sentiment analysis"""
-        try:
-            url = f"https://gnews.io/api/v4/top-headlines?category=business&lang=en&country=in&max=12&apikey={GNEWS_API_KEY}"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                articles = []
-                for article in data.get('articles', []):
-                    sentiment, icon, color = analyze_news_sentiment(article['title'])
-                    articles.append({
-                        'title': article['title'],
-                        'source': article['source']['name'],
-                        'time': article['publishedAt'][:10],
-                        'url': article['url'],
-                        'sentiment': sentiment,
-                        'icon': icon,
-                        'color': color
-                    })
-                return articles
-        except:
-            pass
-        
-        # Fallback news with varied sentiment for demo
-        return [
-            {'title': 'NIFTY hits all-time high at 25,000, Sensex surges 1000 points', 'source': 'Economic Times', 'time': '2026-05-17', 'sentiment': 'STRONG BULLISH', 'icon': '🚀', 'color': '#00ff44'},
-            {'title': 'RBI keeps repo rate unchanged at 6.5%, positive for markets', 'source': 'Business Standard', 'time': '2026-05-16', 'sentiment': 'BULLISH', 'icon': '📈', 'color': '#88ff88'},
-            {'title': 'Crude oil prices surge amid supply concerns, markets cautious', 'source': 'Reuters', 'time': '2026-05-16', 'sentiment': 'BEARISH', 'icon': '📉', 'color': '#ff6666'},
-            {'title': 'FIIs continue buying spree in Indian markets', 'source': 'Moneycontrol', 'time': '2026-05-16', 'sentiment': 'BULLISH', 'icon': '📈', 'color': '#88ff88'},
-            {'title': 'IT sector outlook mixed amid global slowdown fears', 'source': 'Bloomberg', 'time': '2026-05-15', 'sentiment': 'NEUTRAL', 'icon': '⚪', 'color': '#ffaa00'},
-            {'title': 'Banking stocks rally on strong Q4 results', 'source': 'CNBC', 'time': '2026-05-15', 'sentiment': 'BULLISH', 'icon': '📈', 'color': '#88ff88'},
-            {'title': 'Market crash warning: Experts predict 10% correction', 'source': 'Financial Times', 'time': '2026-05-14', 'sentiment': 'STRONG BEARISH', 'icon': '💀', 'color': '#ff3333'},
-            {'title': 'Realty stocks fall on regulatory concerns', 'source': 'Zee Business', 'time': '2026-05-14', 'sentiment': 'BEARISH', 'icon': '📉', 'color': '#ff6666'},
-        ]
-    
-    # ================= DISPLAY NEWS WITH COLOR CODING =================
     news_articles = get_news_with_sentiment()
     
-    # Statistics
     strong_bullish = len([n for n in news_articles if n['sentiment'] == 'STRONG BULLISH'])
     bullish = len([n for n in news_articles if n['sentiment'] == 'BULLISH'])
     neutral = len([n for n in news_articles if n['sentiment'] == 'NEUTRAL'])
     bearish = len([n for n in news_articles if n['sentiment'] == 'BEARISH'])
     strong_bearish = len([n for n in news_articles if n['sentiment'] == 'STRONG BEARISH'])
     
-    # ================= SENTIMENT SUMMARY CARDS =================
     st.markdown("#### 📊 Today's News Sentiment Summary")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
@@ -1778,7 +1541,6 @@ with tab3:
     
     st.markdown("---")
     
-    # ================= DISPLAY EACH NEWS CARD =================
     st.markdown("#### 📰 Latest News Headlines")
     
     for news in news_articles:
@@ -1786,7 +1548,6 @@ with tab3:
         icon = news['icon']
         color = news['color']
         
-        # Progress bar percentage based on sentiment strength
         if sentiment == "STRONG BULLISH":
             strength = 90
         elif sentiment == "BULLISH":
@@ -1795,7 +1556,7 @@ with tab3:
             strength = 50
         elif sentiment == "BEARISH":
             strength = 30
-        else:  # STRONG BEARISH
+        else:
             strength = 10
         
         st.markdown(f"""
@@ -1816,11 +1577,9 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
         
-        # Strength bar
         st.progress(strength/100)
         st.markdown("---")
     
-    # ================= MARKET SENTIMENT OVERALL =================
     st.markdown("#### 🎯 Overall Market Sentiment")
     
     total = len(news_articles)
@@ -1848,7 +1607,6 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
         
-        # Sentiment gauge
         st.markdown("##### Sentiment Gauge:")
         st.markdown(f"""
         <div style="background:#333; border-radius:10px; padding:2px;">
@@ -1864,13 +1622,12 @@ with tab3:
     
     st.markdown("---")
     
-    # ================= VOICE ALERT FOR IMPORTANT NEWS =================
     if st.session_state.voice_enabled and news_articles:
-        # Voice alert for strong sentiment news
         important_news = [n for n in news_articles if n['sentiment'] in ['STRONG BULLISH', 'STRONG BEARISH']]
         if important_news:
             voice_alert(f"Important news: {important_news[0]['sentiment']} sentiment detected. {important_news[0]['title'][:100]}")
-# ================= TAB 4: OVI RESULTS (UPDATED WITH ACTUAL REACTIONS) =================
+
+# ================= TAB 4: OVI RESULTS =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - Q4 FY26 MONITORING")
     st.markdown("*Real-time earnings monitoring with AI predictions & market reactions*")
@@ -1882,48 +1639,38 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= PENDING RESULTS WITH PREDICTIONS & ACTUAL REACTIONS =================
     PENDING_RESULTS_UPDATED = [
         {"name": "Bharat Electronics", "symbol": "BEL", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "BULLISH", "confidence": 85, "sentiment": "🟢 Positive", "analyst_rating": "BUY",
          "status": "PENDING", "actual_reaction": "", "reason": ""},
-        
         {"name": "BPCL", "symbol": "BPCL", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "NEUTRAL", "confidence": 60, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD",
          "status": "PENDING", "actual_reaction": "", "reason": ""},
-        
         {"name": "Zydus Lifesciences", "symbol": "ZYDUSLIFE", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "STRONG BULLISH", "confidence": 90, "sentiment": "🟢 Strong Positive", "analyst_rating": "STRONG BUY",
          "status": "PENDING", "actual_reaction": "", "reason": ""},
-        
         {"name": "Mankind Pharma", "symbol": "MANKIND", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "BULLISH", "confidence": 80, "sentiment": "🟢 Positive", "analyst_rating": "BUY",
          "status": "PENDING", "actual_reaction": "", "reason": ""},
-        
         {"name": "PI Industries", "symbol": "PIIND", "q4_date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "BULLISH", "confidence": 75, "sentiment": "🟢 Positive", "analyst_rating": "BUY",
          "status": "PENDING", "actual_reaction": "", "reason": ""},
-        
         {"name": "HDFC Bank", "symbol": "HDFCBANK", "q4_date": "15 May 2026", "time": "After Market", 
          "prediction": "BULLISH", "confidence": 88, "sentiment": "🟢 Positive", "analyst_rating": "BUY", 
          "status": "COMPLETED", "actual_reaction": "📈 STOCK UP 2.5%", 
          "reason": "Strong loan growth & NII beat estimates"},
-        
         {"name": "Reliance Industries", "symbol": "RELIANCE", "q4_date": "14 May 2026", "time": "After Market", 
          "prediction": "NEUTRAL", "confidence": 55, "sentiment": "🟡 Mixed", "analyst_rating": "HOLD", 
          "status": "COMPLETED", "actual_reaction": "➡️ STOCK FLAT", 
          "reason": "Retail & O2C business mixed results"},
-        
         {"name": "Infosys", "symbol": "INFY", "q4_date": "16 May 2026", "time": "9:15 AM", 
          "prediction": "BEARISH", "confidence": 65, "sentiment": "🔴 Negative", "analyst_rating": "SELL", 
          "status": "COMPLETED", "actual_reaction": "📈 STOCK UP 3.2%", 
          "reason": "Better than expected FY27 guidance & large deal wins"},
     ]
     
-    # ================= MAIN TABLE =================
     st.markdown("#### 📊 Monitored Companies - Q4 FY26")
     
-    # Create DataFrame with reaction column
     df_pending = pd.DataFrame([{
         "Company": c['name'],
         "Symbol": c['symbol'],
@@ -1941,7 +1688,6 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= COLOR LEGEND =================
     st.markdown("#### 🎨 AI Prediction Color Guide:")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
@@ -1957,11 +1703,9 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= COMPANY CARDS WITH ACTUAL REACTIONS =================
     st.markdown("#### 📊 Company-wise Analysis Cards")
     
     for company in PENDING_RESULTS_UPDATED:
-        # Prediction color
         if company['prediction'] == "STRONG BULLISH":
             bg_color = "#00ff44"
             border_color = "#00cc33"
@@ -1983,7 +1727,6 @@ with tab4:
             border_color = "#cc2222"
             icon = "💀"
         
-        # Reaction color (green for up, red for down)
         reaction = company.get('actual_reaction', '')
         reaction_color = "#00ff88" if "UP" in reaction else "#ff4444" if "DOWN" in reaction else "#ffaa00"
         
@@ -2009,8 +1752,6 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= QUICK STATS =================
-    st.markdown("#### 📊 Quick Summary")
     bullish_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] in ["BULLISH", "STRONG BULLISH"]])
     bearish_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] in ["BEARISH", "STRONG BEARISH"]])
     neutral_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] == "NEUTRAL"])
@@ -2030,7 +1771,6 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= MARKET LESSON =================
     st.markdown("#### 📚 Important Market Lesson")
     st.info("""
     **INFOSYS केस स्टडी:** 
@@ -2045,7 +1785,6 @@ with tab4:
     
     st.markdown("---")
     
-    # ================= RESULT ALERTS HISTORY =================
     if st.session_state.result_alerts:
         st.markdown("#### 🔔 Recent Result Alerts")
         for alert in st.session_state.result_alerts[-5:]:
@@ -2060,13 +1799,11 @@ with tab4:
     else:
         st.info("📭 No results detected yet. Waiting for Q4 results...")
 
-
 # ================= TAB 5: SAHYADRI SETTINGS =================
 with tab5:
     st.markdown("### ⚙️ SAHYADRI SETTINGS")
     st.markdown("---")
     
-    # ================= COLOR SELECTION =================
     st.markdown("#### 🎨 THEME COLOR SELECTION")
     col1, col2, col3 = st.columns(3)
     
@@ -2096,7 +1833,6 @@ with tab5:
     
     st.markdown("---")
     
-    # ================= AUTO TRADE SECTION =================
     st.markdown("#### 🤖 AUTO TRADE")
     col1, col2 = st.columns(2)
     with col1:
@@ -2108,7 +1844,6 @@ with tab5:
     
     st.markdown("---")
     
-    # ================= STRICT BUY/SELL SIGNALS =================
     st.markdown("#### 📊 STRICT BUY/SELL SIGNALS")
     
     nifty_trend = get_nifty_trend()
@@ -2153,7 +1888,6 @@ with tab5:
     
     st.markdown("---")
     
-    # ================= DAILY TRADE COUNTS =================
     st.markdown("#### 📊 DAILY TRADE COUNTS")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -2168,7 +1902,6 @@ with tab5:
     
     st.markdown("---")
     
-    # ================= TP SETTINGS =================
     st.markdown("#### NIFTY TP")
     c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
     with c1: st.number_input("Lots",1,50,st.session_state.nifty_lots,key="n_l")
@@ -2207,6 +1940,210 @@ with tab6:
     
     show_portfolio_dashboard()
 
+# ================= AUTO TRADE FUNCTIONS =================
+def auto_trade_from_signal_with_journal():
+    """Auto trade execute करा signals वरून - फक्त NIFTY साठी"""
+    nifty_trend = get_nifty_trend()
+    symbols_to_check = ["NIFTY"]
+    
+    for symbol in symbols_to_check:
+        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
+        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
+        
+        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
+            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+            trade_type = "BUY" if signal == "BUY" else "SELL"
+            can_trade = can_take_trade(symbol, trade_type)
+            
+            if not already_active and can_trade and is_trading_time(symbol):
+                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
+                limit_price = price - 5
+                if limit_price <= 0:
+                    limit_price = price
+                
+                strike_interval = 50
+                strike_price = math.floor(limit_price / strike_interval) * strike_interval
+                
+                sl_percent = st.session_state.auto_trade_sl_percent / 100
+                target_percent = st.session_state.auto_trade_target_percent / 100
+                
+                if signal == "BUY":
+                    sl_price = limit_price * (1 - sl_percent)
+                    target_price = limit_price * (1 + target_percent)
+                else:
+                    sl_price = limit_price * (1 + sl_percent)
+                    target_price = limit_price * (1 - target_percent)
+                
+                st.session_state.wolf_orders.append({
+                    'symbol': symbol,
+                    'option_type': option_type,
+                    'strike_price': strike_price,
+                    'qty': st.session_state.auto_trade_qty,
+                    'buy_above': limit_price,  # ✅ buy_below ऐवजी buy_above
+                    'sl': sl_price,
+                    'target': target_price,
+                    'signal': signal,
+                    'signal_price': price,
+                    'limit_price': limit_price,
+                    'status': 'PENDING',
+                    'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                    'signal_type': '⚙️ SAHYADRI'
+                })
+                
+                increment_trade_count(symbol, trade_type)
+                
+                st.session_state.trade_journal.append({
+                    "No": len(st.session_state.trade_journal) + 1,
+                    "Time": get_ist_now().strftime('%H:%M:%S'),
+                    "System": "⚙️ SAHYADRI",
+                    "Symbol": f"{symbol} {option_type} {strike_price}",
+                    "Type": signal,
+                    "Signal": f"AUTO - {signal} (PENDING @ {limit_price})",
+                    "Entry": "-",
+                    "Exit": "-",
+                    "P&L (₹)": 0,
+                    "Status": f"PENDING - Limit {limit_price}"
+                })
+                
+                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} | Signal@{price} | Limit Order PENDING @ {limit_price}")
+
+def wolf_auto_fo_trade():
+    """WOLF AUTO F&O - EMA BUY आणि EMA SELL (सर्व F&O स्क्रिप्ससाठी)"""
+    
+    if not st.session_state.auto_trade_enabled:
+        return
+    
+    nifty_trend = get_nifty_trend()
+    nifty_positive = (nifty_trend == "POSITIVE")
+    nifty_negative = (nifty_trend == "NEGATIVE")
+    
+    symbols_to_check = [s for s in FO_SCRIPTS if s != "BANKNIFTY"]
+    
+    for symbol in symbols_to_check:
+        already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+        if already_active:
+            continue
+        
+        already_pending = any(o.get('symbol') == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
+        if already_pending:
+            continue
+        
+        if not is_trading_time(symbol):
+            continue
+        
+        indicators = get_technical_indicators(symbol)
+        if indicators is None:
+            continue
+        
+        sector = SECTOR_MAPPING.get(symbol, "NIFTY")
+        sector_trend = get_sector_trend(sector)
+        sector_bullish = (sector_trend == "BULLISH")
+        sector_bearish = (sector_trend == "BEARISH")
+        
+        trend5_up = get_mtf_trend(symbol, "5m") == "UP"
+        trend15_up = get_mtf_trend(symbol, "15m") == "UP"
+        trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
+        
+        ema_buy = (nifty_positive and
+                   not indicators["sideways"] and
+                   sector_bullish and
+                   indicators["ema9"] > indicators["ema20"] and
+                   indicators["current_price"] > indicators["ema200"] and
+                   indicators["rsi"] >= 60 and
+                   indicators["adx"] >= 25 and
+                   indicators["volume_filter"] and
+                   indicators["strong_bull"] and
+                   indicators["current_price"] > indicators["c1_high"] and
+                   trend5_up and trend15_up and trend1h_up)
+        
+        ema_sell = (nifty_negative and
+                    not indicators["sideways"] and
+                    sector_bearish and
+                    indicators["ema9"] < indicators["ema20"] and
+                    indicators["current_price"] < indicators["ema200"] and
+                    indicators["rsi"] <= 40 and
+                    indicators["adx"] >= 25 and
+                    indicators["volume_filter"] and
+                    indicators["strong_bear"] and
+                    indicators["current_price"] < indicators["c1_low"] and
+                    not trend5_up and not trend15_up and not trend1h_up)
+        
+        if ema_buy:
+            current_price = indicators["current_price"]
+            option_type = "CALL (CE)"
+            
+            if symbol == "NIFTY":
+                strike_interval = 50
+            elif symbol in ["CRUDE", "NATURALGAS"]:
+                strike_interval = 100
+            else:
+                strike_interval = 10
+            
+            strike_price = math.floor(current_price / strike_interval) * strike_interval
+            
+            entry_price = current_price
+            tp1_price = entry_price * 1.10
+            tp2_price = entry_price * 1.20
+            sl_price = entry_price * 0.90
+            
+            st.session_state.wolf_orders.append({
+                'symbol': symbol,
+                'option_type': option_type,
+                'strike_price': strike_price,
+                'qty': st.session_state.auto_trade_qty,
+                'buy_above': current_price,
+                'sl': sl_price,
+                'target': tp2_price,
+                'tp1': tp1_price,
+                'tp1_book_percent': 50,
+                'status': 'PENDING',
+                'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                'auto_trade': True,
+                'signal_type': '🐺 WOLF AUTO',
+                'signal': 'BUY'
+            })
+            
+            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
+            voice_alert(f"Wolf auto buy order placed for {symbol}")
+        
+        elif ema_sell:
+            current_price = indicators["current_price"]
+            option_type = "PUT (PE)"
+            
+            if symbol == "NIFTY":
+                strike_interval = 50
+            elif symbol in ["CRUDE", "NATURALGAS"]:
+                strike_interval = 100
+            else:
+                strike_interval = 10
+            
+            strike_price = math.floor(current_price / strike_interval) * strike_interval
+            
+            entry_price = current_price
+            tp1_price = entry_price * 0.90
+            tp2_price = entry_price * 0.80
+            sl_price = entry_price * 1.10
+            
+            st.session_state.wolf_orders.append({
+                'symbol': symbol,
+                'option_type': option_type,
+                'strike_price': strike_price,
+                'qty': st.session_state.auto_trade_qty,
+                'buy_above': current_price,
+                'sl': sl_price,
+                'target': tp2_price,
+                'tp1': tp1_price,
+                'tp1_book_percent': 50,
+                'status': 'PENDING',
+                'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                'auto_trade': True,
+                'signal_type': '🐺 WOLF AUTO',
+                'signal': 'SELL'
+            })
+            
+            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
+            voice_alert(f"Wolf auto sell order placed for {symbol}")
+
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
     monitor_today_results()
@@ -2214,10 +2151,9 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     monitor_active_orders_with_pnl()
     
     if st.session_state.auto_trade_enabled:
-        auto_trade_from_signal_with_journal()  # NIFTY साठी
-        wolf_auto_fo_trade()  # 👈 हे जोडा! F&O स्क्रिप्ससाठी
+        auto_trade_from_signal_with_journal()
+        wolf_auto_fo_trade()
     
-    # हे सुद्धा जोडा - पेंडिंग ऑर्डरसाठी
     check_and_execute_orders_with_journal()
     
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
@@ -2251,9 +2187,7 @@ with st.sidebar:
     st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
 
 # ================= SIMPLE JOURNAL FUNCTIONS =================
-
 def add_journal_entry(system_name, symbol, trade_type, entry_price):
-    """Journal मध्ये simple entry add करा"""
     st.session_state.trade_journal.append({
         "Time": get_ist_now().strftime('%H:%M:%S'),
         "System": system_name,
@@ -2266,7 +2200,6 @@ def add_journal_entry(system_name, symbol, trade_type, entry_price):
     })
 
 def close_journal_entry(symbol, exit_price, pnl):
-    """Journal entry close करा"""
     for entry in st.session_state.trade_journal:
         if entry['Symbol'] == symbol and entry['Status'] == "OPEN":
             entry['Exit'] = exit_price
@@ -2277,7 +2210,6 @@ def close_journal_entry(symbol, exit_price, pnl):
 
 # ================= MONITOR RESULTS =================
 def monitor_today_results():
-    """Today चे results monitor करा"""
     try:
         pending = get_pending_results()
         for company in pending:
@@ -2315,7 +2247,6 @@ def monitor_today_results():
 
 # ================= CHECK & EXECUTE WOLF ORDERS =================
 def check_and_execute_orders_with_journal():
-    """Wolf orders execute करा"""
     pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
     
     for order in pending_orders:
@@ -2343,7 +2274,6 @@ def check_and_execute_orders_with_journal():
 
 # ================= MONITOR ACTIVE ORDERS WITH P&L =================
 def monitor_active_orders_with_pnl():
-    """Active orders चे SL/Target check करा"""
     orders_to_remove = []
     
     for i, order in enumerate(st.session_state.active_orders):
@@ -2366,224 +2296,3 @@ def monitor_active_orders_with_pnl():
     for idx, order, exit_price, reason in reversed(orders_to_remove):
         add_to_journal(order, exit_price, reason)
         st.session_state.active_orders.pop(idx)
-
-# ================= AUTO TRADE FROM SIGNAL =================
-def auto_trade_from_signal_with_journal():
-    """Auto trade execute करा signals वरून - फक्त NIFTY साठी"""
-    nifty_trend = get_nifty_trend()
-    symbols_to_check = ["NIFTY"]  # फक्त NIFTY
-    
-    for symbol in symbols_to_check:
-        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
-        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
-        
-        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
-            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-            trade_type = "BUY" if signal == "BUY" else "SELL"
-            can_trade = can_take_trade(symbol, trade_type)
-            
-            if not already_active and can_trade and is_trading_time(symbol):
-                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
-                
-                # Limit Price = Signal Price - 5 (NIFTY साठी)
-                limit_price = price - 5
-                
-                # Strike price calculate करा
-                strike_interval = 50
-                strike_price = math.floor(limit_price / strike_interval) * strike_interval
-                
-                sl_percent = st.session_state.auto_trade_sl_percent / 100
-                target_percent = st.session_state.auto_trade_target_percent / 100
-                
-                if signal == "BUY":
-                    sl_price = limit_price * (1 - sl_percent)
-                    target_price = limit_price * (1 + target_percent)
-                else:
-                    sl_price = limit_price * (1 + sl_percent)
-                    target_price = limit_price * (1 - target_percent)
-                
-                # Pending Order मध्ये ठेवा
-                st.session_state.wolf_orders.append({
-                    'symbol': symbol,
-                    'option_type': option_type,
-                    'strike_price': strike_price,
-                    'qty': st.session_state.auto_trade_qty,
-                    'buy_below': limit_price,
-                    'sl': sl_price,
-                    'target': target_price,
-                    'signal': signal,
-                    'signal_price': price,
-                    'limit_price': limit_price,
-                    'status': 'PENDING',
-                    'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                    'signal_type': '⚙️ SAHYADRI'
-                })
-                
-                increment_trade_count(symbol, trade_type)
-                
-                st.session_state.trade_journal.append({
-                    "No": len(st.session_state.trade_journal) + 1,
-                    "Time": get_ist_now().strftime('%H:%M:%S'),
-                    "System": "⚙️ SAHYADRI",
-                    "Symbol": f"{symbol} {option_type} {strike_price}",
-                    "Type": signal,
-                    "Signal": f"AUTO - {signal} (PENDING @ {limit_price})",
-                    "Entry": "-",
-                    "Exit": "-",
-                    "P&L (₹)": 0,
-                    "Status": f"PENDING - Limit {limit_price}"
-                })
-                
-                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} | Signal@{price} | Limit Order PENDING @ {limit_price}")
-
-def wolf_auto_fo_trade():
-    """WOLF AUTO F&O - EMA BUY आणि EMA SELL (सर्व F&O स्क्रिप्ससाठी)"""
-    
-    if not st.session_state.auto_trade_enabled:  # 👈 हे जोडा
-        return
-    
-    nifty_trend = get_nifty_trend()
-    nifty_positive = (nifty_trend == "POSITIVE")
-    nifty_negative = (nifty_trend == "NEGATIVE")
-    
-    # BANKNIFTY वगळून सर्व F&O स्क्रिप्स
-    symbols_to_check = [s for s in FO_SCRIPTS if s != "BANKNIFTY"]
-    
-    for symbol in symbols_to_check:
-        # स्किप करा जर आधीच active order असेल
-        already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-        if already_active:
-            continue
-        
-        # स्किप करा जर आधीच pending order असेल
-        already_pending = any(o.get('symbol') == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
-        if already_pending:
-            continue
-        
-        # स्किप करा जर ट्रेडिंग टाइम नसेल
-        if not is_trading_time(symbol):
-            continue
-        
-        # Technical Indicators मिळवा
-        indicators = get_technical_indicators(symbol)
-        if indicators is None:
-            continue
-        
-        # Sector Trend मिळवा
-        sector = SECTOR_MAPPING.get(symbol, "NIFTY")
-        sector_trend = get_sector_trend(sector)
-        sector_bullish = (sector_trend == "BULLISH")
-        sector_bearish = (sector_trend == "BEARISH")
-        
-        # MTF Trends
-        trend5_up = get_mtf_trend(symbol, "5m") == "UP"
-        trend15_up = get_mtf_trend(symbol, "15m") == "UP"
-        trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
-        
-        # ========== EMA BUY (CE) - STRICT BUY ONLY ==========
-        ema_buy = (nifty_positive and
-                   not indicators["sideways"] and
-                   sector_bullish and
-                   indicators["ema9"] > indicators["ema20"] and
-                   indicators["current_price"] > indicators["ema200"] and
-                   indicators["rsi"] >= 60 and
-                   indicators["adx"] >= 25 and
-                   indicators["volume_filter"] and
-                   indicators["strong_bull"] and
-                   indicators["current_price"] > indicators["c1_high"] and
-                   trend5_up and trend15_up and trend1h_up)
-        
-        # ========== EMA SELL (PUT) - STRICT SELL ONLY ==========
-        ema_sell = (nifty_negative and
-                    not indicators["sideways"] and
-                    sector_bearish and
-                    indicators["ema9"] < indicators["ema20"] and
-                    indicators["current_price"] < indicators["ema200"] and
-                    indicators["rsi"] <= 40 and
-                    indicators["adx"] >= 25 and
-                    indicators["volume_filter"] and
-                    indicators["strong_bear"] and
-                    indicators["current_price"] < indicators["c1_low"] and
-                    not trend5_up and not trend15_up and not trend1h_up)
-        
-        # ========== EXECUTE BUY ORDER (CE) ==========
-        if ema_buy:
-            current_price = indicators["current_price"]
-            option_type = "CALL (CE)"
-            
-            # Strike Price
-            if symbol == "NIFTY":
-                strike_interval = 50
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_interval = 100
-            else:
-                strike_interval = 10
-            
-            strike_price = math.floor(current_price / strike_interval) * strike_interval
-            
-            # TP1, TP2, SL
-            entry_price = current_price
-            tp1_price = entry_price * 1.10   # 10%
-            tp2_price = entry_price * 1.20   # 20%
-            sl_price = entry_price * 0.90    # 10% SL
-            
-            st.session_state.wolf_orders.append({
-                'symbol': symbol,
-                'option_type': option_type,
-                'strike_price': strike_price,
-                'qty': st.session_state.auto_trade_qty,  # 👈 settings मधून qty घ्या
-                'buy_above': current_price,
-                'sl': sl_price,
-                'target': tp2_price,
-                'tp1': tp1_price,
-                'tp1_book_percent': 50,
-                'status': 'PENDING',
-                'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True,
-                'signal_type': '🐺 WOLF AUTO',
-                'signal': 'BUY'
-            })
-            
-            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
-            voice_alert(f"Wolf auto buy order placed for {symbol}")
-        
-        # ========== EXECUTE SELL ORDER (PUT) ==========
-        elif ema_sell:
-            current_price = indicators["current_price"]
-            option_type = "PUT (PE)"
-            
-            # Strike Price
-            if symbol == "NIFTY":
-                strike_interval = 50
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_interval = 100
-            else:
-                strike_interval = 10
-            
-            strike_price = math.floor(current_price / strike_interval) * strike_interval
-            
-            # TP1, TP2, SL for PUT
-            entry_price = current_price
-            tp1_price = entry_price * 0.90   # 10% down
-            tp2_price = entry_price * 0.80   # 20% down
-            sl_price = entry_price * 1.10    # 10% SL
-            
-            st.session_state.wolf_orders.append({
-                'symbol': symbol,
-                'option_type': option_type,
-                'strike_price': strike_price,
-                'qty': st.session_state.auto_trade_qty,  # 👈 settings मधून qty घ्या
-                'buy_above': current_price,
-                'sl': sl_price,
-                'target': tp2_price,
-                'tp1': tp1_price,
-                'tp1_book_percent': 50,
-                'status': 'PENDING',
-                'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True,
-                'signal_type': '🐺 WOLF AUTO',
-                'signal': 'SELL'
-            })
-            
-            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
-            voice_alert(f"Wolf auto sell order placed for {symbol}")
