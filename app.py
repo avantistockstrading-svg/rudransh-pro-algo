@@ -70,7 +70,7 @@ st.markdown("""
 def get_ist_now():
     """Returns current IST datetime - works on Local & Cloud"""
     utc_now = datetime.now(timezone.utc)
-    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    ist_now = utc_now - timedelta(hours=5, minutes=30)
     return ist_now
 
 IST = timezone(timedelta(hours=5, minutes=30))
