@@ -336,11 +336,11 @@ def get_pending_results():
         return earnings
     return []
 
-# ================= JOURNAL SYSTEM FUNCTIONS =================
+// ======================================================
+// ===== ADD TO JOURNAL WITH SL/TP TRACKING =============
+// ======================================================
 
-def add_to_journal_with_system(order, system_name, exit_price=None, exit_reason=None):
-    """Journal मध्ये trade add करा system name + time सह"""
-    
+def add_to_journal(order, exit_price=None, exit_reason=None):
     entry_price = order['entry_price']
     qty = order['qty']
     
@@ -365,56 +365,59 @@ def add_to_journal_with_system(order, system_name, exit_price=None, exit_reason=
     
     trade_record = {
         "No": len(st.session_state.trade_journal) + 1,
-        "⏰ Time": get_ist_now().strftime('%H:%M:%S'),
-        "🎯 System": system_name,
-        "📊 Symbol": f"{order['symbol']} {order['option_type']} {order.get('strike_price', '')}",
-        "🔄 Type": order.get('signal_type', 'MANUAL'),
-        "📦 Lots": order['qty'],
-        "📥 Entry": round(entry_price, 2),
-        "📤 Exit": round(exit_price, 2) if exit_price else "-",
-        "💰 P&L": f"₹{round(pnl_value, 2)}",
-        "📍 Status": status
+        "Time": order.get('entry_time', get_ist_now().strftime('%H:%M:%S')),
+        "Symbol": f"{order['symbol']} {order['option_type']} {order.get('strike_price', '')}",
+        "Type": order.get('signal_type', 'MANUAL'), "Lots": order['qty'],
+        "Entry": round(entry_price, 2), "Exit": round(exit_price, 2) if exit_price else "-",
+        "P&L (₹)": round(pnl_value, 2), "Status": status
     }
-    
     st.session_state.trade_journal.append(trade_record)
+    if "daily_pnl" not in st.session_state:
+        st.session_state.daily_pnl = 0
     st.session_state.daily_pnl += pnl_value
-
-def monitor_today_results():
-    """OVI Results monitor करा"""
-    try:
-        pending = get_pending_results()
-        for company in pending:
-            symbol = company.get('symbol', '')
-            if symbol:
-                earnings = get_company_earnings(symbol)
-                if earnings:
-                    revenue = earnings.get('revenue', 0)
-                    prev_revenue = earnings.get('revenue', 0)
-                    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-                    
-                    if revenue_growth > 10:
-                        result_type = "POSITIVE"
-                    elif revenue_growth < -5:
-                        result_type = "NEGATIVE"
-                    else:
-                        result_type = "NEUTRAL"
-                    
-                    already_alerted = False
-                    for alert in st.session_state.result_alerts:
-                        if alert.get('company') == company.get('name'):
-                            already_alerted = True
-                            break
-                    
-                    if not already_alerted and result_type != "NEUTRAL":
-                        st.session_state.result_alerts.append({
-                            'company': company.get('name', symbol),
-                            'date': get_ist_now().strftime('%Y-%m-%d'),
-                            'time': get_ist_now().strftime('%H:%M:%S'),
-                            'verdict': result_type
-                        })
-                        send_telegram(f"📊 RESULT: {company.get('name', symbol)} - {result_type}")
-    except Exception as e:
-        print(f"Error: {e}")
+    
+    # ===== SAVE TRADE RESULT TO LIVE PERFORMANCE =====
+    if exit_price and exit_reason:
+        # Map symbol to performance key
+        symbol = order['symbol']
+        if symbol in ["NIFTY", "BANKNIFTY"]:
+            perf_symbol = symbol
+        elif symbol in ["CRUDE"]:
+            perf_symbol = "CRUDE"
+        elif symbol in ["NATURALGAS", "NG"]:
+            perf_symbol = "NG"
+        else:
+            perf_symbol = "STOCK"
+        
+        signal_type = "BUY" if order['option_type'] == "CALL (CE)" else "SELL"
+        result_type = ""
+        
+        if exit_reason == "TARGET HIT":
+            result_type = "TP3"
+            # Send TP HIT Alert
+            alert_msg = f"✅ TARGET HIT: {order['symbol']} {signal_type} @ {round(exit_price, 2)} | P&L: ₹{round(pnl_value, 2)}"
+            send_telegram(alert_msg)
+            if st.session_state.voice_enabled:
+                voice_alert(f"Target hit for {order['symbol']}")
+                
+        elif exit_reason == "SL HIT":
+            result_type = "SL"
+            # Send SL HIT Alert
+            alert_msg = f"❌ SL HIT: {order['symbol']} {signal_type} @ {round(exit_price, 2)} | P&L: ₹{round(pnl_value, 2)}"
+            send_telegram(alert_msg)
+            if st.session_state.voice_enabled:
+                voice_alert(f"Stop loss hit for {order['symbol']}")
+        
+        if result_type and perf_symbol in st.session_state.live_performance:
+            if signal_type == "BUY":
+                st.session_state.live_performance[perf_symbol]["BUY"] += 1
+            elif signal_type == "SELL":
+                st.session_state.live_performance[perf_symbol]["SELL"] += 1
+            
+            if result_type == "TP3":
+                st.session_state.live_performance[perf_symbol]["TP3"] += 1
+            elif result_type == "SL":
+                st.session_state.live_performance[perf_symbol]["SL"] += 1
 
 # ================= LIVE PERFORMANCE STORAGE =================
 
