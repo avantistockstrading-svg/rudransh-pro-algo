@@ -336,9 +336,9 @@ def get_pending_results():
         return earnings
     return []
 
-// ======================================================
-// ===== ADD TO JOURNAL WITH SL/TP TRACKING =============
-// ======================================================
+# ======================================================
+# ADD TO JOURNAL WITH SL/TP TRACKING
+# ======================================================
 
 def add_to_journal(order, exit_price=None, exit_reason=None):
     entry_price = order['entry_price']
