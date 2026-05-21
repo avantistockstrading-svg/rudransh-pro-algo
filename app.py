@@ -416,6 +416,31 @@ def monitor_today_results():
     except Exception as e:
         print(f"Error: {e}")
 
+# ================= LIVE PERFORMANCE STORAGE =================
+
+if "live_performance" not in st.session_state:
+    st.session_state.live_performance = {
+        "NIFTY": {"BUY":0,"SELL":0,"TP3":0,"SL":0},
+        "BANKNIFTY": {"BUY":0,"SELL":0,"TP3":0,"SL":0},
+        "STOCK": {"BUY":0,"SELL":0,"TP3":0,"SL":0},
+        "CRUDE": {"BUY":0,"SELL":0,"TP3":0,"SL":0},
+        "NG": {"BUY":0,"SELL":0,"TP3":0,"SL":0}
+    }
+
+# ===== SAVE PERFORMANCE =====
+
+def save_trade_result(symbol, signal, result):
+    if symbol not in st.session_state.live_performance:
+        return
+    if signal == "BUY":
+        st.session_state.live_performance[symbol]["BUY"] += 1
+    if signal == "SELL":
+        st.session_state.live_performance[symbol]["SELL"] += 1
+    if result == "TP3":
+        st.session_state.live_performance[symbol]["TP3"] += 1
+    if result == "SL":
+        st.session_state.live_performance[symbol]["SL"] += 1
+
 # ================= CHECK & EXECUTE WOLF ORDERS =================
 def check_and_execute_orders_with_journal():
     """Wolf orders execute करा"""
@@ -736,6 +761,29 @@ def add_to_journal(order, exit_price=None, exit_reason=None):
     if "daily_pnl" not in st.session_state:
         st.session_state.daily_pnl = 0
     st.session_state.daily_pnl += pnl_value
+    
+    # ===== SAVE TRADE RESULT TO LIVE PERFORMANCE =====
+    if exit_price and exit_reason:
+        # Map symbol to performance key
+        symbol = order['symbol']
+        if symbol in ["NIFTY", "BANKNIFTY"]:
+            perf_symbol = symbol
+        elif symbol in ["CRUDE"]:
+            perf_symbol = "CRUDE"
+        elif symbol in ["NATURALGAS", "NG"]:
+            perf_symbol = "NG"
+        else:
+            perf_symbol = "STOCK"
+        
+        signal_type = "BUY" if order['option_type'] == "CALL (CE)" else "SELL"
+        result_type = ""
+        if exit_reason == "TARGET HIT":
+            result_type = "TP3"
+        elif exit_reason == "SL HIT":
+            result_type = "SL"
+        
+        if result_type and perf_symbol in st.session_state.live_performance:
+            save_trade_result(perf_symbol, signal_type, result_type)
 
 def show_portfolio_dashboard():
     total_pnl, pnl_details = calculate_live_pnl()
@@ -765,6 +813,56 @@ def show_portfolio_dashboard():
         st.dataframe(pd.DataFrame(st.session_state.trade_journal[::-1]), use_container_width=True, height=400)
     else:
         st.info("No trades executed yet")
+    
+    # ===== RUDRANSH LIVE PERFORMANCE TABLE =====
+    st.markdown("---")
+    st.markdown("#### 📊 RUDRANSH LIVE PERFORMANCE")
+    
+    # Prepare performance data
+    perf_data = []
+    total_buy = 0
+    total_sell = 0
+    total_tp = 0
+    total_sl = 0
+    
+    for instrument, data in st.session_state.live_performance.items():
+        buy = data.get("BUY", 0)
+        sell = data.get("SELL", 0)
+        tp = data.get("TP3", 0)
+        sl = data.get("SL", 0)
+        total_buy += buy
+        total_sell += sell
+        total_tp += tp
+        total_sl += sl
+        win_percent = round((tp / (tp + sl)) * 100) if (tp + sl) > 0 else 0
+        perf_data.append({
+            "INSTRUMENT": instrument,
+            "BUY": buy,
+            "SELL": sell,
+            "TP HIT": tp,
+            "SL HIT": sl,
+            "WIN %": f"{win_percent}%"
+        })
+    
+    st.dataframe(pd.DataFrame(perf_data), use_container_width=True)
+    
+    # Total summary
+    total_accuracy = round((total_tp / (total_tp + total_sl)) * 100) if (total_tp + total_sl) > 0 else 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("📊 TOTAL TRADE", total_buy + total_sell)
+    with col2:
+        st.metric("🎯 TOTAL TARGET HIT", total_tp)
+    with col3:
+        st.metric("❌ TOTAL SL HIT", total_sl)
+    with col4:
+        st.metric("📈 TOTAL ACCURACY", f"{total_accuracy}%")
+    
+    # Date and time
+    liveDate = get_ist_now().strftime("%d-%m-%Y")
+    liveTime = get_ist_now().strftime("%H:%M:%S")
+    st.caption(f"📅 {liveDate} | ⏰ {liveTime}")
 
 # ================= HELPER FUNCTIONS =================
 def get_usd_inr_rate():
