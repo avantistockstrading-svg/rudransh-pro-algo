@@ -192,7 +192,7 @@ if get_ist_now().date() != st.session_state.last_reset_date:
     st.session_state.daily_pnl = 0
     st.session_state.last_reset_date = get_ist_now().date()
 
-# ================= COMPLETE 220+ F&O SYMBOLS =================
+# ================= COMPLETE F&O SYMBOLS (स्क्रीनशॉटमधील सगळ्या कंपन्या add केल्या) =================
 FO_SCRIPTS = [
     "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "CRUDE", "NATURALGAS",
     "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC",
@@ -227,7 +227,12 @@ FO_SCRIPTS = [
     "PHOENIXLTD", "PIIND", "PNBHOUSING", "POLICYBZR", "PRESTIGE", "RBLBANK", "RVNL",
     "SHRIRAMFIN", "SONACOMS", "SUPREMEIND", "SUZLON", "SWIGGY", "TATAELXSI", "TIINDIA",
     "TORNTPHARM", "TRENT", "TVSMOTOR", "UNIONBANK", "UNITEDSPIRITS", "UNOMINDA",
-    "VBL", "VOLTAS", "WAAREEENER", "WELCORP", "ZEEL"
+    "VBL", "VOLTAS", "WAAREEENER", "WELCORP", "ZEEL",
+    # खालील कंपन्या स्क्रीनशॉटमधून add केल्या
+    "BAJAJ_AUTO", "BHARAT_D", "BLUESTARCO", "BSE", "CRUDEOIL1", "KAYNES",
+    "LAURUSLABS", "MAZDOCK", "NATURALGAS", "OFSS", "PERSISTENT", "POLICYBZR",
+    "PRESTIGE", "SOLARINDS", "SUPREMEIND", "TATACOMM", "TATAELXSI", "TIINDIA1",
+    "UNIDSPR", "UNOMINDA", "WAAREEENER"
 ]
 
 OPTION_TYPES = ["CALL (CE)", "PUT (PE)"]
@@ -986,7 +991,7 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET =================
+# ================= TAB 2: SANSKRUTI MARKET (चार्ट काढून टाकला आहे) =================
 with tab2:
     st_autorefresh(interval=10000, key="sanskriti_refresh")
     
@@ -1311,164 +1316,8 @@ with tab2:
         """, unsafe_allow_html=True)
     
     st.markdown("---")
-
-            # ========== 📈 LIVE PRICE CHART (Plotly) ==========
-    st.markdown("---")
-    st.markdown("#### 📈 LIVE PRICE CHART (TradingView Style)")
     
-    # Chart Controls
-    col_ch1, col_ch2, col_ch3, col_ch4 = st.columns(4)
-    with col_ch1:
-        chart_symbol = st.selectbox("📊 Symbol", ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"], key="chart_sym_tab2")
-    with col_ch2:
-        chart_interval = st.selectbox("⏱️ Interval", ["5m", "15m", "30m", "1h"], index=0, key="chart_int_tab2")
-    with col_ch3:
-        chart_period = st.selectbox("📅 Period", ["5d", "1mo", "3mo"], index=0, key="chart_per_tab2")
-    with col_ch4:
-        if st.button("🔄 Refresh Chart", use_container_width=True):
-            st.rerun()
-    
-    # Ticker mapping
-    ticker_map = {
-        "NIFTY": "^NSEI",
-        "BANKNIFTY": "^NSEBANK",
-        "CRUDE": "CL=F",
-        "NATURALGAS": "NG=F"
-    }
-    ticker = ticker_map.get(chart_symbol, f"{chart_symbol}.NS")
-    
-    try:
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        
-        # Download data
-        df = yf.download(ticker, period=chart_period, interval=chart_interval, progress=False)
-        
-        if not df.empty and len(df) > 5:
-            # Calculate EMAs
-            df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
-            df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
-            
-            # Calculate RSI
-            delta = df['Close'].diff()
-            gain = delta.where(delta > 0, 0).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['RSI'] = 100 - (100 / (1 + rs))
-            
-            # Create subplots
-            fig = make_subplots(
-                rows=3, cols=1,
-                shared_xaxes=True,
-                vertical_spacing=0.03,
-                row_heights=[0.6, 0.2, 0.2],
-                subplot_titles=(f"{chart_symbol} - Candlestick", "Volume", "RSI (14)")
-            )
-            
-            # Candlestick chart
-            fig.add_trace(go.Candlestick(
-                x=df.index,
-                open=df['Open'],
-                high=df['High'],
-                low=df['Low'],
-                close=df['Close'],
-                name='Price',
-                increasing=dict(line=dict(color='#00ff88'), fillcolor='#00ff88'),
-                decreasing=dict(line=dict(color='#ff4444'), fillcolor='#ff4444')
-            ), row=1, col=1)
-            
-            # EMA lines
-            fig.add_trace(go.Scatter(
-                x=df.index, y=df['EMA9'],
-                name='EMA 9',
-                line=dict(color='#00b4d8', width=1.5)
-            ), row=1, col=1)
-            
-            fig.add_trace(go.Scatter(
-                x=df.index, y=df['EMA20'],
-                name='EMA 20',
-                line=dict(color='#ffaa00', width=1.5)
-            ), row=1, col=1)
-            
-            # Volume bars
-            colors = ['#00ff88' if close >= open else '#ff4444' for close, open in zip(df['Close'], df['Open'])]
-            fig.add_trace(go.Bar(
-                x=df.index, y=df['Volume'],
-                name='Volume',
-                marker_color=colors,
-                opacity=0.6
-            ), row=2, col=1)
-            
-            # RSI
-            fig.add_trace(go.Scatter(
-                x=df.index, y=df['RSI'],
-                name='RSI',
-                line=dict(color='#a855f7', width=1.5)
-            ), row=3, col=1)
-            
-            # RSI levels
-            fig.add_hline(y=70, line_dash="dash", line_color="#ff4444", opacity=0.5, row=3, col=1)
-            fig.add_hline(y=50, line_dash="dash", line_color="#ffaa00", opacity=0.5, row=3, col=1)
-            fig.add_hline(y=30, line_dash="dash", line_color="#00ff88", opacity=0.5, row=3, col=1)
-            
-            # Layout
-            fig.update_layout(
-                template='plotly_dark',
-                height=600,
-                hovermode='x unified',
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0.2)',
-                xaxis_rangeslider_visible=False,
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="right",
-                    x=1
-                )
-            )
-            
-            fig.update_xaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
-            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
-            
-            # Display chart
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Current price info
-            current_price = float(df['Close'].iloc[-1])
-            prev_price = float(df['Close'].iloc[-2]) if len(df) > 1 else current_price
-            change = current_price - prev_price
-            change_pct = (change / prev_price) * 100 if prev_price > 0 else 0
-            current_rsi = float(df['RSI'].iloc[-1]) if not pd.isna(df['RSI'].iloc[-1]) else 50
-            current_ema9 = float(df['EMA9'].iloc[-1])
-            current_ema20 = float(df['EMA20'].iloc[-1])
-            
-            st.markdown("---")
-            st.markdown("#### 📊 Quick Stats")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Current Price", f"₹{current_price:,.2f}", f"{change:+.2f} ({change_pct:+.2f}%)")
-            with col2:
-                st.metric("RSI (14)", f"{current_rsi:.1f}")
-            with col3:
-                st.metric("EMA 9", f"₹{current_ema9:,.2f}")
-            with col4:
-                st.metric("EMA 20", f"₹{current_ema20:,.2f}")
-            
-            # Signal
-            if current_ema9 > current_ema20:
-                st.success("🟢 BULLISH SIGNAL - EMA 9 is above EMA 20")
-            else:
-                st.error("🔴 BEARISH SIGNAL - EMA 9 is below EMA 20")
-                
-        else:
-            st.warning(f"Insufficient data for {chart_symbol}")
-            
-    except Exception as e:
-        st.error(f"Error loading chart: {e}")
-    
-    # GLOBAL MARKET SECTION
+    # GLOBAL MARKET SECTION (चार्टशिवाय फक्त ग्लोबल मार्केट)
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
@@ -1564,7 +1413,7 @@ with tab2:
     
     st.info(f"""
     📊 **Market Status:**
-    - 🇮🇳 Indian Markets: Closed (Opens Monday 9:15 AM)
+    - 🇮🇳 Indian Markets: {'Open' if is_trading_time('NIFTY') else 'Closed'}
     - 🛢️ CRUDE OIL: Live ₹{crude_live_inr:,.2f} ({crude_pct:+.2f}%)
     - 🌿 NATURAL GAS: Live ₹{ng_live_inr:,.2f} ({ng_pct:+.2f}%)
     - 🌍 Global Markets: Real-time data above
@@ -2273,8 +2122,6 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     if st.session_state.auto_trade_enabled:
         auto_trade_from_signal_with_journal()
         wolf_auto_fo_trade()
-    
-    check_and_execute_orders_with_journal()
     
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
