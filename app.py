@@ -2407,6 +2407,19 @@ def monitor_active_orders_with_pnl():
         if current_price <= 0:
             continue
         
+        # TP1, TP2, TP3 tracking
+        if 'tp1' in order and not order.get('tp1_booked', False) and current_price >= order['tp1']:
+            order['tp1_booked'] = True
+            send_telegram(f"✅ TP1 HIT: {order['symbol']} at ₹{current_price}")
+            # Partial profit booking logic here
+        
+        if 'tp2' in order and not order.get('tp2_booked', False) and current_price >= order['tp2']:
+            order['tp2_booked'] = True
+            # SL Shift to Entry
+            order['sl'] = order['entry_price']
+            send_telegram(f"✅ TP2 HIT: {order['symbol']} at ₹{current_price} | SL Shifted to Entry")
+        
+        # SL/Target check
         if order['option_type'] == "CALL (CE)":
             if current_price <= order['sl']:
                 orders_to_remove.append((i, order, current_price, "SL HIT"))
