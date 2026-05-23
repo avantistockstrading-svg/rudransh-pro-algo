@@ -2190,6 +2190,7 @@ def monitor_today_results():
 
 # ================= CHECK & EXECUTE WOLF ORDERS =================
 def check_and_execute_orders_with_journal():
+    """Wolf orders check करा आणि execute करा journal मध्ये add करून"""
     pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
     
     for order in pending_orders:
@@ -2215,11 +2216,12 @@ def check_and_execute_orders_with_journal():
                 'tp1_booked': order.get('tp1_booked', False),
                 'tp2_booked': order.get('tp2_booked', False),
                 'tp3_booked': order.get('tp3_booked', False),
-                'signal_type': '🐺 WOLF'
+                'signal_type': order.get('signal_type', '🐺 WOLF'),
+                'signal': order.get('signal', 'BUY')
             }
             st.session_state.active_orders.append(active_order)
             add_to_journal(active_order)
-            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price}")
+            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
 
 # ================= MONITOR ACTIVE ORDERS WITH P&L =================
 def monitor_active_orders_with_pnl():
@@ -2234,7 +2236,7 @@ def monitor_active_orders_with_pnl():
             continue
         
         # ========== TP1 TRACKING (50% Book) ==========
-        if not order.get('tp1_booked', False):
+        if not order.get('tp1_booked', False) and order.get('tp1'):
             if order['option_type'] == "CALL (CE)":
                 tp1_hit = current_price >= order.get('tp1', 999999)
             else:
@@ -2246,10 +2248,9 @@ def monitor_active_orders_with_pnl():
                 send_telegram(msg)
                 if st.session_state.voice_enabled:
                     voice_alert(f"TP1 hit for {symbol}")
-                st.info(msg)
         
         # ========== TP2 TRACKING (25% Book + SL SHIFT TO ENTRY) ==========
-        if not order.get('tp2_booked', False):
+        if not order.get('tp2_booked', False) and order.get('tp2'):
             if order['option_type'] == "CALL (CE)":
                 tp2_hit = current_price >= order.get('tp2', 999999)
             else:
@@ -2257,16 +2258,14 @@ def monitor_active_orders_with_pnl():
             
             if tp2_hit:
                 order['tp2_booked'] = True
-                # 🔥 CRITICAL: SL Shift to Entry
                 order['sl'] = order['entry_price']
                 msg = f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | SL Shifted to Entry (₹{order['entry_price']:.2f})"
                 send_telegram(msg)
                 if st.session_state.voice_enabled:
                     voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
-                st.success(msg)
         
         # ========== TP3 TRACKING (25% Book) ==========
-        if not order.get('tp3_booked', False):
+        if not order.get('tp3_booked', False) and order.get('tp3'):
             if order['option_type'] == "CALL (CE)":
                 tp3_hit = current_price >= order.get('tp3', 999999)
             else:
@@ -2278,17 +2277,16 @@ def monitor_active_orders_with_pnl():
                 send_telegram(msg)
                 if st.session_state.voice_enabled:
                     voice_alert(f"TP3 hit for {symbol}, trade complete")
-                st.success(msg)
                 orders_to_remove.append((i, order, current_price, "TARGET HIT"))
                 continue
         
         # ========== SL CHECK ==========
         if order['option_type'] == "CALL (CE)":
-            if current_price <= order['sl']:
+            if current_price <= order.get('sl', 0):
                 exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
                 orders_to_remove.append((i, order, current_price, exit_reason))
         else:  # PUT (PE)
-            if current_price >= order['sl']:
+            if current_price >= order.get('sl', 999999):
                 exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
                 orders_to_remove.append((i, order, current_price, exit_reason))
     
@@ -2296,4 +2294,3 @@ def monitor_active_orders_with_pnl():
     for idx, order, exit_price, reason in reversed(orders_to_remove):
         add_to_journal(order, exit_price, reason)
         st.session_state.active_orders.pop(idx)
-        print(f"❌ Order closed: {order['symbol']} - {reason}")
