@@ -2067,7 +2067,7 @@ with tab6:
 
 # ================= AUTO TRADE FUNCTIONS =================
 def auto_trade_from_signal_with_journal():
-    """Auto trade execute करा signals वरून - फक्त NIFTY साठी"""
+    """Auto trade execute करा signals वरून"""
     nifty_trend = get_nifty_trend()
     symbols_to_check = ["NIFTY"]
     
@@ -2094,43 +2094,40 @@ def auto_trade_from_signal_with_journal():
                 
                 if signal == "BUY":
                     sl_price = limit_price * (1 - sl_percent)
-                    target_price = limit_price * (1 + target_percent)
+                    tp1_price = limit_price * (1 + (target_percent * 0.5))
+                    tp2_price = limit_price * (1 + target_percent)
+                    tp3_price = limit_price * (1 + (target_percent * 1.5))
                 else:
                     sl_price = limit_price * (1 + sl_percent)
-                    target_price = limit_price * (1 - target_percent)
+                    tp1_price = limit_price * (1 - (target_percent * 0.5))
+                    tp2_price = limit_price * (1 - target_percent)
+                    tp3_price = limit_price * (1 - (target_percent * 1.5))
                 
                 st.session_state.wolf_orders.append({
                     'symbol': symbol,
                     'option_type': option_type,
                     'strike_price': strike_price,
                     'qty': st.session_state.auto_trade_qty,
-                    'buy_above': limit_price,  # ✅ buy_below ऐवजी buy_above
+                    'buy_above': limit_price,
                     'sl': sl_price,
-                    'target': target_price,
-                    'signal': signal,
-                    'signal_price': price,
-                    'limit_price': limit_price,
+                    'target': tp2_price,
+                    'tp1': tp1_price,
+                    'tp2': tp2_price,
+                    'tp3': tp3_price,
+                    'tp1_booked': False,
+                    'tp2_booked': False,
+                    'tp3_booked': False,
+                    'tp1_percent': 50,
+                    'tp2_percent': 25,
+                    'tp3_percent': 25,
                     'status': 'PENDING',
                     'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                    'signal_type': '⚙️ SAHYADRI'
+                    'signal_type': '⚙️ SAHYADRI',
+                    'signal': signal
                 })
                 
                 increment_trade_count(symbol, trade_type)
-                
-                st.session_state.trade_journal.append({
-                    "No": len(st.session_state.trade_journal) + 1,
-                    "Time": get_ist_now().strftime('%H:%M:%S'),
-                    "System": "⚙️ SAHYADRI",
-                    "Symbol": f"{symbol} {option_type} {strike_price}",
-                    "Type": signal,
-                    "Signal": f"AUTO - {signal} (PENDING @ {limit_price})",
-                    "Entry": "-",
-                    "Exit": "-",
-                    "P&L (₹)": 0,
-                    "Status": f"PENDING - Limit {limit_price}"
-                })
-                
-                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} | Signal@{price} | Limit Order PENDING @ {limit_price}")
+                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} @ {limit_price} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%)")
 
 def wolf_auto_fo_trade():
     """WOLF AUTO F&O - EMA BUY आणि EMA SELL (सर्व F&O स्क्रिप्ससाठी)"""
@@ -2220,12 +2217,19 @@ def wolf_auto_fo_trade():
                 'sl': sl_price,
                 'target': tp2_price,
                 'tp1': tp1_price,
-                'tp1_book_percent': 50,
+                'tp2': tp2_price,
+                'tp3': tp3_price if 'tp3_price' in dir() else tp2_price * 0.70,
+                'tp1_booked': False,
+                'tp2_booked': False,
+                'tp3_booked': False,
+                'tp1_percent': 50,
+                'tp2_percent': 25,
+                'tp3_percent': 25,
                 'status': 'PENDING',
                 'placed_time': get_ist_now().strftime('%H:%M:%S'),
                 'auto_trade': True,
                 'signal_type': '🐺 WOLF AUTO',
-                'signal': 'BUY'
+                'signal': 'BUY' if ema_buy else 'SELL'
             })
             
             send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
@@ -2399,38 +2403,77 @@ def check_and_execute_orders_with_journal():
 
 # ================= MONITOR ACTIVE ORDERS WITH P&L =================
 def monitor_active_orders_with_pnl():
+    """TP1, TP2, TP3 tracking with SL Shift to Entry"""
     orders_to_remove = []
     
     for i, order in enumerate(st.session_state.active_orders):
-        current_price = get_live_price(order['symbol'])
+        symbol = order['symbol']
+        current_price = get_live_price(symbol)
         
         if current_price <= 0:
             continue
         
-        # TP1, TP2, TP3 tracking
-        if 'tp1' in order and not order.get('tp1_booked', False) and current_price >= order['tp1']:
-            order['tp1_booked'] = True
-            send_telegram(f"✅ TP1 HIT: {order['symbol']} at ₹{current_price}")
-            # Partial profit booking logic here
+        # ========== TP1 TRACKING (50% Book) ==========
+        if not order.get('tp1_booked', False):
+            if order['option_type'] == "CALL (CE)":
+                tp1_hit = current_price >= order.get('tp1', 999999)
+            else:
+                tp1_hit = current_price <= order.get('tp1', 0)
+            
+            if tp1_hit:
+                order['tp1_booked'] = True
+                msg = f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f} | 50% Profit Booked"
+                send_telegram(msg)
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP1 hit for {symbol}")
+                st.info(msg)
         
-        if 'tp2' in order and not order.get('tp2_booked', False) and current_price >= order['tp2']:
-            order['tp2_booked'] = True
-            # SL Shift to Entry
-            order['sl'] = order['entry_price']
-            send_telegram(f"✅ TP2 HIT: {order['symbol']} at ₹{current_price} | SL Shifted to Entry")
+        # ========== TP2 TRACKING (25% Book + SL SHIFT TO ENTRY) ==========
+        if not order.get('tp2_booked', False):
+            if order['option_type'] == "CALL (CE)":
+                tp2_hit = current_price >= order.get('tp2', 999999)
+            else:
+                tp2_hit = current_price <= order.get('tp2', 0)
+            
+            if tp2_hit:
+                order['tp2_booked'] = True
+                # 🔥 CRITICAL: SL Shift to Entry
+                order['sl'] = order['entry_price']
+                msg = f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | SL Shifted to Entry (₹{order['entry_price']:.2f})"
+                send_telegram(msg)
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
+                st.success(msg)
         
-        # SL/Target check
+        # ========== TP3 TRACKING (25% Book) ==========
+        if not order.get('tp3_booked', False):
+            if order['option_type'] == "CALL (CE)":
+                tp3_hit = current_price >= order.get('tp3', 999999)
+            else:
+                tp3_hit = current_price <= order.get('tp3', 0)
+            
+            if tp3_hit:
+                order['tp3_booked'] = True
+                msg = f"✅ TP3 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | TRADE COMPLETE"
+                send_telegram(msg)
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP3 hit for {symbol}, trade complete")
+                st.success(msg)
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+                continue
+        
+        # ========== SL CHECK ==========
         if order['option_type'] == "CALL (CE)":
             if current_price <= order['sl']:
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-            elif current_price >= order['target']:
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-        else:
+                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
+                orders_to_remove.append((i, order, current_price, exit_reason))
+        else:  # PUT (PE)
             if current_price >= order['sl']:
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-            elif current_price <= order['target']:
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
+                orders_to_remove.append((i, order, current_price, exit_reason))
     
+    # Remove completed orders
     for idx, order, exit_price, reason in reversed(orders_to_remove):
         add_to_journal(order, exit_price, reason)
         st.session_state.active_orders.pop(idx)
+        print(f"❌ Order closed: {order['symbol']} - {reason}")
