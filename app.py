@@ -192,7 +192,7 @@ if get_ist_now().date() != st.session_state.last_reset_date:
     st.session_state.daily_pnl = 0
     st.session_state.last_reset_date = get_ist_now().date()
 
-# ================= COMPLETE F&O SYMBOLS (स्क्रीनशॉटमधील सगळ्या कंपन्या add केल्या) =================
+# ================= COMPLETE F&O SYMBOLS =================
 FO_SCRIPTS = [
     "NIFTY", "CRUDE", "NATURALGAS",
     "ADANIENT", "ABB", "ADANIPORTS", "ADANIGREEN", "ADANIENSOL", "ALKEM", "AMBER",
@@ -577,6 +577,26 @@ def get_strict_signal(symbol, nifty_trend, sector_trend):
     return "WAIT", 0, indicators
 
 # ================= LIVE P&L FUNCTIONS =================
+def get_live_price(symbol):
+    try:
+        if symbol == "NIFTY":
+            ticker = "^NSEI"
+        elif symbol == "BANKNIFTY":
+            ticker = "^NSEBANK"
+        elif symbol == "CRUDE":
+            ticker = "CL=F"
+        elif symbol == "NATURALGAS":
+            ticker = "NG=F"
+        else:
+            ticker = f"{symbol}.NS"
+        df = yf.download(ticker, period="1d", interval="5m", progress=False)
+        if not df.empty:
+            val = df['Close'].iloc[-1]
+            return float(val) if not isinstance(val, pd.Series) else float(val.iloc[-1])
+    except:
+        pass
+    return 0.0
+
 def calculate_live_pnl():
     total_pnl = 0
     pnl_details = []
@@ -685,26 +705,6 @@ def get_usd_inr_rate():
     except:
         pass
     return 87.5
-
-def get_live_price(symbol):
-    try:
-        if symbol == "NIFTY":
-            ticker = "^NSEI"
-        elif symbol == "BANKNIFTY":
-            ticker = "^NSEBANK"
-        elif symbol == "CRUDE":
-            ticker = "CL=F"
-        elif symbol == "NATURALGAS":
-            ticker = "NG=F"
-        else:
-            ticker = f"{symbol}.NS"
-        df = yf.download(ticker, period="1d", interval="5m", progress=False)
-        if not df.empty:
-            val = df['Close'].iloc[-1]
-            return float(val) if not isinstance(val, pd.Series) else float(val.iloc[-1])
-    except:
-        pass
-    return 0.0
 
 def get_gnews():
     try:
@@ -967,7 +967,7 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET (चार्ट काढून टाकला आहे) =================
+# ================= TAB 2: SANSKRUTI MARKET =================
 with tab2:
     st_autorefresh(interval=10000, key="sanskriti_refresh")
     
@@ -1183,7 +1183,6 @@ with tab2:
     
     st.markdown("---")
     
-    # CRUDE OIL SENTIMENT
     st.markdown("#### 🛢️ CRUDE OIL MARKET SENTIMENT")
     
     if crude_pct > 0.5:
@@ -1238,7 +1237,6 @@ with tab2:
     
     st.markdown("---")
     
-    # NATURAL GAS SENTIMENT
     st.markdown("#### 🌿 NATURAL GAS MARKET SENTIMENT")
     
     if ng_pct > 0.5:
@@ -1293,7 +1291,6 @@ with tab2:
     
     st.markdown("---")
     
-    # GLOBAL MARKET SECTION (चार्टशिवाय फक्त ग्लोबल मार्केट)
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
     st.markdown("*Real-time global indices with AI trend analysis*")
     
@@ -1678,7 +1675,7 @@ with tab4:
                     <td><b>📈 Expected Action</b><br>{'BUY' if 'BULLISH' in company['prediction'] else 'HOLD' if company['prediction'] == 'NEUTRAL' else 'SELL'}</td>
                     <td><b>{'📉 Actual Reaction' if company['status'] == 'COMPLETED' else '🟡 Status'}</b><br><span style="color:{reaction_color};">{company['actual_reaction'] if company['status'] == 'COMPLETED' else '⏳ PENDING'}</span></td>
                 </tr>
-                {f'<tr><td colspan="4"><b>💡 Reason:</b> {company["reason"]}</td></tr>' if company.get('reason') else ''}
+                {f'<td><td colspan="4"><b>💡 Reason:</b> {company["reason"]}</td></tr>' if company.get('reason') else ''}
             </table>
         </div>
         """, unsafe_allow_html=True)
@@ -1875,7 +1872,6 @@ with tab6:
 
 # ================= AUTO TRADE FUNCTIONS =================
 def auto_trade_from_signal_with_journal():
-    """Auto trade execute करा signals वरून"""
     nifty_trend = get_nifty_trend()
     symbols_to_check = ["NIFTY"]
     
@@ -1938,8 +1934,6 @@ def auto_trade_from_signal_with_journal():
                 send_telegram(f"⏳ SAHYADRI: {symbol} {signal} @ {limit_price} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%)")
 
 def wolf_auto_fo_trade():
-    """WOLF AUTO F&O - EMA BUY आणि EMA SELL (सर्व F&O स्क्रिप्ससाठी)"""
-    
     if not st.session_state.auto_trade_enabled:
         return
     
@@ -2090,66 +2084,110 @@ def wolf_auto_fo_trade():
             send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
             voice_alert(f"Wolf auto sell order placed for {symbol}")
 
-# ================= AUTO EXECUTION =================
-if st.session_state.algo_running and st.session_state.totp_verified:
-    check_and_execute_orders_with_journal()
-    monitor_active_orders_with_pnl()
+# ================= CHECK & EXECUTE WOLF ORDERS =================
+def check_and_execute_orders_with_journal():
+    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
     
-    if st.session_state.auto_trade_enabled:
-        auto_trade_from_signal_with_journal()
-        wolf_auto_fo_trade()
-    
-    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
+    for order in pending_orders:
+        current_price = get_live_price(order['symbol'])
+        
+        if current_price > 0 and current_price >= order.get('buy_above', 0):
+            order['status'] = 'EXECUTED'
+            order['entry_price'] = current_price
+            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
+            
+            active_order = {
+                'symbol': order['symbol'],
+                'option_type': order.get('option_type', 'CALL (CE)'),
+                'strike_price': order.get('strike_price', 0),
+                'qty': order.get('qty', 1),
+                'entry_price': current_price,
+                'entry_time': order['entry_time'],
+                'sl': order.get('sl', current_price * 0.95),
+                'target': order.get('target', current_price * 1.05),
+                'tp1': order.get('tp1', current_price * 1.05),
+                'tp2': order.get('tp2', current_price * 1.10),
+                'tp3': order.get('tp3', current_price * 1.15),
+                'tp1_booked': order.get('tp1_booked', False),
+                'tp2_booked': order.get('tp2_booked', False),
+                'tp3_booked': order.get('tp3_booked', False),
+                'signal_type': order.get('signal_type', '🐺 WOLF'),
+                'signal': order.get('signal', 'BUY')
+            }
+            st.session_state.active_orders.append(active_order)
+            add_to_journal(active_order)
+            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
 
-# ================= SIDEBAR =================
-with st.sidebar:
-    st.markdown("""
-    <div style="text-align:center; padding:15px; background: linear-gradient(135deg, #8B0000, #DC143C); border-radius: 15px; margin-bottom: 20px; border: 1px solid #FFD700;">
-        <h2 style="margin:0; color:#FFD700;">🌸 SAMRUDDHI DASHBOARD</h2>
-        <p style="margin:5px 0 0 0; color:#FFD700;">🐺 Rudransh Algo v5.0</p>
-    </div>
-    """, unsafe_allow_html=True)
+# ================= MONITOR ACTIVE ORDERS WITH P&L =================
+def monitor_active_orders_with_pnl():
+    orders_to_remove = []
     
-    st.markdown("---")
+    for i, order in enumerate(st.session_state.active_orders):
+        symbol = order['symbol']
+        current_price = get_live_price(symbol)
+        
+        if current_price <= 0:
+            continue
+        
+        # TP1 TRACKING
+        if not order.get('tp1_booked', False) and order.get('tp1'):
+            if order['option_type'] == "CALL (CE)":
+                tp1_hit = current_price >= order.get('tp1', 999999)
+            else:
+                tp1_hit = current_price <= order.get('tp1', 0)
+            
+            if tp1_hit:
+                order['tp1_booked'] = True
+                msg = f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f} | 50% Profit Booked"
+                send_telegram(msg)
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP1 hit for {symbol}")
+        
+        # TP2 TRACKING with SL Shift
+        if not order.get('tp2_booked', False) and order.get('tp2'):
+            if order['option_type'] == "CALL (CE)":
+                tp2_hit = current_price >= order.get('tp2', 999999)
+            else:
+                tp2_hit = current_price <= order.get('tp2', 0)
+            
+            if tp2_hit:
+                order['tp2_booked'] = True
+                order['sl'] = order['entry_price']
+                msg = f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | SL Shifted to Entry (₹{order['entry_price']:.2f})"
+                send_telegram(msg)
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
+        
+        # TP3 TRACKING
+        if not order.get('tp3_booked', False) and order.get('tp3'):
+            if order['option_type'] == "CALL (CE)":
+                tp3_hit = current_price >= order.get('tp3', 999999)
+            else:
+                tp3_hit = current_price <= order.get('tp3', 0)
+            
+            if tp3_hit:
+                order['tp3_booked'] = True
+                msg = f"✅ TP3 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | TRADE COMPLETE"
+                send_telegram(msg)
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP3 hit for {symbol}, trade complete")
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+                continue
+        
+        # SL CHECK
+        if order['option_type'] == "CALL (CE)":
+            if current_price <= order.get('sl', 0):
+                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
+                orders_to_remove.append((i, order, current_price, exit_reason))
+        else:
+            if current_price >= order.get('sl', 999999):
+                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
+                orders_to_remove.append((i, order, current_price, exit_reason))
     
-    active_count = len(st.session_state.active_orders)
-    st.markdown(f'<div style="background: rgba(0,255,136,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">🔴</span><h3>{active_count}</h3><p>Active Orders</p></div>', unsafe_allow_html=True)
-    
-    pending_count = len([o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING'])
-    st.markdown(f'<div style="background: rgba(255,170,0,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">⏳</span><h3>{pending_count}</h3><p>Pending Orders</p></div>', unsafe_allow_html=True)
-    
-    total_trades = len(st.session_state.trade_journal)
-    st.markdown(f'<div style="background: rgba(0,180,216,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">📋</span><h3>{total_trades}</h3><p>Total Trades</p></div>', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown('<span style="color:#00ff88">✅ FMP API: Active</span>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#00ff88">✅ GNews API: Active</span>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#00ff88">✅ Telegram: Active</span>', unsafe_allow_html=True)
-    auto_text = "ON" if st.session_state.auto_trade_enabled else "OFF"
-    auto_color = "#00ff88" if st.session_state.auto_trade_enabled else "#ff4444"
-    st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
-
-# ================= SIMPLE JOURNAL FUNCTIONS =================
-def add_journal_entry(system_name, symbol, trade_type, entry_price):
-    st.session_state.trade_journal.append({
-        "Time": get_ist_now().strftime('%H:%M:%S'),
-        "System": system_name,
-        "Symbol": symbol,
-        "Type": trade_type,
-        "Entry": entry_price,
-        "Exit": "-",
-        "P&L": 0,
-        "Status": "OPEN"
-    })
-
-def close_journal_entry(symbol, exit_price, pnl):
-    for entry in st.session_state.trade_journal:
-        if entry['Symbol'] == symbol and entry['Status'] == "OPEN":
-            entry['Exit'] = exit_price
-            entry['P&L'] = pnl
-            entry['Status'] = "CLOSED"
-            entry['Time'] = f"{entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
-            break
+    # Remove completed orders
+    for idx, order, exit_price, reason in reversed(orders_to_remove):
+        add_to_journal(order, exit_price, reason)
+        st.session_state.active_orders.pop(idx)
 
 # ================= MONITOR RESULTS =================
 def monitor_today_results():
@@ -2188,109 +2226,63 @@ def monitor_today_results():
     except Exception as e:
         print(f"Error: {e}")
 
-# ================= CHECK & EXECUTE WOLF ORDERS =================
-def check_and_execute_orders_with_journal():
-    """Wolf orders check करा आणि execute करा journal मध्ये add करून"""
-    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
-    
-    for order in pending_orders:
-        current_price = get_live_price(order['symbol'])
-        
-        if current_price > 0 and current_price >= order.get('buy_above', 0):
-            order['status'] = 'EXECUTED'
-            order['entry_price'] = current_price
-            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
-            
-            active_order = {
-                'symbol': order['symbol'],
-                'option_type': order.get('option_type', 'CALL (CE)'),
-                'strike_price': order.get('strike_price', 0),
-                'qty': order.get('qty', 1),
-                'entry_price': current_price,
-                'entry_time': order['entry_time'],
-                'sl': order.get('sl', current_price * 0.95),
-                'target': order.get('target', current_price * 1.05),
-                'tp1': order.get('tp1', current_price * 1.05),
-                'tp2': order.get('tp2', current_price * 1.10),
-                'tp3': order.get('tp3', current_price * 1.15),
-                'tp1_booked': order.get('tp1_booked', False),
-                'tp2_booked': order.get('tp2_booked', False),
-                'tp3_booked': order.get('tp3_booked', False),
-                'signal_type': order.get('signal_type', '🐺 WOLF'),
-                'signal': order.get('signal', 'BUY')
-            }
-            st.session_state.active_orders.append(active_order)
-            add_to_journal(active_order)
-            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
+# ================= SIMPLE JOURNAL FUNCTIONS =================
+def add_journal_entry(system_name, symbol, trade_type, entry_price):
+    st.session_state.trade_journal.append({
+        "Time": get_ist_now().strftime('%H:%M:%S'),
+        "System": system_name,
+        "Symbol": symbol,
+        "Type": trade_type,
+        "Entry": entry_price,
+        "Exit": "-",
+        "P&L": 0,
+        "Status": "OPEN"
+    })
 
-# ================= MONITOR ACTIVE ORDERS WITH P&L =================
-def monitor_active_orders_with_pnl():
-    """TP1, TP2, TP3 tracking with SL Shift to Entry"""
-    orders_to_remove = []
+def close_journal_entry(symbol, exit_price, pnl):
+    for entry in st.session_state.trade_journal:
+        if entry['Symbol'] == symbol and entry['Status'] == "OPEN":
+            entry['Exit'] = exit_price
+            entry['P&L'] = pnl
+            entry['Status'] = "CLOSED"
+            entry['Time'] = f"{entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
+            break
+
+# ================= SIDEBAR =================
+with st.sidebar:
+    st.markdown("""
+    <div style="text-align:center; padding:15px; background: linear-gradient(135deg, #8B0000, #DC143C); border-radius: 15px; margin-bottom: 20px; border: 1px solid #FFD700;">
+        <h2 style="margin:0; color:#FFD700;">🌸 SAMRUDDHI DASHBOARD</h2>
+        <p style="margin:5px 0 0 0; color:#FFD700;">🐺 Rudransh Algo v5.0</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    for i, order in enumerate(st.session_state.active_orders):
-        symbol = order['symbol']
-        current_price = get_live_price(symbol)
-        
-        if current_price <= 0:
-            continue
-        
-        # ========== TP1 TRACKING (50% Book) ==========
-        if not order.get('tp1_booked', False) and order.get('tp1'):
-            if order['option_type'] == "CALL (CE)":
-                tp1_hit = current_price >= order.get('tp1', 999999)
-            else:
-                tp1_hit = current_price <= order.get('tp1', 0)
-            
-            if tp1_hit:
-                order['tp1_booked'] = True
-                msg = f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f} | 50% Profit Booked"
-                send_telegram(msg)
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP1 hit for {symbol}")
-        
-        # ========== TP2 TRACKING (25% Book + SL SHIFT TO ENTRY) ==========
-        if not order.get('tp2_booked', False) and order.get('tp2'):
-            if order['option_type'] == "CALL (CE)":
-                tp2_hit = current_price >= order.get('tp2', 999999)
-            else:
-                tp2_hit = current_price <= order.get('tp2', 0)
-            
-            if tp2_hit:
-                order['tp2_booked'] = True
-                order['sl'] = order['entry_price']
-                msg = f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | SL Shifted to Entry (₹{order['entry_price']:.2f})"
-                send_telegram(msg)
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
-        
-        # ========== TP3 TRACKING (25% Book) ==========
-        if not order.get('tp3_booked', False) and order.get('tp3'):
-            if order['option_type'] == "CALL (CE)":
-                tp3_hit = current_price >= order.get('tp3', 999999)
-            else:
-                tp3_hit = current_price <= order.get('tp3', 0)
-            
-            if tp3_hit:
-                order['tp3_booked'] = True
-                msg = f"✅ TP3 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | TRADE COMPLETE"
-                send_telegram(msg)
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP3 hit for {symbol}, trade complete")
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-                continue
-        
-        # ========== SL CHECK ==========
-        if order['option_type'] == "CALL (CE)":
-            if current_price <= order.get('sl', 0):
-                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
-                orders_to_remove.append((i, order, current_price, exit_reason))
-        else:  # PUT (PE)
-            if current_price >= order.get('sl', 999999):
-                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
-                orders_to_remove.append((i, order, current_price, exit_reason))
+    st.markdown("---")
     
-    # Remove completed orders
-    for idx, order, exit_price, reason in reversed(orders_to_remove):
-        add_to_journal(order, exit_price, reason)
-        st.session_state.active_orders.pop(idx)
+    active_count = len(st.session_state.active_orders)
+    st.markdown(f'<div style="background: rgba(0,255,136,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">🔴</span><h3>{active_count}</h3><p>Active Orders</p></div>', unsafe_allow_html=True)
+    
+    pending_count = len([o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING'])
+    st.markdown(f'<div style="background: rgba(255,170,0,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">⏳</span><h3>{pending_count}</h3><p>Pending Orders</p></div>', unsafe_allow_html=True)
+    
+    total_trades = len(st.session_state.trade_journal)
+    st.markdown(f'<div style="background: rgba(0,180,216,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">📋</span><h3>{total_trades}</h3><p>Total Trades</p></div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown('<span style="color:#00ff88">✅ FMP API: Active</span>', unsafe_allow_html=True)
+    st.markdown('<span style="color:#00ff88">✅ GNews API: Active</span>', unsafe_allow_html=True)
+    st.markdown('<span style="color:#00ff88">✅ Telegram: Active</span>', unsafe_allow_html=True)
+    auto_text = "ON" if st.session_state.auto_trade_enabled else "OFF"
+    auto_color = "#00ff88" if st.session_state.auto_trade_enabled else "#ff4444"
+    st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
+
+# ================= AUTO EXECUTION =================
+if st.session_state.algo_running and st.session_state.totp_verified:
+    check_and_execute_orders_with_journal()
+    monitor_active_orders_with_pnl()
+    
+    if st.session_state.auto_trade_enabled:
+        auto_trade_from_signal_with_journal()
+        wolf_auto_fo_trade()
+    
+    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
