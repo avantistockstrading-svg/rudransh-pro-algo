@@ -66,18 +66,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= TIMEZONE (FIXED FOR CLOUD) =================
-from datetime import datetime, timedelta, timezone
-
+# ================= TIMEZONE =================
 def get_ist_now():
-    """Returns current IST datetime with timezone info"""
+    """Returns current IST datetime"""
     utc_now = datetime.now(timezone.utc)
     ist_now = utc_now + timedelta(hours=5, minutes=30)
-    return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))  # tzinfo जोडले
-
-# किंवा याप्रमाणे
-def get_ist_now():
-    return datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
 
 # ================= TRADING HOURS =================
 def is_trading_time(symbol):
@@ -238,20 +232,13 @@ FO_SCRIPTS = [
 
 OPTION_TYPES = ["CALL (CE)", "PUT (PE)"]
 
-# ================= TRADING HOURS =================
+# ================= TRADING HOURS DICT =================
 TRADING_HOURS = {
     "NIFTY": {"start": 9, "start_min": 30, "end": 15, "end_min": 0},
     "BANKNIFTY": {"start": 9, "start_min": 30, "end": 15, "end_min": 0},
     "CRUDE": {"start": 11, "start_min": 0, "end": 22, "end_min": 0},
     "NATURALGAS": {"start": 11, "start_min": 0, "end": 22, "end_min": 0}
 }
-
-def is_trading_time(symbol):
-    now = get_ist_now()
-    hours = TRADING_HOURS.get(symbol, {"start": 9, "start_min": 30, "end": 15, "end_min": 0})
-    start_time = now.replace(hour=hours["start"], minute=hours["start_min"], second=0)
-    end_time = now.replace(hour=hours["end"], minute=hours["end_min"], second=0)
-    return start_time <= now <= end_time and now.weekday() < 5
 
 def can_take_trade(symbol, trade_type):
     if trade_type == "BUY":
@@ -286,7 +273,7 @@ def check_fmp_api():
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                return True, "Active", f"✅ Connected"
+                return True, "Active", "✅ Connected"
             return False, "Warning", "⚠️ No data"
         return False, "Error", f"HTTP {response.status_code}"
     except:
@@ -304,9 +291,8 @@ def get_company_earnings(symbol):
     except:
         return None
 
-# ================= EARNINGS CALENDAR API (AUTO DAILY UPDATE) =================
+# ================= EARNINGS CALENDAR =================
 def get_today_earnings():
-    """FMP Earnings Calendar API वरून आजच्या results ची list मिळवा"""
     try:
         today = get_ist_now().strftime('%Y-%m-%d')
         url = f"https://financialmodelingprep.com/stable/earnings-calendar?from={today}&to={today}&apikey={FMP_API_KEY}"
@@ -325,21 +311,16 @@ def get_today_earnings():
                 })
             return earnings_list
         return []
-    except Exception as e:
-        print(f"Earnings Calendar Error: {e}")
+    except:
         return []
 
 def get_pending_results():
-    """Dynamic results list - daily update होईल"""
     earnings = get_today_earnings()
     if earnings:
         return earnings
     return []
 
-# ======================================================
-# ADD TO JOURNAL WITH SL/TP TRACKING
-# ======================================================
-
+# ================= JOURNAL FUNCTIONS =================
 def add_to_journal(order, exit_price=None, exit_reason=None):
     entry_price = order['entry_price']
     qty = order['qty']
@@ -372,13 +353,10 @@ def add_to_journal(order, exit_price=None, exit_reason=None):
         "P&L (₹)": round(pnl_value, 2), "Status": status
     }
     st.session_state.trade_journal.append(trade_record)
-    if "daily_pnl" not in st.session_state:
-        st.session_state.daily_pnl = 0
     st.session_state.daily_pnl += pnl_value
     
-    # ===== SAVE TRADE RESULT TO LIVE PERFORMANCE =====
+    # Save to live performance
     if exit_price and exit_reason:
-        # Map symbol to performance key
         symbol = order['symbol']
         if symbol in ["NIFTY", "BANKNIFTY"]:
             perf_symbol = symbol
@@ -390,37 +368,21 @@ def add_to_journal(order, exit_price=None, exit_reason=None):
             perf_symbol = "STOCK"
         
         signal_type = "BUY" if order['option_type'] == "CALL (CE)" else "SELL"
-        result_type = ""
-        
-        if exit_reason == "TARGET HIT":
-            result_type = "TP3"
-            # Send TP HIT Alert
-            alert_msg = f"✅ TARGET HIT: {order['symbol']} {signal_type} @ {round(exit_price, 2)} | P&L: ₹{round(pnl_value, 2)}"
-            send_telegram(alert_msg)
-            if st.session_state.voice_enabled:
-                voice_alert(f"Target hit for {order['symbol']}")
-                
-        elif exit_reason == "SL HIT":
-            result_type = "SL"
-            # Send SL HIT Alert
-            alert_msg = f"❌ SL HIT: {order['symbol']} {signal_type} @ {round(exit_price, 2)} | P&L: ₹{round(pnl_value, 2)}"
-            send_telegram(alert_msg)
-            if st.session_state.voice_enabled:
-                voice_alert(f"Stop loss hit for {order['symbol']}")
+        result_type = "TP3" if exit_reason == "TARGET HIT" else "SL" if exit_reason == "SL HIT" else ""
         
         if result_type and perf_symbol in st.session_state.live_performance:
             if signal_type == "BUY":
                 st.session_state.live_performance[perf_symbol]["BUY"] += 1
             elif signal_type == "SELL":
                 st.session_state.live_performance[perf_symbol]["SELL"] += 1
-            
             if result_type == "TP3":
                 st.session_state.live_performance[perf_symbol]["TP3"] += 1
             elif result_type == "SL":
                 st.session_state.live_performance[perf_symbol]["SL"] += 1
+        
+        send_telegram(f"{'✅' if exit_reason == 'TARGET HIT' else '❌'} {exit_reason}: {order['symbol']} {signal_type} @ {round(exit_price, 2)} | P&L: ₹{round(pnl_value, 2)}")
 
 # ================= LIVE PERFORMANCE STORAGE =================
-
 if "live_performance" not in st.session_state:
     st.session_state.live_performance = {
         "NIFTY": {"BUY":0,"SELL":0,"TP3":0,"SL":0},
@@ -429,76 +391,6 @@ if "live_performance" not in st.session_state:
         "CRUDE": {"BUY":0,"SELL":0,"TP3":0,"SL":0},
         "NG": {"BUY":0,"SELL":0,"TP3":0,"SL":0}
     }
-
-# ===== SAVE PERFORMANCE =====
-
-def save_trade_result(symbol, signal, result):
-    if symbol not in st.session_state.live_performance:
-        return
-    if signal == "BUY":
-        st.session_state.live_performance[symbol]["BUY"] += 1
-    if signal == "SELL":
-        st.session_state.live_performance[symbol]["SELL"] += 1
-    if result == "TP3":
-        st.session_state.live_performance[symbol]["TP3"] += 1
-    if result == "SL":
-        st.session_state.live_performance[symbol]["SL"] += 1
-
-# ================= CHECK & EXECUTE WOLF ORDERS =================
-def check_and_execute_orders_with_journal():
-    """Wolf orders execute करा"""
-    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
-    
-    for order in pending_orders:
-        current_price = get_live_price(order['symbol'])
-        
-        if current_price > 0 and current_price >= order.get('buy_above', 0):
-            order['status'] = 'EXECUTED'
-            order['entry_price'] = current_price
-            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
-            
-            active_order = {
-                'symbol': order['symbol'],
-                'option_type': order.get('option_type', 'CALL (CE)'),
-                'strike_price': order.get('strike_price', 0),
-                'qty': order.get('qty', 1),
-                'entry_price': current_price,
-                'entry_time': order['entry_time'],
-                'sl': order.get('sl', current_price * 0.95),
-                'target': order.get('target', current_price * 1.05),
-                'signal_type': '🐺 WOLF'
-            }
-            st.session_state.active_orders.append(active_order)
-            add_to_journal(active_order)
-            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price}")
-
-def monitor_active_orders_with_pnl():
-    """Active orders चे SL/Target check करा"""
-    orders_to_remove = []
-    
-    for i, order in enumerate(st.session_state.active_orders):
-        current_price = get_live_price(order['symbol'])
-        
-        if current_price <= 0:
-            continue
-        
-        if order['option_type'] == "CALL (CE)":
-            if current_price <= order['sl']:
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-            elif current_price >= order['target']:
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-        else:
-            if current_price >= order['sl']:
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-            elif current_price <= order['target']:
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-    
-    for idx, order, exit_price, reason in reversed(orders_to_remove):
-        add_to_journal(order, exit_price, reason)
-        st.session_state.active_orders.pop(idx)
-
-# ================= PENDING RESULTS (Dynamic) =================
-PENDING_RESULTS = get_pending_results()
 
 # ================= TREND FUNCTIONS =================
 def get_nifty_trend():
@@ -732,62 +624,6 @@ def calculate_live_pnl():
             })
     return total_pnl, pnl_details
 
-def add_to_journal(order, exit_price=None, exit_reason=None):
-    entry_price = order['entry_price']
-    qty = order['qty']
-    if order['symbol'] in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
-        multiplier = 50 if order['symbol'] == "NIFTY" else 25
-    elif order['symbol'] in ["CRUDE", "NATURALGAS"]:
-        multiplier = 100
-    else:
-        multiplier = 100
-    if exit_price:
-        if order['option_type'] == "CALL (CE)":
-            pnl_points = exit_price - entry_price
-        else:
-            pnl_points = entry_price - exit_price
-        pnl_value = pnl_points * qty * multiplier
-        status = exit_reason
-    else:
-        pnl_value = 0
-        status = "OPEN"
-        exit_price = 0
-    trade_record = {
-        "No": len(st.session_state.trade_journal) + 1,
-        "Time": order.get('entry_time', get_ist_now().strftime('%H:%M:%S')),
-        "Symbol": f"{order['symbol']} {order['option_type']} {order.get('strike_price', '')}",
-        "Type": order.get('signal_type', 'MANUAL'), "Lots": order['qty'],
-        "Entry": round(entry_price, 2), "Exit": round(exit_price, 2) if exit_price else "-",
-        "P&L (₹)": round(pnl_value, 2), "Status": status
-    }
-    st.session_state.trade_journal.append(trade_record)
-    if "daily_pnl" not in st.session_state:
-        st.session_state.daily_pnl = 0
-    st.session_state.daily_pnl += pnl_value
-    
-    # ===== SAVE TRADE RESULT TO LIVE PERFORMANCE =====
-    if exit_price and exit_reason:
-        # Map symbol to performance key
-        symbol = order['symbol']
-        if symbol in ["NIFTY", "BANKNIFTY"]:
-            perf_symbol = symbol
-        elif symbol in ["CRUDE"]:
-            perf_symbol = "CRUDE"
-        elif symbol in ["NATURALGAS", "NG"]:
-            perf_symbol = "NG"
-        else:
-            perf_symbol = "STOCK"
-        
-        signal_type = "BUY" if order['option_type'] == "CALL (CE)" else "SELL"
-        result_type = ""
-        if exit_reason == "TARGET HIT":
-            result_type = "TP3"
-        elif exit_reason == "SL HIT":
-            result_type = "SL"
-        
-        if result_type and perf_symbol in st.session_state.live_performance:
-            save_trade_result(perf_symbol, signal_type, result_type)
-
 def show_portfolio_dashboard():
     total_pnl, pnl_details = calculate_live_pnl()
     col1, col2, col3, col4 = st.columns(4)
@@ -817,17 +653,14 @@ def show_portfolio_dashboard():
     else:
         st.info("No trades executed yet")
     
-    # ===== RUDRANSH LIVE PERFORMANCE TABLE =====
+    # Live Performance Table
     st.markdown("---")
     st.markdown("#### 📊 RUDRANSH LIVE PERFORMANCE")
-    
-    # Prepare performance data
     perf_data = []
     total_buy = 0
     total_sell = 0
     total_tp = 0
     total_sl = 0
-    
     for instrument, data in st.session_state.live_performance.items():
         buy = data.get("BUY", 0)
         sell = data.get("SELL", 0)
@@ -846,12 +679,8 @@ def show_portfolio_dashboard():
             "SL HIT": sl,
             "WIN %": f"{win_percent}%"
         })
-    
     st.dataframe(pd.DataFrame(perf_data), use_container_width=True)
-    
-    # Total summary
     total_accuracy = round((total_tp / (total_tp + total_sl)) * 100) if (total_tp + total_sl) > 0 else 0
-    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("📊 TOTAL TRADE", total_buy + total_sell)
@@ -862,7 +691,6 @@ def show_portfolio_dashboard():
     with col4:
         st.metric("📈 TOTAL ACCURACY", f"{total_accuracy}%")
     
-    # Date and time
     liveDate = get_ist_now().strftime("%d-%m-%Y")
     liveTime = get_ist_now().strftime("%H:%M:%S")
     st.caption(f"📅 {liveDate} | ⏰ {liveTime}")
@@ -1017,7 +845,7 @@ now = get_ist_now()
 st.markdown(f"<div class='live-time'>🕐 {now.strftime('%H:%M:%S')} IST | 📅 {now.strftime('%d %B %Y')}</div>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ================= API STATUS & CONTROL PANEL (SIDE BY SIDE) =================
+# ================= API STATUS & CONTROL PANEL =================
 st.markdown("## 🎮 SYSTEM DASHBOARD")
 
 col_left, col_right = st.columns(2)
@@ -1025,7 +853,6 @@ col_left, col_right = st.columns(2)
 with col_left:
     st.markdown("### 🔌 API STATUS")
     fmp_status, fmp_level, fmp_msg = check_fmp_api()
-    
     st.markdown(f'<div class="status-card" style="border-left: 4px solid #00ff88;">📊 <strong>FMP API</strong><br><span style="color:#00ff88">🟢 {fmp_msg}</span></div>', unsafe_allow_html=True)
     st.markdown('<div class="status-card" style="border-left: 4px solid #00ff88;">📰 <strong>GNews API</strong><br><span style="color:#00ff88">🟢 Active</span></div>', unsafe_allow_html=True)
     st.markdown('<div class="status-card" style="border-left: 4px solid #00ff88;">📱 <strong>Telegram Bot</strong><br><span style="color:#00ff88">🟢 Active</span></div>', unsafe_allow_html=True)
@@ -1089,7 +916,7 @@ with tab1:
     st.markdown("---")
     
     total_orders = len(st.session_state.wolf_orders)
-    pending_orders = len([o for o in st.session_state.wolf_orders if o['status'] == 'PENDING'])
+    pending_orders = len([o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING'])
     active_orders_count = len(st.session_state.active_orders)
     
     col1, col2, col3 = st.columns(3)
@@ -1579,13 +1406,13 @@ with tab2:
     
     st.markdown("#### 🌏 Global Market Summary")
     
-    st.info("""
+    st.info(f"""
     📊 **Market Status:**
     - 🇮🇳 Indian Markets: Closed (Opens Monday 9:15 AM)
-    - 🛢️ CRUDE OIL: Live ₹{:,.2f} ({:+.2f}%)
-    - 🌿 NATURAL GAS: Live ₹{:,.2f} ({:+.2f}%)
+    - 🛢️ CRUDE OIL: Live ₹{crude_live_inr:,.2f} ({crude_pct:+.2f}%)
+    - 🌿 NATURAL GAS: Live ₹{ng_live_inr:,.2f} ({ng_pct:+.2f}%)
     - 🌍 Global Markets: Real-time data above
-    """.format(crude_live_inr, crude_pct, ng_live_inr, ng_pct))
+    """)
 
 # ================= TAB 3: VAISHNAVI NEWS =================
 with tab3:
@@ -2206,6 +2033,7 @@ def wolf_auto_fo_trade():
             entry_price = current_price
             tp1_price = entry_price * 1.10
             tp2_price = entry_price * 1.20
+            tp3_price = entry_price * 1.30
             sl_price = entry_price * 0.90
             
             st.session_state.wolf_orders.append({
@@ -2218,7 +2046,7 @@ def wolf_auto_fo_trade():
                 'target': tp2_price,
                 'tp1': tp1_price,
                 'tp2': tp2_price,
-                'tp3': tp3_price if 'tp3_price' in dir() else tp2_price * 0.70,
+                'tp3': tp3_price,
                 'tp1_booked': False,
                 'tp2_booked': False,
                 'tp3_booked': False,
@@ -2229,10 +2057,10 @@ def wolf_auto_fo_trade():
                 'placed_time': get_ist_now().strftime('%H:%M:%S'),
                 'auto_trade': True,
                 'signal_type': '🐺 WOLF AUTO',
-                'signal': 'BUY' if ema_buy else 'SELL'
+                'signal': 'BUY'
             })
             
-            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
+            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
             voice_alert(f"Wolf auto buy order placed for {symbol}")
         
         elif ema_sell:
@@ -2251,6 +2079,7 @@ def wolf_auto_fo_trade():
             entry_price = current_price
             tp1_price = entry_price * 0.90
             tp2_price = entry_price * 0.80
+            tp3_price = entry_price * 0.70
             sl_price = entry_price * 1.10
             
             st.session_state.wolf_orders.append({
@@ -2262,7 +2091,14 @@ def wolf_auto_fo_trade():
                 'sl': sl_price,
                 'target': tp2_price,
                 'tp1': tp1_price,
-                'tp1_book_percent': 50,
+                'tp2': tp2_price,
+                'tp3': tp3_price,
+                'tp1_booked': False,
+                'tp2_booked': False,
+                'tp3_booked': False,
+                'tp1_percent': 50,
+                'tp2_percent': 25,
+                'tp3_percent': 25,
                 'status': 'PENDING',
                 'placed_time': get_ist_now().strftime('%H:%M:%S'),
                 'auto_trade': True,
@@ -2270,12 +2106,11 @@ def wolf_auto_fo_trade():
                 'signal': 'SELL'
             })
             
-            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(50%) | Qty:{st.session_state.auto_trade_qty}")
+            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
             voice_alert(f"Wolf auto sell order placed for {symbol}")
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
-    monitor_today_results()
     check_and_execute_orders_with_journal()
     monitor_active_orders_with_pnl()
     
@@ -2395,6 +2230,12 @@ def check_and_execute_orders_with_journal():
                 'entry_time': order['entry_time'],
                 'sl': order.get('sl', current_price * 0.95),
                 'target': order.get('target', current_price * 1.05),
+                'tp1': order.get('tp1', current_price * 1.05),
+                'tp2': order.get('tp2', current_price * 1.10),
+                'tp3': order.get('tp3', current_price * 1.15),
+                'tp1_booked': order.get('tp1_booked', False),
+                'tp2_booked': order.get('tp2_booked', False),
+                'tp3_booked': order.get('tp3_booked', False),
                 'signal_type': '🐺 WOLF'
             }
             st.session_state.active_orders.append(active_order)
