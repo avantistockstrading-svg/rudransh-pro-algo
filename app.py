@@ -1312,66 +1312,39 @@ with tab2:
     
     st.markdown("---")
 
-        # ========== 📈 LIVE CHART SECTION (TradingView Style) ==========
+            # ========== 📈 LIVE PRICE CHART (Plotly) ==========
     st.markdown("---")
     st.markdown("#### 📈 LIVE PRICE CHART (TradingView Style)")
     
-    # Chart controls
-    col_chart1, col_chart2, col_chart3, col_chart4 = st.columns(4)
-    with col_chart1:
-        chart_symbol = st.selectbox(
-            "📊 Symbol", 
-            ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS", "RELIANCE", "TCS", "HDFCBANK", "INFY", "TATAMOTORS", "WIPRO"],
-            key="chart_symbol_tab2"
-        )
-    with col_chart2:
-        chart_interval = st.selectbox(
-            "⏱️ Interval", 
-            ["1m", "5m", "15m", "30m", "1h", "4h"], 
-            index=1, 
-            key="chart_interval_tab2"
-        )
-    with col_chart3:
-        chart_period = st.selectbox(
-            "📅 Period", 
-            ["1d", "5d", "1mo", "3mo", "6mo"], 
-            index=1, 
-            key="chart_period_tab2"
-        )
-    with col_chart4:
-        if st.button("🔄 Refresh Chart", use_container_width=True, key="refresh_chart"):
+    # Chart Controls
+    col_ch1, col_ch2, col_ch3, col_ch4 = st.columns(4)
+    with col_ch1:
+        chart_symbol = st.selectbox("📊 Symbol", ["NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS"], key="chart_sym_tab2")
+    with col_ch2:
+        chart_interval = st.selectbox("⏱️ Interval", ["5m", "15m", "30m", "1h"], index=0, key="chart_int_tab2")
+    with col_ch3:
+        chart_period = st.selectbox("📅 Period", ["5d", "1mo", "3mo"], index=0, key="chart_per_tab2")
+    with col_ch4:
+        if st.button("🔄 Refresh Chart", use_container_width=True):
             st.rerun()
     
-    # Function to get ticker
-    def get_yfinance_ticker(symbol):
-        ticker_map = {
-            "NIFTY": "^NSEI",
-            "BANKNIFTY": "^NSEBANK",
-            "CRUDE": "CL=F",
-            "NATURALGAS": "NG=F"
-        }
-        return ticker_map.get(symbol, f"{symbol}.NS")
-    
-    # Map interval to yfinance format
-    interval_map = {
-        "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1h": "60m", "4h": "240m"
+    # Ticker mapping
+    ticker_map = {
+        "NIFTY": "^NSEI",
+        "BANKNIFTY": "^NSEBANK",
+        "CRUDE": "CL=F",
+        "NATURALGAS": "NG=F"
     }
-    period_map = {
-        "1d": "1d", "5d": "5d", "1mo": "1mo", "3mo": "3mo", "6mo": "6mo"
-    }
-    
-    ticker = get_yfinance_ticker(chart_symbol)
-    interval = interval_map.get(chart_interval, "5m")
-    period = period_map.get(chart_period, "5d")
+    ticker = ticker_map.get(chart_symbol, f"{chart_symbol}.NS")
     
     try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+        
         # Download data
-        df = yf.download(ticker, period=period, interval=interval, progress=False)
+        df = yf.download(ticker, period=chart_period, interval=chart_interval, progress=False)
         
         if not df.empty and len(df) > 5:
-            import plotly.graph_objects as go
-            from plotly.subplots import make_subplots
-            
             # Calculate EMAs
             df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
             df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
@@ -1400,52 +1373,48 @@ with tab2:
                 low=df['Low'],
                 close=df['Close'],
                 name='Price',
-                increasing=dict(line=dict(color='#00ff88', width=1), fillcolor='#00ff88'),
-                decreasing=dict(line=dict(color='#ff4444', width=1), fillcolor='#ff4444')
+                increasing=dict(line=dict(color='#00ff88'), fillcolor='#00ff88'),
+                decreasing=dict(line=dict(color='#ff4444'), fillcolor='#ff4444')
             ), row=1, col=1)
             
             # EMA lines
             fig.add_trace(go.Scatter(
-                x=df.index, y=df['EMA9'], 
-                name='EMA 9', 
-                line=dict(color='#00b4d8', width=1.5),
-                opacity=0.8
+                x=df.index, y=df['EMA9'],
+                name='EMA 9',
+                line=dict(color='#00b4d8', width=1.5)
             ), row=1, col=1)
             
             fig.add_trace(go.Scatter(
-                x=df.index, y=df['EMA20'], 
-                name='EMA 20', 
-                line=dict(color='#ffaa00', width=1.5),
-                opacity=0.8
+                x=df.index, y=df['EMA20'],
+                name='EMA 20',
+                line=dict(color='#ffaa00', width=1.5)
             ), row=1, col=1)
             
             # Volume bars
             colors = ['#00ff88' if close >= open else '#ff4444' for close, open in zip(df['Close'], df['Open'])]
             fig.add_trace(go.Bar(
-                x=df.index, y=df['Volume'], 
-                name='Volume', 
-                marker_color=colors, 
+                x=df.index, y=df['Volume'],
+                name='Volume',
+                marker_color=colors,
                 opacity=0.6
             ), row=2, col=1)
             
-            # RSI line
+            # RSI
             fig.add_trace(go.Scatter(
-                x=df.index, y=df['RSI'], 
-                name='RSI', 
-                line=dict(color='#a855f7', width=1.5),
-                fill='tozeroy',
-                fillcolor='rgba(168,85,247,0.1)'
+                x=df.index, y=df['RSI'],
+                name='RSI',
+                line=dict(color='#a855f7', width=1.5)
             ), row=3, col=1)
             
-            # RSI levels (70, 50, 30)
+            # RSI levels
             fig.add_hline(y=70, line_dash="dash", line_color="#ff4444", opacity=0.5, row=3, col=1)
             fig.add_hline(y=50, line_dash="dash", line_color="#ffaa00", opacity=0.5, row=3, col=1)
             fig.add_hline(y=30, line_dash="dash", line_color="#00ff88", opacity=0.5, row=3, col=1)
             
-            # Layout styling
+            # Layout
             fig.update_layout(
                 template='plotly_dark',
-                height=650,
+                height=600,
                 hovermode='x unified',
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0.2)',
@@ -1455,71 +1424,49 @@ with tab2:
                     yanchor="bottom",
                     y=1.02,
                     xanchor="right",
-                    x=1,
-                    bgcolor='rgba(0,0,0,0.5)'
-                ),
-                margin=dict(l=10, r=10, t=50, b=10)
+                    x=1
+                )
             )
             
-            # Axes styling
-            fig.update_xaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zeroline=False)
-            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zeroline=False)
-            
-            # Remove title from subplots
-            fig.update_annotations(font=dict(color='white', size=12))
+            fig.update_xaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
             
             # Display chart
             st.plotly_chart(fig, use_container_width=True)
             
-            # Display current price info cards
+            # Current price info
             current_price = float(df['Close'].iloc[-1])
-            prev_close = float(df['Close'].iloc[-2]) if len(df) > 1 else current_price
-            change = current_price - prev_close
-            change_pct = (change / prev_close) * 100 if prev_close > 0 else 0
-            
+            prev_price = float(df['Close'].iloc[-2]) if len(df) > 1 else current_price
+            change = current_price - prev_price
+            change_pct = (change / prev_price) * 100 if prev_price > 0 else 0
             current_rsi = float(df['RSI'].iloc[-1]) if not pd.isna(df['RSI'].iloc[-1]) else 50
             current_ema9 = float(df['EMA9'].iloc[-1])
             current_ema20 = float(df['EMA20'].iloc[-1])
             
-            # RSI Signal
-            rsi_signal = "🔴 OVERBOUGHT (>70)" if current_rsi > 70 else "🟢 OVERSOLD (<30)" if current_rsi < 30 else "⚪ NEUTRAL"
-            rsi_color = "#ff4444" if current_rsi > 70 else "#00ff88" if current_rsi < 30 else "#ffaa00"
-            
-            # EMA Signal
-            ema_signal = "🟢 BULLISH (9>20)" if current_ema9 > current_ema20 else "🔴 BEARISH (9<20)"
-            ema_color = "#00ff88" if current_ema9 > current_ema20 else "#ff4444"
-            
-            # Display metrics
             st.markdown("---")
-            st.markdown("#### 📊 Market Indicators")
+            st.markdown("#### 📊 Quick Stats")
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Current Price", f"₹{current_price:,.2f}", f"{change:+.2f} ({change_pct:+.2f}%)")
             with col2:
-                st.metric("RSI (14)", f"{current_rsi:.1f}", delta=rsi_signal, delta_color="off")
+                st.metric("RSI (14)", f"{current_rsi:.1f}")
             with col3:
-                st.metric("EMA 9 / 20", f"₹{current_ema9:,.2f} / ₹{current_ema20:,.2f}")
+                st.metric("EMA 9", f"₹{current_ema9:,.2f}")
             with col4:
-                st.metric("EMA Signal", ema_signal)
+                st.metric("EMA 20", f"₹{current_ema20:,.2f}")
             
-            # Additional stats
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                day_high = float(df['High'].iloc[-1])
-                day_low = float(df['Low'].iloc[-1])
-                st.info(f"📈 Day Range: ₹{day_low:,.2f} - ₹{day_high:,.2f}")
-            with col2:
-                volume = int(df['Volume'].iloc[-1])
-                st.info(f"📊 Volume: {volume:,}")
-            with col3:
-                st.info(f"🎯 RSI Signal: <span style='color:{rsi_color}'>{rsi_signal}</span>", unsafe_allow_html=True)
-            
+            # Signal
+            if current_ema9 > current_ema20:
+                st.success("🟢 BULLISH SIGNAL - EMA 9 is above EMA 20")
+            else:
+                st.error("🔴 BEARISH SIGNAL - EMA 9 is below EMA 20")
+                
         else:
-            st.warning(f"⚠️ Insufficient data for {chart_symbol}. Try a different period or interval.")
+            st.warning(f"Insufficient data for {chart_symbol}")
             
     except Exception as e:
-        st.error(f"❌ Error loading chart: {e}")
+        st.error(f"Error loading chart: {e}")
     
     # GLOBAL MARKET SECTION
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
