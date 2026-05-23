@@ -194,7 +194,7 @@ if get_ist_now().date() != st.session_state.last_reset_date:
 
 # ================= COMPLETE F&O SYMBOLS (स्क्रीनशॉटमधील सगळ्या कंपन्या add केल्या) =================
 FO_SCRIPTS = [
-    "NIFTY", "BANKNIFTY", "CRUDE", "NATURALGAS",
+    "NIFTY", "CRUDE", "NATURALGAS",
     "ADANIENT", "ABB", "ADANIPORTS", "ADANIGREEN", "ADANIENSOL", "ALKEM", "AMBER",
     "APLAPOLLO", "APOLLOHOSP", "ASIANPAINT", "ASTRAL", "AUROPHARM", "AXISBANK",
     "BAJAJ_AUTO", "BAJFINANCE", "BAJAJFINSV", "BAJAJHLDNG", "BDL", "BHARAT_D",
