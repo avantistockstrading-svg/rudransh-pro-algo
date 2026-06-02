@@ -1697,249 +1697,234 @@ with tab6:
     st.markdown("*Real-time profit/loss tracking*")
     st.markdown("---")
     show_portfolio_dashboard()
-
-# ================= TAB 7: CONDITIONS DASHBOARD =================
+# ================= TAB 7: CONDITIONS DASHBOARD (FIXED) =================
 with tab7:
     st.markdown("### 📊 CONDITIONS DASHBOARD")
     st.markdown("*Multi-Timeframe Trend Analysis & Scoring System*")
     st.markdown("---")
     
-    # Get real-time data
-    nifty_trend = get_nifty_trend()
-    nifty_trend_text = "POSITIVE" if nifty_trend == "POSITIVE" else "NEGATIVE" if nifty_trend == "NEGATIVE" else "NEUTRAL"
-    nifty_trend_color = "#00ff88" if nifty_trend == "POSITIVE" else "#ff4444" if nifty_trend == "NEGATIVE" else "#ffaa00"
-    
-    # Get indicators for NIFTY
-    indicators = get_technical_indicators("NIFTY")
-    if indicators:
-        current_price = indicators["current_price"]
-        ema9 = indicators["ema9"]
-        ema20 = indicators["ema20"]
-        ema200 = indicators["ema200"]
-        rsi = indicators["rsi"]
-        adx = indicators["adx"]
-        volume_filter = indicators["volume_filter"]
-        strong_bull = indicators["strong_bull"]
-        strong_bear = indicators["strong_bear"]
+    # Show loading message
+    with st.spinner("🔄 Fetching market data... Please wait..."):
+        # Get real-time data with retry
+        nifty_trend = get_nifty_trend()
+        nifty_trend_text = "POSITIVE" if nifty_trend == "POSITIVE" else "NEGATIVE" if nifty_trend == "NEGATIVE" else "NEUTRAL"
+        nifty_trend_color = "#00ff88" if nifty_trend == "POSITIVE" else "#ff4444" if nifty_trend == "NEGATIVE" else "#ffaa00"
         
-        # EMA Trend Condition
-        ema_condition = ema9 > ema20 > ema200
-        ema_text = "✅ EMA 9 > EMA 20 > EMA 200" if ema_condition else "❌ EMA 9 < EMA 20 < EMA 200"
-        ema_color = "#00ff88" if ema_condition else "#ff4444"
+        # Get indicators for NIFTY with retry
+        indicators = None
+        for attempt in range(3):
+            indicators = get_technical_indicators("NIFTY")
+            if indicators:
+                break
+            time.sleep(2)  # Wait 2 seconds before retry
         
-        # RSI Condition
-        rsi_buy_condition = rsi >= 60
-        rsi_sell_condition = rsi <= 40
-        rsi_text = f"✅ RSI: {rsi:.1f} (Strong)" if rsi_buy_condition else f"⚠️ RSI: {rsi:.1f}" if 40 < rsi < 60 else f"❌ RSI: {rsi:.1f} (Weak)"
-        rsi_color = "#00ff88" if rsi_buy_condition else "#ff4444" if rsi_sell_condition else "#ffaa00"
-        
-        # ADX Condition
-        adx_condition = adx >= 25
-        adx_text = f"✅ ADX: {adx:.1f} (Trending)" if adx_condition else f"❌ ADX: {adx:.1f} (Rangebound)"
-        adx_color = "#00ff88" if adx_condition else "#ffaa00"
-        
-        # Volume Condition
-        volume_text = "✅ Volume > 20 SMA" if volume_filter else "❌ Volume Below Average"
-        volume_color = "#00ff88" if volume_filter else "#ff4444"
-        
-        # Strong Candle Condition
-        strong_candle_text = "✅ Strong Bullish Candle" if strong_bull else "❌ Weak/Bearish Candle" if strong_bear else "⚠️ Neutral Candle"
-        strong_candle_color = "#00ff88" if strong_bull else "#ff4444" if strong_bear else "#ffaa00"
-        
-        # Multi-Timeframe Trends
-        trend5 = get_mtf_trend("NIFTY", "5m")
-        trend15 = get_mtf_trend("NIFTY", "15m")
-        trend1h = get_mtf_trend("NIFTY", "60m")
-        
-        trend5_text = "✅ 5M: UP" if trend5 == "UP" else "❌ 5M: DOWN" if trend5 == "DOWN" else "⚠️ 5M: NEUTRAL"
-        trend15_text = "✅ 15M: UP" if trend15 == "UP" else "❌ 15M: DOWN" if trend15 == "DOWN" else "⚠️ 15M: NEUTRAL"
-        trend1h_text = "✅ 60M: UP" if trend1h == "UP" else "❌ 60M: DOWN" if trend1h == "DOWN" else "⚠️ 60M: NEUTRAL"
-        
-        trend5_color = "#00ff88" if trend5 == "UP" else "#ff4444" if trend5 == "DOWN" else "#ffaa00"
-        trend15_color = "#00ff88" if trend15 == "UP" else "#ff4444" if trend15 == "DOWN" else "#ffaa00"
-        trend1h_color = "#00ff88" if trend1h == "UP" else "#ff4444" if trend1h == "DOWN" else "#ffaa00"
-        
-        # Calculate Scores
-        buy_score = 0
-        sell_score = 0
-        
-        # Condition 1: Higher TF Trend
-        if nifty_trend == "POSITIVE":
-            buy_score += 1
-        elif nifty_trend == "NEGATIVE":
-            sell_score += 1
-        
-        # Condition 2 & 3: MTF Trends
-        if trend5 == "UP":
-            buy_score += 1
-        elif trend5 == "DOWN":
-            sell_score += 1
-        
-        if trend15 == "UP":
-            buy_score += 1
-        elif trend15 == "DOWN":
-            sell_score += 1
-        
-        if trend1h == "UP":
-            buy_score += 1
-        elif trend1h == "DOWN":
-            sell_score += 1
-        
-        # Condition 4: EMA
-        if ema_condition:
-            buy_score += 1
-        else:
-            sell_score += 1
-        
-        # Condition 5: RSI
-        if rsi_buy_condition:
-            buy_score += 1
-        elif rsi_sell_condition:
-            sell_score += 1
-        
-        # Condition 6: ADX
-        if adx_condition:
-            if buy_score > sell_score:
+        if indicators:
+            current_price = indicators["current_price"]
+            ema9 = indicators["ema9"]
+            ema20 = indicators["ema20"]
+            ema200 = indicators["ema200"]
+            rsi = indicators["rsi"]
+            adx = indicators["adx"]
+            volume_filter = indicators["volume_filter"]
+            strong_bull = indicators["strong_bull"]
+            strong_bear = indicators["strong_bear"]
+            
+            # Get MTF trends
+            trend5 = get_mtf_trend("NIFTY", "5m")
+            trend15 = get_mtf_trend("NIFTY", "15m")
+            trend1h = get_mtf_trend("NIFTY", "60m")
+            
+            # Calculate Scores
+            buy_score = 0
+            sell_score = 0
+            
+            # Condition 1: Higher TF Trend
+            if nifty_trend == "POSITIVE":
+                buy_score += 1
+            elif nifty_trend == "NEGATIVE":
+                sell_score += 1
+            
+            # Condition 2 & 3 & 9: MTF Trends
+            if trend5 == "UP":
+                buy_score += 1
+            elif trend5 == "DOWN":
+                sell_score += 1
+            
+            if trend15 == "UP":
+                buy_score += 1
+            elif trend15 == "DOWN":
+                sell_score += 1
+            
+            if trend1h == "UP":
+                buy_score += 1
+            elif trend1h == "DOWN":
+                sell_score += 1
+            
+            # Condition 4: EMA
+            ema_condition = ema9 > ema20 > ema200
+            if ema_condition:
                 buy_score += 1
             else:
                 sell_score += 1
-        
-        # Condition 7: Volume
-        if volume_filter:
-            buy_score += 1
+            
+            # Condition 5: RSI
+            rsi_buy_condition = rsi >= 60
+            rsi_sell_condition = rsi <= 40
+            if rsi_buy_condition:
+                buy_score += 1
+            elif rsi_sell_condition:
+                sell_score += 1
+            
+            # Condition 6: ADX
+            adx_condition = adx >= 25
+            if adx_condition:
+                if buy_score > sell_score:
+                    buy_score += 1
+                else:
+                    sell_score += 1
+            
+            # Condition 7: Volume
+            if volume_filter:
+                buy_score += 1
+            else:
+                sell_score += 1
+            
+            # Condition 8: Strong Candle
+            if strong_bull:
+                buy_score += 1
+            elif strong_bear:
+                sell_score += 1
+            
+            buy_percent = (buy_score / 9) * 100
+            sell_percent = (sell_score / 9) * 100
+            
+            # Market Bias
+            if buy_score >= 7:
+                market_bias = "STRONG BULLISH"
+                bias_color = "#00ff44"
+                bias_icon = "🚀"
+                recommendation = "BUY"
+                rec_color = "#00ff88"
+            elif buy_score >= 5:
+                market_bias = "BULLISH"
+                bias_color = "#88ff88"
+                bias_icon = "📈"
+                recommendation = "BUY"
+                rec_color = "#88ff88"
+            elif sell_score >= 7:
+                market_bias = "STRONG BEARISH"
+                bias_color = "#ff3333"
+                bias_icon = "💀"
+                recommendation = "SELL"
+                rec_color = "#ff4444"
+            elif sell_score >= 5:
+                market_bias = "BEARISH"
+                bias_color = "#ff6666"
+                bias_icon = "📉"
+                recommendation = "SELL"
+                rec_color = "#ff6666"
+            else:
+                market_bias = "NEUTRAL/SIDEWAYS"
+                bias_color = "#ffaa00"
+                bias_icon = "⚪"
+                recommendation = "WAIT"
+                rec_color = "#ffaa00"
+            
+            # DISPLAY DASHBOARD
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 🟢 BUY CONDITIONS")
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px;">
+                    <table style="width:100%;">
+                        <tr><td>1. NIFTY TREND</td><td style="text-align:right; color:{nifty_trend_color};">{nifty_trend_text}</td></tr>
+                        <tr><td>2. 5M TREND</td><td style="text-align:right; color:{'#00ff88' if trend5 == 'UP' else '#ff4444' if trend5 == 'DOWN' else '#ffaa00'};">{'UP' if trend5 == 'UP' else 'DOWN' if trend5 == 'DOWN' else 'NEUTRAL'}</td></tr>
+                        <tr><td>3. 15M TREND</td><td style="text-align:right; color:{'#00ff88' if trend15 == 'UP' else '#ff4444' if trend15 == 'DOWN' else '#ffaa00'};">{'UP' if trend15 == 'UP' else 'DOWN' if trend15 == 'DOWN' else 'NEUTRAL'}</td></tr>
+                        <tr><td>4. EMA TREND</td><td style="text-align:right; color:{'#00ff88' if ema_condition else '#ff4444'};">{'EMA 9 > EMA 20 > EMA 200' if ema_condition else 'Not Met'}</td></tr>
+                        <tr><td>5. RSI (14)</td><td style="text-align:right; color:{'#00ff88' if rsi_buy_condition else '#ff4444' if rsi_sell_condition else '#ffaa00'};">{rsi:.1f}</td></tr>
+                        <tr><td>6. ADX (14)</td><td style="text-align:right; color:{'#00ff88' if adx_condition else '#ffaa00'};">{adx:.1f}</td></tr>
+                        <tr><td>7. VOLUME</td><td style="text-align:right; color:{'#00ff88' if volume_filter else '#ff4444'};">{'Above Avg' if volume_filter else 'Below Avg'}</td></tr>
+                        <tr><td>8. STRONG CANDLE</td><td style="text-align:right; color:{'#00ff88' if strong_bull else '#ff4444' if strong_bear else '#ffaa00'};">{'Bullish' if strong_bull else 'Bearish' if strong_bear else 'Neutral'}</td></tr>
+                        <tr><td>9. 60M TREND</td><td style="text-align:right; color:{'#00ff88' if trend1h == 'UP' else '#ff4444' if trend1h == 'DOWN' else '#ffaa00'};">{'UP' if trend1h == 'UP' else 'DOWN' if trend1h == 'DOWN' else 'NEUTRAL'}</td></tr>
+                    </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("### 🔴 SELL CONDITIONS")
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px;">
+                    <table style="width:100%;">
+                        <tr><td>1. NIFTY TREND</td><td style="text-align:right; color:{nifty_trend_color};">{nifty_trend_text}</td></tr>
+                        <tr><td>2. 5M TREND</td><td style="text-align:right; color:{'#00ff88' if trend5 == 'UP' else '#ff4444' if trend5 == 'DOWN' else '#ffaa00'};">{'DOWN' if trend5 == 'DOWN' else 'NOT DOWN'}</td></tr>
+                        <tr><td>3. 15M TREND</td><td style="text-align:right; color:{'#00ff88' if trend15 == 'UP' else '#ff4444' if trend15 == 'DOWN' else '#ffaa00'};">{'DOWN' if trend15 == 'DOWN' else 'NOT DOWN'}</td></tr>
+                        <tr><td>4. EMA TREND</td><td style="text-align:right; color:{'#ff4444' if not ema_condition else '#ffaa00'};">{'EMA 9 < EMA 20 < EMA 200' if not ema_condition else 'Not Met'}</td></tr>
+                        <tr><td>5. RSI (14)</td><td style="text-align:right; color:{'#00ff88' if rsi_buy_condition else '#ff4444' if rsi_sell_condition else '#ffaa00'};">{rsi:.1f}</td></tr>
+                        <tr><td>6. ADX (14)</td><td style="text-align:right; color:{'#00ff88' if adx_condition else '#ffaa00'};">{adx:.1f}</td></tr>
+                        <tr><td>7. VOLUME</td><td style="text-align:right; color:{'#00ff88' if volume_filter else '#ff4444'};">{'Below Avg' if not volume_filter else 'Above Avg'}</td></tr>
+                        <tr><td>8. STRONG CANDLE</td><td style="text-align:right; color:{'#00ff88' if strong_bull else '#ff4444' if strong_bear else '#ffaa00'};">{'Bearish' if strong_bear else 'Not Bearish'}</td></tr>
+                        <tr><td>9. 60M TREND</td><td style="text-align:right; color:{'#00ff88' if trend1h == 'UP' else '#ff4444' if trend1h == 'DOWN' else '#ffaa00'};">{'DOWN' if trend1h == 'DOWN' else 'NOT DOWN'}</td></tr>
+                    </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # SCORES
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #00ff88;">
+                    <h3>BUY SCORE</h3>
+                    <h1 style="color: #00ff88; font-size: 48px;">{buy_score}/9</h1>
+                    <h2 style="color: #00ff88;">{buy_percent:.0f}%</h2>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #ff4444;">
+                    <h3>SELL SCORE</h3>
+                    <h1 style="color: #ff4444; font-size: 48px;">{sell_score}/9</h1>
+                    <h2 style="color: #ff4444;">{sell_percent:.0f}%</h2>
+                </div>
+                """, unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid {bias_color};">
+                    <h3>MARKET BIAS</h3>
+                    <h1 style="color: {bias_color}; font-size: 28px;">{bias_icon} {market_bias}</h1>
+                    <p style="color: {bias_color};">{'Strong Up Trend' if buy_score >= 7 else 'Up Trend' if buy_score >= 5 else 'Down Trend' if sell_score >= 5 else 'Sideways'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col4:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid {rec_color};">
+                    <h3>RECOMMENDATION</h3>
+                    <h1 style="color: {rec_color}; font-size: 32px;">{recommendation}</h1>
+                    <p style="color: {rec_color};">{'High Probability Setup' if recommendation != 'WAIT' else 'Wait for Clear Signal'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # Live Price
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <h3>📊 NIFTY LIVE PRICE</h3>
+                <h1 style="color: #00b4d8;">₹{current_price:,.2f}</h1>
+                <p>🕐 {get_ist_now().strftime('%H:%M:%S')} IST | 📅 {get_ist_now().strftime('%d %B %Y')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
         else:
-            sell_score += 1
-        
-        # Condition 8: Strong Candle
-        if strong_bull:
-            buy_score += 1
-        elif strong_bear:
-            sell_score += 1
-        
-        buy_percent = (buy_score / 9) * 100
-        sell_percent = (sell_score / 9) * 100
-        
-        # Market Bias
-        if buy_score >= 7:
-            market_bias = "STRONG BULLISH"
-            bias_color = "#00ff44"
-            bias_icon = "🚀"
-            recommendation = "BUY"
-            rec_color = "#00ff88"
-        elif buy_score >= 5:
-            market_bias = "BULLISH"
-            bias_color = "#88ff88"
-            bias_icon = "📈"
-            recommendation = "BUY"
-            rec_color = "#88ff88"
-        elif sell_score >= 7:
-            market_bias = "STRONG BEARISH"
-            bias_color = "#ff3333"
-            bias_icon = "💀"
-            recommendation = "SELL"
-            rec_color = "#ff4444"
-        elif sell_score >= 5:
-            market_bias = "BEARISH"
-            bias_color = "#ff6666"
-            bias_icon = "📉"
-            recommendation = "SELL"
-            rec_color = "#ff6666"
-        else:
-            market_bias = "NEUTRAL/SIDEWAYS"
-            bias_color = "#ffaa00"
-            bias_icon = "⚪"
-            recommendation = "WAIT"
-            rec_color = "#ffaa00"
-        
-        # DISPLAY DASHBOARD
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 🟢 BUY CONDITIONS")
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px;">
-                <table style="width:100%;">
-                    <tr><td>1. NIFTY TREND</td><td style="text-align:right; color:{nifty_trend_color};">{nifty_trend_text}</td></tr>
-                    <tr><td>2. 5M TREND</td><td style="text-align:right; color:{trend5_color};">{trend5_text}</td></tr>
-                    <tr><td>3. 15M TREND</td><td style="text-align:right; color:{trend15_color};">{trend15_text}</td></tr>
-                    <tr><td>4. EMA TREND</td><td style="text-align:right; color:{ema_color};">{ema_text}</td></tr>
-                    <tr><td>5. RSI (14)</td><td style="text-align:right; color:{rsi_color};">{rsi_text}</td></tr>
-                    <tr><td>6. ADX (14)</td><td style="text-align:right; color:{adx_color};">{adx_text}</td></tr>
-                    <tr><td>7. VOLUME</td><td style="text-align:right; color:{volume_color};">{volume_text}</td></tr>
-                    <tr><td>8. STRONG CANDLE</td><td style="text-align:right; color:{strong_candle_color};">{strong_candle_text}</td></tr>
-                    <tr><td>9. 60M TREND</td><td style="text-align:right; color:{trend1h_color};">{trend1h_text}</td></tr>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("### 🔴 SELL CONDITIONS")
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px;">
-                <table style="width:100%;">
-                    <tr><td>1. NIFTY TREND</td><td style="text-align:right; color:{nifty_trend_color};">{nifty_trend_text}</td></tr>
-                    <tr><td>2. 5M TREND</td><td style="text-align:right; color:{trend5_color};">{'5M: DOWN' if trend5 == 'DOWN' else '5M: NOT DOWN'}</td></tr>
-                    <tr><td>3. 15M TREND</td><td style="text-align:right; color:{trend15_color};">{'15M: DOWN' if trend15 == 'DOWN' else '15M: NOT DOWN'}</td></tr>
-                    <tr><td>4. EMA TREND</td><td style="text-align:right; color:{'#ff4444' if not ema_condition else '#ffaa00'};">{'EMA 9 < EMA 20 < EMA 200' if not ema_condition else 'Not Met'}</td></tr>
-                    <tr><td>5. RSI (14)</td><td style="text-align:right; color:{rsi_color};">{rsi_text}</td></tr>
-                    <tr><td>6. ADX (14)</td><td style="text-align:right; color:{adx_color};">{adx_text}</td></tr>
-                    <tr><td>7. VOLUME</td><td style="text-align:right; color:{volume_color};">{volume_text}</td></tr>
-                    <tr><td>8. STRONG CANDLE</td><td style="text-align:right; color:{strong_candle_color};">{strong_candle_text}</td></tr>
-                    <tr><td>9. 60M TREND</td><td style="text-align:right; color:{trend1h_color};">{'60M: DOWN' if trend1h == 'DOWN' else '60M: NOT DOWN'}</td></tr>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # SCORES
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #00ff88;">
-                <h3>BUY SCORE</h3>
-                <h1 style="color: #00ff88; font-size: 48px;">{buy_score}/9</h1>
-                <h2 style="color: #00ff88;">{buy_percent:.0f}%</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #ff4444;">
-                <h3>SELL SCORE</h3>
-                <h1 style="color: #ff4444; font-size: 48px;">{sell_score}/9</h1>
-                <h2 style="color: #ff4444;">{sell_percent:.0f}%</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid {bias_color};">
-                <h3>MARKET BIAS</h3>
-                <h1 style="color: {bias_color}; font-size: 28px;">{bias_icon} {market_bias}</h1>
-                <p style="color: {bias_color};">{'Strong Up Trend' if buy_score >= 7 else 'Up Trend' if buy_score >= 5 else 'Down Trend' if sell_score >= 5 else 'Sideways'}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with col4:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid {rec_color};">
-                <h3>RECOMMENDATION</h3>
-                <h1 style="color: {rec_color}; font-size: 32px;">{recommendation}</h1>
-                <p style="color: {rec_color};">{'High Probability Setup' if recommendation != 'WAIT' else 'Wait for Clear Signal'}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Live Price
-        st.markdown(f"""
-        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
-            <h3>📊 NIFTY LIVE PRICE</h3>
-            <h1 style="color: #00b4d8;">₹{current_price:,.2f}</h1>
-            <p>🕐 {get_ist_now().strftime('%H:%M:%S')} IST | 📅 {get_ist_now().strftime('%d %B %Y')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    else:
-        st.error("⚠️ Unable to fetch technical indicators. Please check your internet connection.")
+            st.error("⚠️ Unable to fetch technical indicators. Please check your internet connection and try again.")
+            st.info("💡 **Tip:** If you're in India, market data is only available during trading hours (9:15 AM - 3:30 PM IST). Outside trading hours, some indicators may show limited data.")
+            
+            # Show demo data option
+            if st.button("🔄 Show Demo Data (For Testing)"):
+                st.session_state.show_demo_data = True
+                st.rerun()
 
 # ================= AUTO TRADE FUNCTIONS =================
 def auto_trade_from_signal_with_journal():
