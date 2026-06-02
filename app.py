@@ -1675,7 +1675,7 @@ with tab4:
                     <td><b>📈 Expected Action</b><br>{'BUY' if 'BULLISH' in company['prediction'] else 'HOLD' if company['prediction'] == 'NEUTRAL' else 'SELL'}</td>
                     <td><b>{'📉 Actual Reaction' if company['status'] == 'COMPLETED' else '🟡 Status'}</b><br><span style="color:{reaction_color};">{company['actual_reaction'] if company['status'] == 'COMPLETED' else '⏳ PENDING'}</span></td>
                 </tr>
-                {f'<td><td colspan="4"><b>💡 Reason:</b> {company["reason"]}</td></tr>' if company.get('reason') else ''}
+                {f'<tr><td colspan="4"><b>💡 Reason:</b> {company["reason"]}</td></tr>' if company.get('reason') else ''}
             </table>
         </div>
         """, unsafe_allow_html=True)
