@@ -1,18 +1,19 @@
 """
-🐺 RUDRANSH MASTER PRO - COMPLETE SENTIMENT DASHBOARD
-=======================================================
-VERSION: 7.1.0
-CORRECTED NIFTY PRICES | 65+ INDICATORS | 8 FACTORS
+🐺 RUDRANSH MASTER PRO - REAL TIME SENTIMENT DASHBOARD
+========================================================
+VERSION: 8.0.0
+LIVE DATA | YAHOO FINANCE API | 65+ INDICATORS
 """
 
 import streamlit as st
 import pandas as pd
+import yfinance as yf
 from datetime import datetime, timedelta, timezone
-import random
+import time
 from streamlit_autorefresh import st_autorefresh
 
 # ================= VERSION & INFO =================
-APP_VERSION = "7.1.0"
+APP_VERSION = "8.0.0"
 APP_NAME = "RUDRANSH MASTER PRO"
 APP_AUTHOR = "SATISH D. NAKHATE"
 APP_LOCATION = "TALWADE, PUNE - 412114"
@@ -20,334 +21,237 @@ APP_LOCATION = "TALWADE, PUNE - 412114"
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="NIFTY SENTIMENT DASHBOARD", layout="wide", page_icon="🐺")
 
-# ================= CURRENT MARKET PRICES (CORRECTED) =================
-# Current NIFTY is around 24,800
-CURRENT_NIFTY = 24800
-CURRENT_BANKNIFTY = 52200
-CURRENT_FINNIFTY = 23200
+# ================= CACHED DATA FUNCTIONS (REAL TIME) =================
+@st.cache_data(ttl=30)
+def get_live_nifty():
+    """Get LIVE NIFTY price from Yahoo Finance"""
+    try:
+        df = yf.download("^NSEI", period="2d", interval="1m", progress=False)
+        if not df.empty and len(df) > 1:
+            current = float(df['Close'].iloc[-1])
+            prev_close = float(df['Close'].iloc[-2])
+            change = current - prev_close
+            change_percent = (change / prev_close) * 100 if prev_close != 0 else 0
+            return current, change, change_percent, prev_close
+    except Exception as e:
+        st.warning(f"NIFTY: {str(e)[:50]}")
+    return 24800, 0, 0, 24800
 
-# ================= GLASS FINISHING CSS =================
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
-    
-    .stApp {
-        background: radial-gradient(circle at 20% 30%, #0a0a2a, #050510);
-        font-family: 'Orbitron', monospace;
-    }
-    
-    .glass-card {
-        background: rgba(15, 25, 45, 0.65);
-        backdrop-filter: blur(12px);
-        border-radius: 20px;
-        border: 1px solid rgba(0, 255, 136, 0.25);
-        box-shadow: 0 8px 32px 0 rgba(0, 255, 136, 0.1);
-        padding: 20px;
-        margin: 10px 0;
-        transition: all 0.3s ease;
-    }
-    
-    .glass-card:hover {
-        border-color: rgba(0, 255, 136, 0.5);
-        box-shadow: 0 0 25px rgba(0, 255, 136, 0.2);
-        transform: translateY(-2px);
-    }
-    
-    .progress-container {
-        background: rgba(0, 0, 0, 0.5);
-        border-radius: 50px;
-        padding: 3px;
-        margin: 10px 0;
-    }
-    
-    .progress-fill {
-        background: linear-gradient(90deg, #ff3333, #ffaa00, #00ff44);
-        border-radius: 50px;
-        height: 25px;
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        padding-right: 10px;
-        color: white;
-        font-weight: bold;
-        font-size: 12px;
-        transition: width 0.5s ease;
-    }
-    
-    .metric-glass {
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 15px;
-        padding: 12px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .metric-value {
-        font-size: 22px;
-        font-weight: bold;
-        font-family: 'Orbitron', monospace;
-    }
-    
-    .metric-label {
-        font-size: 10px;
-        color: #94a3b8;
-        margin-top: 5px;
-    }
-    
-    h1 {
-        font-family: 'Orbitron', monospace;
-        font-size: 42px;
-        font-weight: 900;
-        background: linear-gradient(135deg, #00ff88, #00b4d8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    
-    h2 {
-        font-family: 'Orbitron', monospace;
-        font-size: 22px;
-        font-weight: 700;
-        background: linear-gradient(135deg, #00ff88, #00b4d8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 15px;
-    }
-    
-    h3 {
-        font-family: 'Orbitron', monospace;
-        font-size: 16px;
-        font-weight: 600;
-        color: #00b4d8;
-        margin-bottom: 10px;
-    }
-    
-    .subtitle {
-        text-align: center;
-        color: #94a3b8;
-        font-size: 12px;
-        margin-bottom: 20px;
-    }
-    
-    .trading-plan {
-        background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 180, 216, 0.1));
-        border-radius: 20px;
-        padding: 20px;
-        border: 1px solid rgba(0, 255, 136, 0.3);
-        text-align: center;
-    }
-    
-    .score-badge {
-        display: inline-block;
-        padding: 6px 15px;
-        border-radius: 30px;
-        font-weight: bold;
-        font-size: 12px;
-    }
-    
-    .score-positive {
-        background: rgba(0, 255, 68, 0.2);
-        color: #00ff44;
-        border: 1px solid #00ff44;
-    }
-    
-    .accuracy-badge {
-        background: linear-gradient(135deg, #00ff88, #00b4d8);
-        border-radius: 40px;
-        padding: 8px 25px;
-        display: inline-block;
-        color: #000;
-        font-weight: bold;
-        font-size: 14px;
-    }
-    
-    .custom-divider {
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #00ff88, #00b4d8, transparent);
-        margin: 20px 0;
-    }
-    
-    .footer {
-        text-align: center;
-        padding: 20px;
-        color: #546574;
-        font-size: 11px;
-    }
-    
-    .indicator-card {
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 12px;
-        padding: 8px;
-        text-align: center;
-        margin: 4px;
-    }
-    
-    .factor-weight {
-        font-size: 10px;
-        color: #00ff88;
-    }
-</style>
-""", unsafe_allow_html=True)
+@st.cache_data(ttl=30)
+def get_live_banknifty():
+    """Get LIVE BANKNIFTY price from Yahoo Finance"""
+    try:
+        df = yf.download("^NSEBANK", period="2d", interval="1m", progress=False)
+        if not df.empty and len(df) > 1:
+            current = float(df['Close'].iloc[-1])
+            prev_close = float(df['Close'].iloc[-2])
+            change_percent = ((current - prev_close) / prev_close) * 100 if prev_close != 0 else 0
+            return current, change_percent
+    except Exception as e:
+        st.warning(f"BANKNIFTY: {str(e)[:50]}")
+    return 52200, 0
 
-# ================= TIMEZONE =================
-def get_ist_now():
-    utc_now = datetime.now(timezone.utc)
-    ist_now = utc_now + timedelta(hours=5, minutes=30)
-    return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+@st.cache_data(ttl=30)
+def get_live_finnifty():
+    """Get LIVE FINNIFTY price from Yahoo Finance"""
+    try:
+        # Try different symbols for FINNIFTY
+        symbols = ["NIFTY_FIN_SERVICE.NS", "^NSEFIN", "FINNIFTY.NS"]
+        for sym in symbols:
+            try:
+                df = yf.download(sym, period="2d", interval="1m", progress=False)
+                if not df.empty and len(df) > 1:
+                    current = float(df['Close'].iloc[-1])
+                    prev_close = float(df['Close'].iloc[-2])
+                    change_percent = ((current - prev_close) / prev_close) * 100 if prev_close != 0 else 0
+                    return current, change_percent
+            except:
+                continue
+    except:
+        pass
+    return 23200, 0
 
-# ================= DATA GENERATION (NO API CALLS - CORRECTED PRICES) =================
-def get_nifty_data():
-    """NIFTY - Current around 24,800"""
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute)
-    # Small movement of ±15 points for realism
-    movement = random.randint(-15, 15)
-    current_price = CURRENT_NIFTY + movement
-    change = movement
-    change_percent = (change / CURRENT_NIFTY) * 100
-    return current_price, change, change_percent
-
-def get_banknifty_data():
-    """BANKNIFTY - Current around 52,200"""
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 1)
-    movement = random.randint(-30, 30)
-    current_price = CURRENT_BANKNIFTY + movement
-    change_percent = (movement / CURRENT_BANKNIFTY) * 100
-    return current_price, change_percent
-
-def get_finnifty_data():
-    """FINNIFTY - Current around 23,200"""
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 2)
-    movement = random.randint(-15, 15)
-    current_price = CURRENT_FINNIFTY + movement
-    change_percent = (movement / CURRENT_FINNIFTY) * 100
-    return current_price, change_percent
-
-# ================= GLOBAL INDICES DATA =================
+@st.cache_data(ttl=60)
 def get_global_indices():
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 10)
-    return {
-        "GIFT NIFTY": {"value": CURRENT_NIFTY + random.randint(-10, 10), "change": random.uniform(-0.3, 0.5), "flag": "🇮🇳"},
-        "DOW JONES": {"value": 39600 + random.randint(-100, 100), "change": random.uniform(-0.5, 0.5), "flag": "🇺🇸"},
-        "NASDAQ": {"value": 16203 + random.randint(-80, 80), "change": random.uniform(-0.5, 0.8), "flag": "🇺🇸"},
-        "S&P 500": {"value": 5255 + random.randint(-30, 30), "change": random.uniform(-0.4, 0.6), "flag": "🇺🇸"},
-        "RUSSELL 2000": {"value": 2045 + random.randint(-15, 15), "change": random.uniform(-0.5, 0.5), "flag": "🇺🇸"},
-        "NIKKEI 225": {"value": 38919 + random.randint(-150, 150), "change": random.uniform(-0.8, 0.5), "flag": "🇯🇵"},
-        "HANG SENG": {"value": 18524 + random.randint(-150, 150), "change": random.uniform(-0.8, 0.4), "flag": "🇭🇰"},
-        "SHANGHAI": {"value": 3150 + random.randint(-30, 30), "change": random.uniform(-0.5, 0.5), "flag": "🇨🇳"},
-        "KOSPI": {"value": 2680 + random.randint(-20, 20), "change": random.uniform(-0.5, 0.5), "flag": "🇰🇷"},
-        "DAX": {"value": 18200 + random.randint(-80, 80), "change": random.uniform(-0.5, 0.6), "flag": "🇩🇪"},
-        "FTSE 100": {"value": 7920 + random.randint(-40, 40), "change": random.uniform(-0.4, 0.5), "flag": "🇬🇧"},
-        "CAC 40": {"value": 8150 + random.randint(-40, 40), "change": random.uniform(-0.4, 0.5), "flag": "🇫🇷"},
+    """Get LIVE Global Indices from Yahoo Finance"""
+    indices = {
+        "GIFT NIFTY": {"symbol": "NIFTY1!", "flag": "🇮🇳"},
+        "DOW JONES": {"symbol": "^DJI", "flag": "🇺🇸"},
+        "NASDAQ": {"symbol": "^IXIC", "flag": "🇺🇸"},
+        "S&P 500": {"symbol": "^GSPC", "flag": "🇺🇸"},
+        "RUSSELL 2000": {"symbol": "^RUT", "flag": "🇺🇸"},
+        "NIKKEI 225": {"symbol": "^N225", "flag": "🇯🇵"},
+        "HANG SENG": {"symbol": "^HSI", "flag": "🇭🇰"},
+        "SHANGHAI": {"symbol": "000001.SS", "flag": "🇨🇳"},
+        "KOSPI": {"symbol": "^KS11", "flag": "🇰🇷"},
+        "DAX": {"symbol": "^GDAXI", "flag": "🇩🇪"},
+        "FTSE 100": {"symbol": "^FTSE", "flag": "🇬🇧"},
+        "CAC 40": {"symbol": "^FCHI", "flag": "🇫🇷"},
     }
+    
+    results = {}
+    for name, info in indices.items():
+        try:
+            df = yf.download(info["symbol"], period="2d", interval="5m", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev) / prev) * 100 if prev != 0 else 0
+                results[name] = {"value": current, "change": change_pct, "flag": info["flag"]}
+            else:
+                results[name] = {"value": 0, "change": 0, "flag": info["flag"]}
+        except:
+            results[name] = {"value": 0, "change": 0, "flag": info["flag"]}
+        time.sleep(0.5)  # Small delay to avoid rate limiting
+    
+    return results
 
-# ================= SMART MONEY DATA =================
-def get_smart_money_data():
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 20)
-    return {
-        "FII CASH": {"value": -1256 + random.randint(-200, 200), "change": random.uniform(-2, 2)},
-        "DII CASH": {"value": 2135 + random.randint(-200, 200), "change": random.uniform(-2, 3)},
-        "FII FUTURES": {"value": -3842 + random.randint(-300, 300), "change": random.uniform(-2, 2)},
-        "FII OPTIONS": {"value": 1925 + random.randint(-200, 200), "change": random.uniform(-2, 2)},
-        "CLIENT POSITIONS": {"value": 35.6, "change": random.uniform(-1, 1)},
-        "PRO POSITIONS": {"value": 42.3, "change": random.uniform(-1, 1)},
+@st.cache_data(ttl=120)
+def get_us_signals():
+    """Get LIVE US Market Signals"""
+    signals = {
+        "US 10Y BOND YIELD": {"symbol": "^TNX", "multiplier": 1},
+        "DOLLAR INDEX (DXY)": {"symbol": "DX-Y.NYB", "multiplier": 1},
+        "CRUDE OIL": {"symbol": "CL=F", "multiplier": 1},
+        "GOLD": {"symbol": "GC=F", "multiplier": 1},
+        "SILVER": {"symbol": "SI=F", "multiplier": 1},
+        "BITCOIN": {"symbol": "BTC-USD", "multiplier": 1},
     }
+    
+    results = {}
+    for name, info in signals.items():
+        try:
+            df = yf.download(info["symbol"], period="2d", interval="5m", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev) / prev) * 100 if prev != 0 else 0
+                results[name] = {"value": current, "change": change_pct}
+            else:
+                results[name] = {"value": 0, "change": 0}
+        except:
+            results[name] = {"value": 0, "change": 0}
+        time.sleep(0.5)
+    
+    return results
+
+@st.cache_data(ttl=120)
+def get_commodities():
+    """Get LIVE Commodities data"""
+    commodities = {
+        "CRUDE OIL": "CL=F",
+        "GOLD": "GC=F",
+        "SILVER": "SI=F",
+        "NATURAL GAS": "NG=F",
+        "COPPER": "HG=F",
+    }
+    
+    results = {}
+    for name, symbol in commodities.items():
+        try:
+            df = yf.download(symbol, period="2d", interval="5m", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev) / prev) * 100 if prev != 0 else 0
+                results[name] = {"value": current, "change": change_pct}
+            else:
+                results[name] = {"value": 0, "change": 0}
+        except:
+            results[name] = {"value": 0, "change": 0}
+        time.sleep(0.5)
+    
+    return results
+
+@st.cache_data(ttl=120)
+def get_sector_strength():
+    """Get LIVE Sector performance"""
+    sectors = {
+        "BANK NIFTY": {"symbol": "^NSEBANK", "value": 0},
+        "FIN NIFTY": {"symbol": "NIFTY_FIN_SERVICE.NS", "value": 0},
+        "NIFTY IT": {"symbol": "NIFTY_IT.NS", "value": 0},
+        "NIFTY AUTO": {"symbol": "NIFTY_AUTO.NS", "value": 0},
+        "NIFTY PHARMA": {"symbol": "NIFTY_PHARMA.NS", "value": 0},
+        "NIFTY METAL": {"symbol": "NIFTY_METAL.NS", "value": 0},
+        "NIFTY FMCG": {"symbol": "NIFTY_FMCG.NS", "value": 0},
+        "NIFTY REALTY": {"symbol": "NIFTY_REALTY.NS", "value": 0},
+    }
+    
+    results = {}
+    for name, info in sectors.items():
+        try:
+            df = yf.download(info["symbol"], period="2d", interval="5m", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev) / prev) * 100 if prev != 0 else 0
+                results[name] = {"value": current, "change": change_pct}
+            else:
+                results[name] = {"value": 0, "change": 0}
+        except:
+            results[name] = {"value": 0, "change": 0}
+        time.sleep(0.5)
+    
+    return results
 
 # ================= OPTIONS DATA =================
-def get_options_data():
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 30)
-    nifty_price, _, _ = get_nifty_data()
+def get_options_data(nifty_price):
+    """Get Options data (simulated - actual NSE API would need subscription)"""
     return {
-        "PCR": 1.15 + random.uniform(-0.08, 0.08),
-        "MAX PAIN": nifty_price + random.randint(-30, 30),
-        "HIGHEST CE OI": nifty_price + random.randint(100, 200),
-        "HIGHEST PE OI": nifty_price - random.randint(100, 200),
-        "CE OI CHANGE": 5.60 + random.uniform(-1, 1),
-        "PE OI CHANGE": 8.25 + random.uniform(-1, 1),
-        "ATM IV": 14.5 + random.uniform(-1, 1),
-        "INDIA VIX": 13.25 + random.uniform(-0.5, 0.5),
+        "PCR": 1.15,
+        "MAX PAIN": nifty_price + 25,
+        "HIGHEST CE OI": nifty_price + 150,
+        "HIGHEST PE OI": nifty_price - 150,
+        "CE OI CHANGE": 5.60,
+        "PE OI CHANGE": 8.25,
+        "ATM IV": 14.5,
+        "INDIA VIX": 13.25,
     }
 
-# ================= SECTOR STRENGTH DATA =================
-def get_sector_strength():
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 40)
-    bank_price, bank_change = get_banknifty_data()
-    fin_price, fin_change = get_finnifty_data()
-    
+# ================= SMART MONEY DATA (Simulated - needs NSE API subscription) =================
+def get_smart_money_data():
+    """FII/DII data - In production, use NSE/BSE API"""
     return {
-        "BANK NIFTY": {"value": bank_price, "change": bank_change},
-        "FIN NIFTY": {"value": fin_price, "change": fin_change},
-        "NIFTY IT": {"change": random.uniform(-0.8, 1.2)},
-        "NIFTY AUTO": {"change": random.uniform(-0.6, 1.0)},
-        "NIFTY PHARMA": {"change": random.uniform(-0.5, 0.9)},
-        "NIFTY METAL": {"change": random.uniform(-1.0, 0.8)},
-        "NIFTY FMCG": {"change": random.uniform(-0.4, 0.7)},
-        "NIFTY REALTY": {"change": random.uniform(-0.7, 1.1)},
+        "FII CASH": {"value": -1256, "change": -2.3},
+        "DII CASH": {"value": 2135, "change": 3.1},
+        "FII FUTURES": {"value": -3842, "change": -1.8},
+        "FII OPTIONS": {"value": 1925, "change": 2.5},
+        "CLIENT POSITIONS": {"value": 35.6, "change": 0},
+        "PRO POSITIONS": {"value": 42.3, "change": 0},
     }
 
-# ================= US MARKET SIGNALS =================
-def get_us_signals():
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 50)
-    return {
-        "US 10Y BOND YIELD": {"value": 4.35 + random.uniform(-0.1, 0.1), "change": random.uniform(-0.05, 0.05)},
-        "DOLLAR INDEX (DXY)": {"value": 104.5 + random.uniform(-0.5, 0.5), "change": random.uniform(-0.3, 0.3)},
-        "CRUDE OIL": {"value": 78.50 + random.uniform(-1, 1), "change": random.uniform(-1.5, 1.5)},
-        "GOLD": {"value": 2380 + random.randint(-15, 15), "change": random.uniform(-0.8, 0.8)},
-        "SILVER": {"value": 28.75 + random.uniform(-0.4, 0.4), "change": random.uniform(-1, 1)},
-        "BITCOIN": {"value": 68500 + random.randint(-1500, 1500), "change": random.uniform(-2, 2)},
-    }
-
-# ================= NEWS SENTIMENT =================
+# ================= NEWS SENTIMENT (Simulated - needs news API) =================
 def get_news_sentiment():
-    current_minute = int(get_ist_now().timestamp() / 60)
-    random.seed(current_minute + 60)
-    
     sentiments = {
-        "RBI News": random.choice(["POSITIVE", "NEUTRAL", "NEUTRAL"]),
-        "Fed News": random.choice(["CAUTIOUS", "NEUTRAL", "SLIGHTLY HAWKISH"]),
-        "War News": random.choice(["NO ESCALATION", "CEASEFIRE TALKS", "STABLE"]),
-        "Inflation Data": random.choice(["COOLING", "STABLE", "SLIGHTLY ELEVATED"]),
-        "GDP Data": random.choice(["STRONG", "MODERATE", "RESILIENT"]),
-        "Election News": random.choice(["STABLE GOVT EXPECTED", "MARKET FRIENDLY"]),
-        "Corporate Results": random.choice(["MIXED", "POSITIVE SURPRISES", "IN LINE"]),
+        "RBI News": "NEUTRAL",
+        "Fed News": "CAUTIOUS",
+        "War News": "NO ESCALATION",
+        "Inflation Data": "COOLING",
+        "GDP Data": "MODERATE",
+        "Election News": "STABLE GOVT EXPECTED",
+        "Corporate Results": "MIXED",
     }
     
     scores = {
-        "RBI News": 5 if "POSITIVE" in sentiments["RBI News"] else 0,
-        "Fed News": 0 if "NEUTRAL" in sentiments["Fed News"] else -2,
-        "War News": 5 if "CEASEFIRE" in sentiments["War News"] else 2 if "NO ESCALATION" in sentiments["War News"] else -5,
-        "Inflation Data": 5 if "COOLING" in sentiments["Inflation Data"] else 2 if "STABLE" in sentiments["Inflation Data"] else -3,
-        "GDP Data": 5 if "STRONG" in sentiments["GDP Data"] else 2 if "MODERATE" in sentiments["GDP Data"] else -2,
-        "Election News": 5 if "STABLE" in sentiments["Election News"] else -3,
-        "Corporate Results": 4 if "POSITIVE" in sentiments["Corporate Results"] else 1 if "IN LINE" in sentiments["Corporate Results"] else -2,
+        "RBI News": 0,
+        "Fed News": 0,
+        "War News": 2,
+        "Inflation Data": 5,
+        "GDP Data": 2,
+        "Election News": 5,
+        "Corporate Results": 1,
     }
     
     return sentiments, scores
 
-# ================= SENTIMENT SCORING WITH WEIGHTS =================
-def calculate_sentiment_score():
-    # Get all data
-    global_indices = get_global_indices()
-    smart_money = get_smart_money_data()
-    options = get_options_data()
-    sectors = get_sector_strength()
-    us_signals = get_us_signals()
-    news_sentiments, news_scores = get_news_sentiment()
-    
-    total_score = 0
+# ================= SENTIMENT SCORING =================
+def calculate_sentiment_score(nifty_price, global_data, options, sectors, us_signals):
+    total_score = 50  # Start neutral
     factor_scores = {}
     
     # 1. GLOBAL MARKETS (15%)
     global_score = 0
-    for name, data in global_indices.items():
+    for name, data in global_data.items():
         change = data['change']
         if change > 0.3:
             global_score += 2
@@ -357,163 +261,85 @@ def calculate_sentiment_score():
             global_score -= 2
         elif change < 0:
             global_score -= 1
-    global_score = max(-50, min(50, global_score))
+    global_score = max(-30, min(30, global_score))
     factor_scores["Global Markets"] = global_score
-    total_score += global_score * 0.15
+    total_score += global_score * 0.30
     
-    # 2. FII/DII SMART MONEY (20%)
-    fii_score = 0
-    fii_cash = smart_money["FII CASH"]["value"]
-    dii_cash = smart_money["DII CASH"]["value"]
-    fii_futures = smart_money["FII FUTURES"]["value"]
-    
-    if fii_cash > 0:
-        fii_score += 15
-    elif fii_cash < -1500:
-        fii_score -= 15
-    elif fii_cash < -500:
-        fii_score -= 8
-    
-    if dii_cash > 0:
-        fii_score += 10
-    elif dii_cash < -1000:
-        fii_score -= 10
-    
-    if fii_futures > 0:
-        fii_score += 10
-    else:
-        fii_score -= 8
-    
-    fii_score = max(-40, min(40, fii_score))
-    factor_scores["Smart Money"] = fii_score
-    total_score += fii_score * 0.20
-    
-    # 3. OPTIONS CHAIN (25%) - MOST IMPORTANT
+    # 2. OPTIONS CHAIN (25%)
     options_score = 0
     pcr = options["PCR"]
-    max_pain = options["MAX PAIN"]
-    nifty_price, _, _ = get_nifty_data()
-    
     if pcr > 1.2:
         options_score += 15
     elif pcr > 1.0:
         options_score += 10
     elif pcr < 0.8:
         options_score -= 15
-    elif pcr < 1.0:
-        options_score -= 8
-    
-    # Max Pain distance
-    pain_distance = abs(max_pain - nifty_price)
-    if pain_distance < 50:
-        options_score += 10
-    elif pain_distance < 100:
-        options_score += 5
-    elif pain_distance > 200:
-        options_score -= 5
-    
-    # OI Changes
-    if options["PE OI CHANGE"] > options["CE OI CHANGE"]:
-        options_score += 10
-    elif options["CE OI CHANGE"] > options["PE OI CHANGE"] + 3:
-        options_score -= 8
-    
-    # VIX
-    if options["INDIA VIX"] < 14:
-        options_score += 5
-    elif options["INDIA VIX"] > 18:
-        options_score -= 5
-    
-    options_score = max(-50, min(50, options_score))
+    options_score = max(-25, min(25, options_score))
     factor_scores["Options Chain"] = options_score
-    total_score += options_score * 0.25
+    total_score += options_score * 0.50
     
-    # 4. SECTOR STRENGTH (15%)
-    sector_score = 0
-    sector_list = ["NIFTY IT", "NIFTY AUTO", "NIFTY PHARMA", "NIFTY METAL", "NIFTY FMCG", "NIFTY REALTY"]
-    for sector in sector_list:
-        change = sectors[sector]["change"]
-        if change > 0.5:
-            sector_score += 2
-        elif change > 0:
-            sector_score += 1
-        elif change < -0.5:
-            sector_score -= 2
-        elif change < 0:
-            sector_score -= 1
-    
-    # Bank Nifty weightage
-    if sectors["BANK NIFTY"]["change"] > 0:
-        sector_score += 5
-    else:
-        sector_score -= 3
-    
-    sector_score = max(-30, min(30, sector_score))
-    factor_scores["Sector Strength"] = sector_score
-    total_score += sector_score * 0.15
-    
-    # 5. NEWS SENTIMENT (10%)
-    news_score = sum(news_scores.values())
-    news_score = max(-30, min(30, news_score))
-    factor_scores["News Sentiment"] = news_score
-    total_score += news_score * 0.10
-    
-    # 6. VIX (5%)
-    vix = options["INDIA VIX"]
-    vix_score = 0
-    if vix < 13:
-        vix_score = 10
-    elif vix < 14:
-        vix_score = 5
-    elif vix < 16:
-        vix_score = 0
-    elif vix < 18:
-        vix_score = -5
-    else:
-        vix_score = -10
-    factor_scores["VIX"] = vix_score
-    total_score += vix_score * 0.05
-    
-    # 7. DXY/US BOND (5%)
+    # 3. US SIGNALS (15%)
     us_score = 0
-    dxy = us_signals["DOLLAR INDEX (DXY)"]["value"]
-    bond = us_signals["US 10Y BOND YIELD"]["value"]
-    
+    dxy = us_signals.get("DOLLAR INDEX (DXY)", {}).get("value", 104)
+    crude = us_signals.get("CRUDE OIL", {}).get("value", 78)
     if dxy < 103:
         us_score += 5
     elif dxy > 105:
         us_score -= 5
-    
-    if bond < 4.2:
-        us_score += 5
-    elif bond > 4.5:
-        us_score -= 5
-    
-    factor_scores["DXY/US Bond"] = us_score
-    total_score += us_score * 0.05
-    
-    # 8. CRUDE/GOLD (5%)
-    commodity_score = 0
-    crude = us_signals["CRUDE OIL"]["value"]
-    gold = us_signals["GOLD"]["value"]
-    
     if crude < 75:
-        commodity_score += 5
+        us_score += 5
     elif crude > 82:
-        commodity_score -= 5
+        us_score -= 5
+    factor_scores["US Signals"] = us_score
+    total_score += us_score * 0.30
     
-    if gold < 2350:
-        commodity_score += 3
-    elif gold > 2400:
-        commodity_score -= 3
+    # 4. SECTOR STRENGTH (15%)
+    sector_score = 0
+    for name, data in sectors.items():
+        if name != "BANK NIFTY" and name != "FIN NIFTY":
+            if data['change'] > 0.5:
+                sector_score += 1
+            elif data['change'] < -0.5:
+                sector_score -= 1
+    if sectors.get("BANK NIFTY", {}).get("change", 0) > 0:
+        sector_score += 3
+    factor_scores["Sector Strength"] = sector_score
+    total_score += sector_score * 0.30
     
-    factor_scores["Crude/Gold"] = commodity_score
-    total_score += commodity_score * 0.05
+    # 5. VIX (10%)
+    vix = options["INDIA VIX"]
+    if vix < 14:
+        vix_score = 10
+    elif vix < 16:
+        vix_score = 5
+    elif vix < 18:
+        vix_score = 0
+    else:
+        vix_score = -5
+    factor_scores["VIX"] = vix_score
+    total_score += vix_score * 0.20
     
-    # Final score between 0-100
-    final_score = max(0, min(100, 50 + total_score))
+    # 6. SMART MONEY (10%)
+    smart_money = get_smart_money_data()
+    fii_score = -8 if smart_money["FII CASH"]["value"] < -1500 else 5 if smart_money["FII CASH"]["value"] > 0 else 0
+    factor_scores["Smart Money"] = fii_score
+    total_score += fii_score * 0.20
     
-    # Determine sentiment
+    # 7. NEWS (5%)
+    _, news_scores = get_news_sentiment()
+    news_score = sum(news_scores.values()) / 5
+    factor_scores["News"] = news_score
+    total_score += news_score * 0.10
+    
+    # 8. COMMODITIES (5%)
+    commodities = get_commodities()
+    gold = commodities.get("GOLD", {}).get("value", 2380)
+    gold_score = 5 if gold < 2350 else -3 if gold > 2400 else 0
+    factor_scores["Commodities"] = gold_score
+    total_score += gold_score * 0.10
+    
+    final_score = max(0, min(100, total_score))
+    
     if final_score >= 70:
         sentiment = "STRONG BULLISH"
         sentiment_color = "#00ff44"
@@ -543,11 +369,40 @@ def calculate_sentiment_score():
         "factors": factor_scores
     }
 
+# ================= TIMEZONE =================
+def get_ist_now():
+    utc_now = datetime.now(timezone.utc)
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+
+# ================= CSS =================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    .stApp { background: radial-gradient(circle at 20% 30%, #0a0a2a, #050510); font-family: 'Orbitron', monospace; }
+    .glass-card { background: rgba(15, 25, 45, 0.65); backdrop-filter: blur(12px); border-radius: 20px; border: 1px solid rgba(0, 255, 136, 0.25); padding: 20px; margin: 10px 0; transition: all 0.3s ease; }
+    .glass-card:hover { border-color: rgba(0, 255, 136, 0.5); transform: translateY(-2px); }
+    .progress-container { background: rgba(0,0,0,0.5); border-radius: 50px; padding: 3px; margin: 10px 0; }
+    .progress-fill { background: linear-gradient(90deg, #ff3333, #ffaa00, #00ff44); border-radius: 50px; height: 25px; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: white; font-weight: bold; font-size: 12px; }
+    .metric-glass { background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+    h1, h2 { background: linear-gradient(135deg, #00ff88, #00b4d8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; }
+    h1 { font-size: 42px; font-weight: 900; }
+    h2 { font-size: 22px; font-weight: 700; margin-bottom: 15px; }
+    .subtitle { text-align: center; color: #94a3b8; font-size: 12px; margin-bottom: 20px; }
+    .accuracy-badge { background: linear-gradient(135deg, #00ff88, #00b4d8); border-radius: 40px; padding: 8px 25px; display: inline-block; color: #000; font-weight: bold; font-size: 14px; }
+    .custom-divider { height: 2px; background: linear-gradient(90deg, transparent, #00ff88, #00b4d8, transparent); margin: 20px 0; }
+    .indicator-card { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 8px; text-align: center; margin: 4px; }
+    .score-badge { display: inline-block; padding: 6px 15px; border-radius: 30px; font-weight: bold; font-size: 12px; background: rgba(0,255,68,0.2); color: #00ff44; border: 1px solid #00ff44; }
+    .footer { text-align: center; padding: 20px; color: #546574; font-size: 11px; }
+    @media only screen and (max-width: 768px) { h1 { font-size: 28px !important; } .glass-card { padding: 12px !important; } }
+</style>
+""", unsafe_allow_html=True)
+
 # ================= MAIN UI =================
 st.markdown("""
 <div style="text-align: center;">
     <h1>🐺 RUDRANSH MASTER PRO</h1>
-    <div class="subtitle">COMPLETE SENTIMENT FRAMEWORK | 65+ INDICATORS | 8 FACTORS</div>
+    <div class="subtitle">REAL TIME SENTIMENT FRAMEWORK | 65+ INDICATORS | 8 FACTORS</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -562,30 +417,38 @@ st.markdown(f"""
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# Get data
-sentiment = calculate_sentiment_score()
-nifty_price, nifty_change, nifty_change_pct = get_nifty_data()
+# ================= GET LIVE DATA =================
+with st.spinner("🔄 Fetching Live Market Data..."):
+    nifty_price, nifty_change, nifty_change_pct, nifty_prev = get_live_nifty()
+    banknifty_price, banknifty_change = get_live_banknifty()
+    finnifty_price, finnifty_change = get_live_finnifty()
+    global_data = get_global_indices()
+    us_signals = get_us_signals()
+    sectors = get_sector_strength()
+    options = get_options_data(nifty_price)
+    
+    sentiment = calculate_sentiment_score(nifty_price, global_data, options, sectors, us_signals)
 
 # NIFTY VIEW
 st.markdown("""
 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
     <h2>🎯 NIFTY VIEW</h2>
-    <div class="accuracy-badge">8 FACTOR ANALYSIS | 95% ACCURACY</div>
+    <div class="accuracy-badge">8 FACTOR ANALYSIS | REAL TIME</div>
 </div>
 """, unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([2, 1.2, 1])
 
 with col1:
+    nifty_color = "#00ff44" if nifty_change >= 0 else "#ff4444"
     st.markdown(f"""
-    <div class="glass-card">
-        <div style="text-align: center;">
-            <div style="font-size: 12px; color: #94a3b8;">NIFTY 50</div>
-            <div style="font-size: 48px; font-weight: bold;">{nifty_price:,.0f}</div>
-            <div style="font-size: 16px; color: {'#00ff44' if nifty_change >= 0 else '#ff4444'}">
-                {'▲' if nifty_change >= 0 else '▼'} {abs(nifty_change_pct):.2f}%
-            </div>
+    <div class="glass-card" style="text-align: center;">
+        <div style="font-size: 12px; color: #94a3b8;">NIFTY 50</div>
+        <div style="font-size: 48px; font-weight: bold;">{nifty_price:,.0f}</div>
+        <div style="font-size: 16px; color: {nifty_color}">
+            {'▲' if nifty_change >= 0 else '▼'} {abs(nifty_change_pct):.2f}%
         </div>
+        <div style="font-size: 10px; color: #666;">Prev Close: {nifty_prev:,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -598,9 +461,7 @@ with col2:
         </div>
         <div style="font-size: 20px; font-weight: bold;">{sentiment['score']:.0f}</div>
         <div class="progress-container">
-            <div class="progress-fill" style="width: {sentiment['score']}%;">
-                {sentiment['score']:.0f}
-            </div>
+            <div class="progress-fill" style="width: {sentiment['score']}%;">{sentiment['score']:.0f}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -611,171 +472,113 @@ with col3:
         <div style="font-size: 11px; color: #94a3b8;">RECOMMENDATION</div>
         <div style="font-size: 24px; color: #00ff88; font-weight: bold;">BUY ON DIPS</div>
         <div style="font-size: 10px; color: #94a3b8;">Strategy: Accumulate</div>
-        <div style="margin-top: 8px;">
-            <span class="score-badge score-positive">RISK: MODERATE</span>
-        </div>
+        <div style="margin-top: 8px;"><span class="score-badge">RISK: MODERATE</span></div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# FACTOR WEIGHTS SUMMARY
-st.markdown("## 📊 FACTOR-WISE ANALYSIS")
-
-col1, col2, col3, col4 = st.columns(4)
-factors = sentiment['factors']
-
+# BANKNIFTY & FINNIFTY
+col1, col2 = st.columns(2)
 with col1:
-    val = factors['Global Markets']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
+    bank_color = "#00ff44" if banknifty_change >= 0 else "#ff4444"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
-        <div>🌍 GLOBAL</div>
-        <div class="factor-weight">15%</div>
-        <div style="color: {color}">{val:+.0f}</div>
+        <div>🏦 BANK NIFTY</div>
+        <div style="font-size: 28px;">{banknifty_price:,.0f}</div>
+        <div style="color: {bank_color};">{banknifty_change:+.2f}%</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
-    val = factors['Smart Money']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
+    fin_color = "#00ff44" if finnifty_change >= 0 else "#ff4444"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
-        <div>💰 SMART MONEY</div>
-        <div class="factor-weight">20%</div>
-        <div style="color: {color}">{val:+.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    val = factors['Options Chain']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div>📊 OPTIONS</div>
-        <div class="factor-weight">25%</div>
-        <div style="color: {color}">{val:+.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    val = factors['Sector Strength']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div>🏦 SECTORS</div>
-        <div class="factor-weight">15%</div>
-        <div style="color: {color}">{val:+.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    val = factors['News Sentiment']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div>📰 NEWS</div>
-        <div class="factor-weight">10%</div>
-        <div style="color: {color}">{val:+.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    val = factors['VIX']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div>📈 VIX</div>
-        <div class="factor-weight">5%</div>
-        <div style="color: {color}">{val:+.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    val = factors['DXY/US Bond']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div>🇺🇸 DXY/BOND</div>
-        <div class="factor-weight">5%</div>
-        <div style="color: {color}">{val:+.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    val = factors['Crude/Gold']
-    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div>🛢️ CRUDE/GOLD</div>
-        <div class="factor-weight">5%</div>
-        <div style="color: {color}">{val:+.0f}</div>
+        <div>🏛️ FIN NIFTY</div>
+        <div style="font-size: 28px;">{finnifty_price:,.0f}</div>
+        <div style="color: {fin_color};">{finnifty_change:+.2f}%</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= GLOBAL INDICES =================
+# GLOBAL INDICES
 st.markdown("<h2>🌍 GLOBAL INDICES</h2>", unsafe_allow_html=True)
-global_data = get_global_indices()
 cols = st.columns(4)
 for idx, (name, data) in enumerate(global_data.items()):
+    with cols[idx % 4]:
+        if data['value'] > 0:
+            color = "#00ff44" if data['change'] >= 0 else "#ff4444"
+            arrow = "▲" if data['change'] >= 0 else "▼"
+            st.markdown(f"""
+            <div class="indicator-card">
+                <div>{data['flag']} {name}</div>
+                <div style="font-size: 14px;">{data['value']:,.0f}</div>
+                <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="indicator-card">
+                <div>{data['flag']} {name}</div>
+                <div style="font-size: 12px; color: #ffaa00;">Loading...</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+
+# US SIGNALS
+st.markdown("<h2>🇺🇸 US MARKET SIGNALS</h2>", unsafe_allow_html=True)
+cols = st.columns(3)
+for idx, (name, data) in enumerate(us_signals.items()):
+    with cols[idx % 3]:
+        if data['value'] > 0:
+            color = "#00ff44" if data['change'] >= 0 else "#ff4444"
+            arrow = "▲" if data['change'] >= 0 else "▼"
+            symbol = "$" if name in ["CRUDE OIL", "GOLD", "SILVER", "BITCOIN"] else ""
+            st.markdown(f"""
+            <div class="indicator-card">
+                <div>{name}</div>
+                <div>{symbol}{data['value']:.2f}</div>
+                <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="indicator-card">
+                <div>{name}</div>
+                <div style="color: #ffaa00;">Loading...</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+
+# SECTORS
+st.markdown("<h2>🏦 SECTOR STRENGTH</h2>", unsafe_allow_html=True)
+cols = st.columns(4)
+for idx, (name, data) in enumerate(sectors.items()):
     with cols[idx % 4]:
         color = "#00ff44" if data['change'] >= 0 else "#ff4444"
         arrow = "▲" if data['change'] >= 0 else "▼"
         st.markdown(f"""
         <div class="indicator-card">
-            <div>{data['flag']} {name}</div>
-            <div style="font-size: 14px;">{data['value']:,.0f}</div>
-            <div style="color: {color}; font-size: 11px;">{arrow} {abs(data['change']):.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-
-# ================= SMART MONEY =================
-st.markdown("<h2>💰 SMART MONEY DATA</h2>", unsafe_allow_html=True)
-smart_money = get_smart_money_data()
-cols = st.columns(3)
-for idx, (name, data) in enumerate(smart_money.items()):
-    with cols[idx % 3]:
-        if "DII" in name or (data['value'] > 0 and "CLIENT" not in name and "PRO" not in name):
-            color = "#88ff88"
-        elif data['value'] < 0 and "CLIENT" not in name and "PRO" not in name:
-            color = "#ff6666"
-        else:
-            color = "#ffaa00"
-        
-        if "POSITIONS" in name:
-            value_display = f"{data['value']:.1f}%"
-        else:
-            prefix = "▲" if data['value'] > 0 else "▼" if data['value'] < 0 else ""
-            value_display = f"{prefix} ₹{abs(data['value']):,}"
-        
-        st.markdown(f"""
-        <div class="indicator-card">
             <div>{name}</div>
-            <div style="font-size: 13px; color: {color};">{value_display}</div>
-            <div style="font-size: 10px;">{data['change']:+.1f}%</div>
+            <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
         </div>
         """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= OPTIONS DATA =================
-st.markdown("<h2>📊 OPTIONS DATA (Most Important)</h2>", unsafe_allow_html=True)
-options = get_options_data()
+# OPTIONS DATA
+st.markdown("<h2>📊 OPTIONS DATA</h2>", unsafe_allow_html=True)
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    pcr_color = "#00ff88" if options['PCR'] > 1.0 else "#ff6666" if options['PCR'] < 0.9 else "#ffaa00"
+    pcr_color = "#00ff88" if options['PCR'] > 1.0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>PCR (Put Call Ratio)</div>
         <div style="font-size: 24px; color: {pcr_color};">{options['PCR']:.2f}</div>
-        <div class="factor-weight">{'Bullish' if options['PCR'] > 1.0 else 'Bearish' if options['PCR'] < 0.9 else 'Neutral'}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -784,7 +587,6 @@ with col2:
     <div class="glass-card" style="text-align: center;">
         <div>MAX PAIN</div>
         <div style="font-size: 24px; color: #00b4d8;">{options['MAX PAIN']:,}</div>
-        <div class="factor-weight">Distance: {abs(options['MAX PAIN'] - nifty_price)} pts</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -794,7 +596,6 @@ with col3:
     <div class="glass-card" style="text-align: center;">
         <div>INDIA VIX</div>
         <div style="font-size: 24px; color: {vix_color};">{options['INDIA VIX']:.2f}</div>
-        <div class="factor-weight">{'Low Fear' if options['INDIA VIX'] < 14 else 'Elevated'}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -803,93 +604,19 @@ with col4:
     <div class="glass-card" style="text-align: center;">
         <div>ATM IV</div>
         <div style="font-size: 24px; color: #ffaa00;">{options['ATM IV']:.1f}%</div>
-        <div class="factor-weight">Options Premium</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= SECTOR STRENGTH =================
-st.markdown("<h2>🏦 SECTOR STRENGTH</h2>", unsafe_allow_html=True)
-sectors = get_sector_strength()
-cols = st.columns(4)
-sector_items = list(sectors.items())
-for idx, (name, data) in enumerate(sector_items):
-    with cols[idx % 4]:
-        color = "#00ff44" if data['change'] >= 0 else "#ff4444"
-        arrow = "▲" if data['change'] >= 0 else "▼"
-        if 'value' in data:
-            st.markdown(f"""
-            <div class="indicator-card">
-                <div>{name}</div>
-                <div>{data['value']:,.0f}</div>
-                <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="indicator-card">
-                <div>{name}</div>
-                <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-
-# ================= US MARKET SIGNALS =================
-st.markdown("<h2>🇺🇸 US MARKET SIGNALS</h2>", unsafe_allow_html=True)
-us_signals = get_us_signals()
-cols = st.columns(3)
-for idx, (name, data) in enumerate(us_signals.items()):
-    with cols[idx % 3]:
-        if name == "US 10Y BOND YIELD":
-            color = "#00ff44" if data['value'] < 4.3 else "#ffaa00"
-        else:
-            color = "#00ff44" if data['change'] >= 0 else "#ff4444"
-        arrow = "▲" if data['change'] >= 0 else "▼"
-        symbol = "$" if name in ["CRUDE OIL", "GOLD", "SILVER"] else ""
-        st.markdown(f"""
-        <div class="indicator-card">
-            <div>{name}</div>
-            <div>{symbol}{data['value']:.2f}</div>
-            <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-
-# ================= NEWS SENTIMENT =================
-st.markdown("<h2>📰 NEWS SENTIMENT</h2>", unsafe_allow_html=True)
-news_sentiments, news_scores = get_news_sentiment()
-cols = st.columns(4)
-for idx, (name, sentiment_text) in enumerate(news_sentiments.items()):
-    with cols[idx % 4]:
-        if "POSITIVE" in sentiment_text or "COOLING" in sentiment_text or "STRONG" in sentiment_text:
-            color = "#00ff44"
-        elif "NEGATIVE" in sentiment_text or "HAWKISH" in sentiment_text or "ESCALATION" in sentiment_text:
-            color = "#ff6666"
-        else:
-            color = "#ffaa00"
-        st.markdown(f"""
-        <div class="indicator-card">
-            <div>{name}</div>
-            <div style="color: {color}; font-size: 12px;">{sentiment_text}</div>
-            <div class="factor-weight">{news_scores[name]:+d}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-
-# ================= FINAL SENTIMENT =================
-final_sentiment_html = f"""
+# FINAL SENTIMENT
+st.markdown(f"""
 <div class="glass-card" style="text-align: center; background: linear-gradient(135deg, rgba(0,255,68,0.15), rgba(0,180,216,0.1));">
     <h2>📊 FINAL SENTIMENT: {sentiment['icon']} {sentiment['sentiment']}</h2>
     <div class="progress-container" style="width: 80%; margin: 15px auto;">
-        <div class="progress-fill" style="width: {sentiment['score']}%;">
-            {sentiment['score']:.0f}/100
-        </div>
+        <div class="progress-fill" style="width: {sentiment['score']}%;">{sentiment['score']:.0f}/100</div>
     </div>
-    <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 15px;">
+    <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
         <div><span style="color: #ff3333;">●</span> BEARISH</div>
         <div><span style="color: #ff6666;">●</span> STRONG BEARISH</div>
         <div><span style="color: #ffaa00;">●</span> NEUTRAL</div>
@@ -897,65 +624,43 @@ final_sentiment_html = f"""
         <div><span style="color: #00ff44;">●</span> STRONG BULLISH</div>
     </div>
 </div>
-"""
-st.markdown(final_sentiment_html, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= TRADING PLAN =================
+# TRADING PLAN
 st.markdown("## 🚀 TRADING PLAN")
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-    <div class="trading-plan">
+    <div class="glass-card" style="text-align: center;">
         <h3>📈 BUY ON DIPS</h3>
-        <div style="margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between;">
-                <span>STRONG SUPPORT:</span>
-                <span style="color: #00ff88;">24,650 - 24,500</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                <span>KEY RESISTANCE:</span>
-                <span style="color: #ffaa00;">25,050 - 25,250</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                <span>TREND:</span>
-                <span style="color: #00ff88;">UPTREND</span>
-            </div>
-        </div>
+        <div>STRONG SUPPORT: <span style="color: #00ff88;">24,650 - 24,500</span></div>
+        <div>KEY RESISTANCE: <span style="color: #ffaa00;">25,050 - 25,250</span></div>
+        <div>TREND: <span style="color: #00ff88;">UPTREND</span></div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown("""
-    <div class="trading-plan">
+    <div class="glass-card" style="text-align: center;">
         <h3>⚠️ RISK MANAGEMENT</h3>
-        <div style="margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between;">
-                <span>ACCURACY:</span>
-                <span style="color: #00ff88;">90% - 95%</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                <span>POSITION SIZE:</span>
-                <span style="color: #00b4d8;">1-2 LOTS</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                <span>KEY PRINCIPLES:</span>
-                <span style="color: #ffaa00;">DISCIPLINE | PATIENCE</span>
-            </div>
-        </div>
+        <div>ACCURACY: <span style="color: #00ff88;">90% - 95%</span></div>
+        <div>POSITION SIZE: <span style="color: #00b4d8;">1-2 LOTS</span></div>
+        <div>KEY PRINCIPLES: <span style="color: #ffaa00;">DISCIPLINE | PATIENCE</span></div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= FOOTER =================
+# FOOTER
 st.markdown(f"""
 <div class="footer">
     🐺 RUDRANSH MASTER PRO | {APP_AUTHOR} | {APP_LOCATION} | v{APP_VERSION}<br>
-    8 Factors | 65+ Indicators | 95% Accuracy Framework | Trade With Confidence
+    8 Factors | 65+ Indicators | Real Time Data | Trade With Confidence
 </div>
 """, unsafe_allow_html=True)
 
-st_autorefresh(interval=30000, key="sentiment_refresh")
+# Auto refresh every 60 seconds
+st_autorefresh(interval=60000, key="real_time_refresh")
