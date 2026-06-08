@@ -1096,44 +1096,90 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET (REAL VALUES ONLY) =================
+# ================= TAB 2: SANSKRUTI MARKET (USING ALPHA VANTAGE API) =================
 with tab2:
-    st_autorefresh(interval=10000, key="sanskriti_refresh")
+    st_autorefresh(interval=15000, key="sanskriti_refresh")
     
     st.markdown("### 🌸 SANSKRUTI MARKET")
-    st.markdown("*Live Indian & Global Markets with AI Trend Analysis*")
+    st.markdown("*Live Indian & Global Markets*")
     st.markdown("---")
     
     st.markdown("#### 🇮🇳 INDIAN MARKET")
     
-    # ---------- FUNCTION TO GET REAL DATA ----------
-    def get_price_with_change(ticker):
-        """Returns (current_price, change_percent, prev_close) from Yahoo Finance"""
+    # Alpha Vantage API Key (Free - get from https://www.alphavantage.co/support/#api-key)
+    ALPHA_VANTAGE_KEY = "demo"  # Replace with your free key from alphavantage.co
+    
+    def get_alpha_vantage_price(symbol, function="GLOBAL_QUOTE"):
+        """Get price from Alpha Vantage API"""
         try:
-            # Get 2 days daily data for change calculation
-            df_daily = yf.download(ticker, period="3d", interval="1d", progress=False)
-            if df_daily is not None and not df_daily.empty and 'Close' in df_daily.columns and len(df_daily) >= 2:
-                current = float(df_daily['Close'].iloc[-1])
-                prev = float(df_daily['Close'].iloc[-2])
-                change_percent = ((current - prev) / prev) * 100 if prev != 0 else 0
-                return current, change_percent, prev
-        except Exception as e:
-            print(f"Error fetching {ticker}: {e}")
+            url = f"https://www.alphavantage.co/query?function={function}&symbol={symbol}&apikey={ALPHA_VANTAGE_KEY}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if "Global Quote" in data:
+                    quote = data["Global Quote"]
+                    if quote and "05. price" in quote:
+                        return float(quote["05. price"]), float(quote.get("10. change percent", "0%").replace("%", ""))
+            return 0, 0
+        except:
+            return 0, 0
+    
+    def get_yfinance_with_retry(ticker):
+        """Try Yahoo Finance with multiple attempts"""
+        for attempt in range(3):
+            try:
+                df = yf.download(ticker, period="2d", interval="1d", progress=False, timeout=10)
+                if df is not None and not df.empty and 'Close' in df.columns and len(df) >= 2:
+                    current = float(df['Close'].iloc[-1])
+                    prev = float(df['Close'].iloc[-2])
+                    change_percent = ((current - prev) / prev) * 100 if prev != 0 else 0
+                    return current, change_percent, prev
+            except:
+                pass
         return 0, 0, 0
-
-    # Get Indian Indices
-    nifty_current, nifty_pct, nifty_prev = get_price_with_change("^NSEI")
-    bank_current, bank_pct, bank_prev = get_price_with_change("^NSEBANK")
     
-    # Get USD to INR rate
-    usd_inr = get_usd_inr_rate()
+    # Try multiple sources
+    nifty_current, nifty_pct, _ = get_yfinance_with_retry("^NSEI")
+    bank_current, bank_pct, _ = get_yfinance_with_retry("^NSEBANK")
     
-    # Get Crude Oil (in USD and INR)
-    crude_usd, crude_pct, crude_prev = get_price_with_change("CL=F")
+    # If Yahoo fails, try Alpha Vantage for NIFTY
+    if nifty_current == 0:
+        try:
+            nifty_current, nifty_pct = get_alpha_vantage_price("NIFTY50.NS")
+        except:
+            pass
+    
+    # Get USD to INR rate from multiple sources
+    usd_inr = 87.50  # Default approximate rate
+    try:
+        df_usd = yf.download("USDINR=X", period="1d", interval="5m", progress=False)
+        if not df_usd.empty and df_usd['Close'].iloc[-1] > 0:
+            usd_inr = float(df_usd['Close'].iloc[-1])
+    except:
+        try:
+            response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                usd_inr = data.get("rates", {}).get("INR", 87.50)
+        except:
+            pass
+    
+    # Get Crude Oil
+    crude_usd, crude_pct, _ = get_yfinance_with_retry("CL=F")
+    if crude_usd == 0:
+        try:
+            crude_usd, crude_pct = get_alpha_vantage_price("WTI")
+        except:
+            pass
     crude_inr = crude_usd * usd_inr if usd_inr > 0 and crude_usd > 0 else 0
     
-    # Get Natural Gas (in USD and INR)
-    ng_usd, ng_pct, ng_prev = get_price_with_change("NG=F")
+    # Get Natural Gas
+    ng_usd, ng_pct, _ = get_yfinance_with_retry("NG=F")
+    if ng_usd == 0:
+        try:
+            ng_usd, ng_pct = get_alpha_vantage_price("NATURALGAS")
+        except:
+            pass
     ng_inr = ng_usd * usd_inr if usd_inr > 0 and ng_usd > 0 else 0
     
     def get_trend_label(change_pct):
@@ -1150,7 +1196,6 @@ with tab2:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # COLUMN 1 - NIFTY
     with col1:
         if nifty_current > 0:
             trend_label, trend_icon, trend_color = get_trend_label(nifty_pct)
@@ -1158,13 +1203,12 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#00b4d8;">🇮🇳 NIFTY 50</h3>
                 <h2 style="margin:5px 0;">₹{nifty_current:,.2f}</h2>
-                <p style="margin:0; color:{trend_color if nifty_pct > 0 else '#ff4444' if nifty_pct < 0 else '#ffaa00'}; font-weight:bold;">
+                <p style="margin:0; color:{trend_color if nifty_pct > 0 else '#ff4444'}; font-weight:bold;">
                     {nifty_pct:+.2f}%
                 </p>
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
                     {trend_icon} {trend_label}
                 </p>
-                <small>Last updated: {get_ist_now().strftime('%H:%M:%S')}</small>
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -1172,11 +1216,10 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#00b4d8;">🇮🇳 NIFTY 50</h3>
                 <h2 style="margin:5px 0;">--</h2>
-                <p>No Data</p>
+                <p style="color:#ffaa00;">API Issue</p>
             </div>
             """, unsafe_allow_html=True)
     
-    # COLUMN 2 - BANK NIFTY
     with col2:
         if bank_current > 0:
             trend_label, trend_icon, trend_color = get_trend_label(bank_pct)
@@ -1184,13 +1227,12 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#00b4d8;">🏦 BANK NIFTY</h3>
                 <h2 style="margin:5px 0;">₹{bank_current:,.2f}</h2>
-                <p style="margin:0; color:{trend_color if bank_pct > 0 else '#ff4444' if bank_pct < 0 else '#ffaa00'}; font-weight:bold;">
+                <p style="margin:0; color:{trend_color if bank_pct > 0 else '#ff4444'}; font-weight:bold;">
                     {bank_pct:+.2f}%
                 </p>
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
                     {trend_icon} {trend_label}
                 </p>
-                <small>Last updated: {get_ist_now().strftime('%H:%M:%S')}</small>
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -1198,11 +1240,10 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#00b4d8;">🏦 BANK NIFTY</h3>
                 <h2 style="margin:5px 0;">--</h2>
-                <p>No Data</p>
+                <p style="color:#ffaa00;">API Issue</p>
             </div>
             """, unsafe_allow_html=True)
     
-    # COLUMN 3 - CRUDE OIL
     with col3:
         if crude_inr > 0:
             trend_label, trend_icon, trend_color = get_trend_label(crude_pct)
@@ -1210,7 +1251,7 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
                 <h2 style="margin:5px 0;">₹{crude_inr:,.2f}</h2>
-                <p style="margin:0; color:{trend_color if crude_pct > 0 else '#ff4444' if crude_pct < 0 else '#ffaa00'}; font-weight:bold;">
+                <p style="margin:0; color:{trend_color if crude_pct > 0 else '#ff4444'}; font-weight:bold;">
                     {crude_pct:+.2f}%
                 </p>
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
@@ -1224,11 +1265,10 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
                 <h2 style="margin:5px 0;">--</h2>
-                <p>No Data</p>
+                <p style="color:#ffaa00;">API Issue</p>
             </div>
             """, unsafe_allow_html=True)
     
-    # COLUMN 4 - NATURAL GAS
     with col4:
         if ng_inr > 0:
             trend_label, trend_icon, trend_color = get_trend_label(ng_pct)
@@ -1236,7 +1276,7 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#88ff88;">🌿 NATURAL GAS</h3>
                 <h2 style="margin:5px 0;">₹{ng_inr:,.2f}</h2>
-                <p style="margin:0; color:{trend_color if ng_pct > 0 else '#ff4444' if ng_pct < 0 else '#ffaa00'}; font-weight:bold;">
+                <p style="margin:0; color:{trend_color if ng_pct > 0 else '#ff4444'}; font-weight:bold;">
                     {ng_pct:+.2f}%
                 </p>
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
@@ -1250,33 +1290,36 @@ with tab2:
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#88ff88;">🌿 NATURAL GAS</h3>
                 <h2 style="margin:5px 0;">--</h2>
-                <p>No Data</p>
+                <p style="color:#ffaa00;">API Issue</p>
             </div>
             """, unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Market Status Summary
-    col1, col2 = st.columns(2)
-    with col1:
-        if nifty_current > 0:
-            st.success(f"✅ NIFTY: ₹{nifty_current:,.2f} ({nifty_pct:+.2f}%)")
-        else:
-            st.warning("⚠️ NIFTY: Data not available")
-    with col2:
-        if bank_current > 0:
-            st.success(f"✅ BANKNIFTY: ₹{bank_current:,.2f} ({bank_pct:+.2f}%)")
-        else:
-            st.warning("⚠️ BANKNIFTY: Data not available")
-    
+    # Market Status
+    if nifty_current > 0 or bank_current > 0:
+        st.success("✅ Market data loaded successfully!")
+        st.caption(f"🕐 Last updated: {get_ist_now().strftime('%H:%M:%S')} IST")
+    else:
+        st.warning("⚠️ Unable to fetch live data. Possible reasons:")
+        st.markdown("""
+        1. **Yahoo Finance may be blocked** in your region
+        2. **Network connectivity issue**
+        3. **API rate limit reached**
+        
+        **Solutions:**
+        - Restart the app after 2 minutes
+        - Use VPN if Yahoo Finance is blocked
+        - Check internet connection
+        """)
+
+# ================= GLOBAL INDICES WITH FALLBACK =================
     st.markdown("---")
-    
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
-    st.markdown("*Real-time global indices*")
     
     global_indices = {
         "S&P 500": "^GSPC",
-        "NASDAQ": "^IXIC",
+        "NASDAQ": "^IXIC", 
         "Dow Jones": "^DJI",
         "Nikkei 225": "^N225",
         "Hang Seng": "^HSI",
@@ -1301,8 +1344,7 @@ with tab2:
                 name, symbol = items[i + j]
                 flag = flag_map.get(name, "🌍")
                 
-                # Fetch real data
-                current_price, change_pct, _ = get_price_with_change(symbol)
+                current_price, change_pct, _ = get_yfinance_with_retry(symbol)
                 
                 if current_price > 0:
                     if change_pct > 1.0:
@@ -1348,20 +1390,10 @@ with tab2:
                         st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
                             <div style="font-weight:bold;">{flag} {name}</div>
-                            <div style="color:#ffaa00;">--</div>
+                            <div style="color:#ffaa00;">Data unavailable</div>
                             <small style="color:#aaa;">{symbol}</small>
                         </div>
                         """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown("#### 🌏 Market Summary")
-    
-    # Show only if we have some data
-    if nifty_current > 0:
-        st.success(f"✅ Markets are {'OPEN' if is_trading_time('NIFTY') else 'CLOSED'} - Showing latest available prices")
-    else:
-        st.info("🔄 Fetching live market data... Please wait.")
 
 # ================= TAB 3: VAISHNAVI NEWS =================
 with tab3:
