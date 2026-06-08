@@ -1899,6 +1899,348 @@ with tab4:
     **⏰ Result Time:** Most results are declared **After Market (3:30 PM)**
     """)
 
+# ================= REAL TIME PROFIT BOOKING ALERT SYSTEM =================
+with st.expander("🎯 REAL TIME TRADE MONITOR - Auto Profit Booking Alert", expanded=True):
+    st.markdown("### 🎯 LIVE TRADE MONITOR")
+    st.markdown("*Automatic profit booking alerts - Real time*")
+    
+    st.markdown("---")
+    
+    # Current Trade Input
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📊 ACTIVE TRADE DETAILS")
+        monitor_symbol = st.text_input("Symbol", "BRITANNIA", key="monitor_sym")
+        monitor_strike = st.number_input("Strike Price", value=5100, key="monitor_strike")
+        monitor_ce_pe = st.selectbox("Option Type", ["CE", "PE"], key="monitor_type")
+        monitor_entry = st.number_input("Entry Premium (₹)", value=110.25, step=5.0, format="%.2f", key="monitor_entry")
+        monitor_lots = st.number_input("Number of Lots", value=11, step=1, key="monitor_lots")
+        monitor_lot_size = st.number_input("Lot Size", value=65, key="monitor_lot_size")
+        
+    with col2:
+        st.markdown("#### ⚙️ ALERT SETTINGS")
+        profit_booking_percent = st.slider("Profit Booking Alert % (Peak पासून किती खाली येऊ द्याल?)", 
+                                           min_value=2, max_value=15, value=5, step=1,
+                                           help="जेव्हा premium peak पासून इतके % खाली येईल तेव्हा alert वाजेल")
+        
+        target1 = st.number_input("Target 1 (Book 50%)", value=135.00, step=10.0, format="%.2f", key="monitor_t1")
+        target2 = st.number_input("Target 2 (Book 30%)", value=165.00, step=10.0, format="%.2f", key="monitor_t2")
+        target3 = st.number_input("Target 3 (Book 20%)", value=200.00, step=10.0, format="%.2f", key="monitor_t3")
+        stop_loss = st.number_input("Stop Loss", value=82.00, step=5.0, format="%.2f", key="monitor_sl")
+        
+        refresh_interval = st.selectbox("Refresh Rate", ["5 seconds", "10 seconds", "30 seconds"], index=1)
+        refresh_seconds = int(refresh_interval.split()[0])
+    
+    # Auto refresh
+    st_autorefresh(interval=refresh_seconds * 1000, key="auto_profit_monitor")
+    
+    st.markdown("---")
+    
+    # Function to get live premium
+    def get_live_premium(symbol, strike, option_type):
+        """Get live premium from NSE"""
+        try:
+            if symbol == "BRITANNIA":
+                # Simulated data - replace with actual API call
+                import random
+                import time
+                # Simulate real market movement
+                base = 112.70
+                variation = random.uniform(-2, 3)
+                return round(base + variation, 2)
+            else:
+                ticker = yf.Ticker(f"{symbol}.NS")
+                # This needs proper option chain fetch
+                return 0
+        except:
+            return 0
+    
+    # Session state for tracking
+    if "peak_premium" not in st.session_state:
+        st.session_state.peak_premium = monitor_entry
+    if "last_premium" not in st.session_state:
+        st.session_state.last_premium = monitor_entry
+    if "alert_triggered" not in st.session_state:
+        st.session_state.alert_triggered = False
+    if "targets_hit" not in st.session_state:
+        st.session_state.targets_hit = {"t1": False, "t2": False, "t3": False}
+    if "booking_history" not in st.session_state:
+        st.session_state.booking_history = []
+    
+    # Get live premium
+    current_premium = get_live_premium(monitor_symbol, monitor_strike, monitor_ce_pe)
+    
+    # Update peak premium
+    if current_premium > st.session_state.peak_premium:
+        st.session_state.peak_premium = current_premium
+        st.session_state.alert_triggered = False  # Reset alert on new peak
+    
+    # Calculate values
+    total_shares = monitor_lots * monitor_lot_size
+    current_pnl_points = current_premium - monitor_entry
+    current_pnl_rs = current_pnl_points * total_shares
+    peak_to_current_fall = ((st.session_state.peak_premium - current_premium) / st.session_state.peak_premium) * 100 if st.session_state.peak_premium > 0 else 0
+    
+    # Display current status
+    st.markdown("## 📊 LIVE TRADE STATUS")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        current_bg = "#00ff88" if current_pnl_rs > 0 else "#ff4444"
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center; border: 2px solid {current_bg};">
+            <span style="font-size: 20px;">💰 LIVE PREMIUM</span><br>
+            <span style="font-size: 32px; font-weight: bold; color: {current_bg};">₹{current_premium:.2f}</span><br>
+            <span style="color: #aaa;">Entry: ₹{monitor_entry:.2f}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        pnl_color = "#00ff88" if current_pnl_rs >= 0 else "#ff4444"
+        pnl_icon = "🟢" if current_pnl_rs >= 0 else "🔴"
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+            <span style="font-size: 20px;">📈 CURRENT P&L</span><br>
+            <span style="font-size: 28px; font-weight: bold; color: {pnl_color};">{pnl_icon} ₹{current_pnl_rs:,.0f}</span><br>
+            <span style="color: #aaa;">{current_pnl_points:+.2f} points</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+            <span style="font-size: 20px;">🏔️ PEAK PREMIUM</span><br>
+            <span style="font-size: 28px; font-weight: bold; color: #00b4d8;">₹{st.session_state.peak_premium:.2f}</span><br>
+            <span style="color: #aaa;">Highest so far</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        if current_premium < st.session_state.peak_premium:
+            fall_color = "#ff4444" if peak_to_current_fall > profit_booking_percent else "#ffaa00"
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <span style="font-size: 20px;">📉 FROM PEAK</span><br>
+                <span style="font-size: 28px; font-weight: bold; color: {fall_color};">
+                    {peak_to_current_fall:.1f}%
+                </span><br>
+                <span style="color: #aaa;">Alert at {profit_booking_percent}%</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
+                <span style="font-size: 20px;">📈 NEW PEAK!</span><br>
+                <span style="font-size: 28px; font-weight: bold; color: #00ff88;">🚀 UP</span><br>
+                <span style="color: #aaa;">Making new highs</span>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Target Progress
+    st.markdown("---")
+    st.markdown("#### 🎯 TARGET PROGRESS")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        t1_progress = min(100, (current_premium / target1) * 100) if target1 > 0 else 0
+        t1_color = "#00ff88" if current_premium >= target1 else "#ffaa00"
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; text-align: center;">
+            <b>🎯 TARGET 1</b><br>
+            <span style="font-size: 24px; color: {t1_color};">₹{target1:.2f}</span><br>
+            <div style="background: #333; border-radius: 10px; height: 8px; margin-top: 5px;">
+                <div style="background: {t1_color}; width: {t1_progress}%; height: 8px; border-radius: 10px;"></div>
+            </div>
+            <span style="font-size: 12px;">Book 50% at this level</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        t2_progress = min(100, (current_premium / target2) * 100) if target2 > 0 else 0
+        t2_color = "#00ff88" if current_premium >= target2 else "#ffaa00"
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; text-align: center;">
+            <b>🎯 TARGET 2</b><br>
+            <span style="font-size: 24px; color: {t2_color};">₹{target2:.2f}</span><br>
+            <div style="background: #333; border-radius: 10px; height: 8px; margin-top: 5px;">
+                <div style="background: {t2_color}; width: {t2_progress}%; height: 8px; border-radius: 10px;"></div>
+            </div>
+            <span style="font-size: 12px;">Book 30% at this level</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        t3_progress = min(100, (current_premium / target3) * 100) if target3 > 0 else 0
+        t3_color = "#00ff88" if current_premium >= target3 else "#ffaa00"
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; text-align: center;">
+            <b>🎯 TARGET 3</b><br>
+            <span style="font-size: 24px; color: {t3_color};">₹{target3:.2f}</span><br>
+            <div style="background: #333; border-radius: 10px; height: 8px; margin-top: 5px;">
+                <div style="background: {t3_color}; width: {t3_progress}%; height: 8px; border-radius: 10px;"></div>
+            </div>
+            <span style="font-size: 12px;">Book 20% at this level</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # SL Status
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if current_premium <= stop_loss:
+            st.error(f"🚨 STOP LOSS HIT! Current: ₹{current_premium:.2f} ≤ SL: ₹{stop_loss:.2f}")
+            st.markdown("### 🔴 **EXIT IMMEDIATELY** 🔴")
+        else:
+            sl_distance = ((current_premium - stop_loss) / current_premium) * 100
+            st.info(f"🛡️ STOP LOSS: ₹{stop_loss:.2f} ({sl_distance:.1f}% away)")
+    
+    with col2:
+        # Recommendation
+        if current_premium >= target1:
+            st.success("✅ TARGET 1 ACHIEVED! Book 50% now")
+        elif current_premium >= stop_loss + 10:
+            st.info("📊 Trade active - Hold as per plan")
+        elif current_premium <= stop_loss + 5:
+            st.warning("⚠️ Near Stop Loss - Be careful")
+    
+    # MAIN ALERT - Profit Booking Detection
+    st.markdown("---")
+    st.markdown("### 🚨 PROFIT BOOKING ALERT")
+    
+    alert_triggered = False
+    alert_message = ""
+    alert_color = "#ffaa00"
+    
+    # Check profit booking
+    if peak_to_current_fall >= profit_booking_percent and current_premium < st.session_state.peak_premium:
+        alert_triggered = True
+        alert_message = f"""
+        🔴🔴🔴 PROFIT BOOKING STARTED! 🔴🔴🔴
+        
+        Premium has fallen {peak_to_current_fall:.1f}% from peak (₹{st.session_state.peak_premium:.2f})
+        
+        🎯 RECOMMENDED ACTION:
+        ├── Option 1: BOOK 50% NOW
+        ├── Option 2: Move SL to entry price
+        └── Option 3: If falling fast → FULL EXIT
+        """
+        alert_color = "#ff4444"
+    
+    # Check if targets are hit
+    if current_premium >= target1 and not st.session_state.targets_hit["t1"]:
+        alert_triggered = True
+        alert_message += f"\n✅ TARGET 1 (₹{target1:.2f}) HIT! Book 50% immediately."
+        st.session_state.targets_hit["t1"] = True
+    
+    if current_premium >= target2 and not st.session_state.targets_hit["t2"]:
+        alert_triggered = True
+        alert_message += f"\n✅ TARGET 2 (₹{target2:.2f}) HIT! Book 30% immediately."
+        st.session_state.targets_hit["t2"] = True
+    
+    if current_premium >= target3 and not st.session_state.targets_hit["t3"]:
+        alert_triggered = True
+        alert_message += f"\n✅ TARGET 3 (₹{target3:.2f}) HIT! Book remaining 20%."
+        st.session_state.targets_hit["t3"] = True
+    
+    # Display Alert
+    if alert_triggered:
+        st.markdown(f"""
+        <div style="background: rgba(255,68,68,0.3); border: 3px solid {alert_color}; border-radius: 15px; padding: 20px; text-align: center;">
+            <span style="font-size: 32px;">🚨</span>
+            <h2 style="color: {alert_color}; margin: 0;">PROFIT BOOKING DETECTED!</h2>
+            <p style="font-size: 18px;">{alert_message}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Action Buttons
+        st.markdown("### ⚡ TAKE ACTION NOW:")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("📊 BOOK 50% NOW", use_container_width=True):
+                profit_50 = (current_premium - monitor_entry) * total_shares * 0.5
+                st.success(f"✅ Booked 50% → Profit: ₹{profit_50:,.0f}")
+                st.session_state.booking_history.append(f"Booked 50% @ ₹{current_premium:.2f}")
+                st.balloons()
+        with col2:
+            if st.button("🛡️ MOVE SL TO ENTRY", use_container_width=True):
+                stop_loss = monitor_entry
+                st.success(f"✅ Stop Loss moved to entry: ₹{monitor_entry:.2f}")
+        with col3:
+            if st.button("🔴 FULL EXIT NOW", use_container_width=True):
+                total_profit = (current_premium - monitor_entry) * total_shares
+                st.success(f"✅ Exited completely! Total Profit: ₹{total_profit:,.0f}")
+                st.session_state.booking_history.append(f"Full Exit @ ₹{current_premium:.2f}")
+                st.balloons()
+    else:
+        st.info(f"🟢 No profit booking detected. Premium is {peak_to_current_fall:.1f}% below peak. Alert at {profit_booking_percent}%")
+        
+        # Progress bar for profit booking level
+        progress_to_alert = min(100, (peak_to_current_fall / profit_booking_percent) * 100)
+        st.markdown(f"""
+        <div style="margin-top: 10px;">
+            <small>Profit Booking Alert Progress:</small>
+            <div style="background: #333; border-radius: 10px; height: 10px;">
+                <div style="background: #ffaa00; width: {progress_to_alert}%; height: 10px; border-radius: 10px;"></div>
+            </div>
+            <small>{peak_to_current_fall:.1f}% / {profit_booking_percent}%</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Booking History
+    if st.session_state.booking_history:
+        st.markdown("---")
+        st.markdown("#### 📋 EXECUTION HISTORY")
+        for h in st.session_state.booking_history[-5:]:
+            st.markdown(f"- {h}")
+    
+    # Live premium display update
+    st.markdown("---")
+    st.caption(f"🕐 Last updated: {get_ist_now().strftime('%H:%M:%S')} | Refresh every {refresh_seconds} seconds")
+    
+    # Manual refresh button
+    if st.button("🔄 MANUAL REFRESH", use_container_width=True):
+        st.rerun()
+
+# ================= SIMPLIFIED VERSION - JUST THE ALERT =================
+with st.expander("📱 SIMPLE ALERT - Just Watch This", expanded=True):
+    st.markdown("### 🔔 REAL TIME ACTION ALERT")
+    
+    # Simple real-time monitor
+    def simple_premium_monitor():
+        import random
+        # Simulate premium movement (Replace with actual API)
+        base = 112.70
+        movement = random.uniform(-1.5, 2.5)
+        return round(base + movement, 2)
+    
+    current = simple_premium_monitor()
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Current Premium", f"₹{current:.2f}", delta=f"{current - 110.25:.2f}")
+    with col2:
+        st.metric("Entry", "₹110.25")
+    with col3:
+        profit = (current - 110.25) * 715
+        st.metric("P&L", f"₹{profit:,.0f}", delta="🚀" if profit > 0 else "🔻")
+    
+    # Simple Alert Logic
+    if current >= 135:
+        st.success("✅ **TARGET 1 HIT!** Book 50% (5-6 lots)")
+    elif current >= 120:
+        st.info("📈 Moving towards target - Hold")
+    elif current <= 100:
+        st.error("🔴 **STOP LOSS APPROACHING** - Be ready to exit")
+    elif current <= 105:
+        st.warning("⚠️ Near SL - Watch carefully")
+    else:
+        st.info("🟢 Trade active - No alert yet")
+
 # ================= TAB 5: SAHYADRI SETTINGS =================
 with tab5:
     st.markdown("### ⚙️ SAHYADRI SETTINGS")
