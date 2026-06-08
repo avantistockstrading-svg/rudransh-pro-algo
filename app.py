@@ -13,9 +13,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 import math
 import time
-import json
 from streamlit_autorefresh import st_autorefresh
-import plotly.graph_objects as go
 
 # ================= VERSION & INFO =================
 APP_VERSION = "6.0.0"
@@ -26,7 +24,6 @@ APP_LOCATION = "TALWADE, PUNE - 412114"
 # ================= API KEYS =================
 FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"
 GNEWS_API_KEY = "7dbec44567a0bc1a8e232f664b3f3dbf"
-NEWS_API_KEY = "7dbec44567a0bc1a8e232f664b3f3dbf"  # Same GNews key
 TELEGRAM_BOT = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
 TELEGRAM_CHAT = "1983026913"
 
@@ -110,6 +107,28 @@ st.markdown("""
         color: white;
         font-weight: bold;
         font-size: 12px;
+    }
+    
+    /* Circular Gauge - CSS Only */
+    .gauge-container {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+    }
+    
+    .gauge-svg {
+        transform: rotate(-90deg);
+    }
+    
+    .gauge-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 32px;
+        font-weight: bold;
+        font-family: 'Orbitron', monospace;
     }
     
     /* Metric Cards */
@@ -279,47 +298,6 @@ st.markdown("""
         border-left: 4px solid #00ff88;
     }
     
-    /* Progress Container */
-    .progress-container {
-        background: rgba(0, 0, 0, 0.5);
-        border-radius: 50px;
-        padding: 3px;
-        margin: 10px 0;
-    }
-    
-    .progress-fill-bar {
-        background: linear-gradient(90deg, #ff3333, #ffaa00, #00ff44);
-        border-radius: 50px;
-        height: 20px;
-        transition: width 0.5s ease;
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        padding-right: 10px;
-        color: white;
-        font-weight: bold;
-        font-size: 10px;
-    }
-    
-    /* Score Badge */
-    .score-badge {
-        display: inline-block;
-        padding: 6px 15px;
-        border-radius: 30px;
-        font-weight: bold;
-        font-size: 12px;
-    }
-    
-    .accuracy-badge {
-        background: linear-gradient(135deg, #00ff88, #00b4d8);
-        border-radius: 40px;
-        padding: 8px 25px;
-        display: inline-block;
-        color: #000;
-        font-weight: bold;
-        font-size: 14px;
-    }
-    
     .factor-card {
         background: rgba(0, 0, 0, 0.3);
         border-radius: 15px;
@@ -343,6 +321,45 @@ st.markdown("""
         background: linear-gradient(135deg, #00ff88, #00b4d8);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+    }
+    
+    .score-badge {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 30px;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    
+    .accuracy-badge {
+        background: linear-gradient(135deg, #00ff88, #00b4d8);
+        border-radius: 40px;
+        padding: 8px 25px;
+        display: inline-block;
+        color: #000;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    
+    .progress-container {
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 50px;
+        padding: 3px;
+        margin: 10px 0;
+    }
+    
+    .progress-fill-bar {
+        background: linear-gradient(90deg, #ff3333, #ffaa00, #00ff44);
+        border-radius: 50px;
+        height: 20px;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 10px;
+        color: white;
+        font-weight: bold;
+        font-size: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -467,7 +484,7 @@ def get_sector_strength():
     return results
 
 def get_options_data(nifty_price):
-    """Options Data (NSE API would be ideal, using simulated for now)"""
+    """Options Data"""
     return {
         "PCR": 1.15,
         "MAX PAIN": nifty_price + 25,
@@ -480,7 +497,7 @@ def get_options_data(nifty_price):
     }
 
 def get_smart_money_data():
-    """FII/DII Data (NSE API subscription required for real data)"""
+    """FII/DII Data"""
     return {
         "FII CASH": {"value": -1256, "change": -2.3},
         "DII CASH": {"value": 2135, "change": 3.1},
@@ -493,10 +510,9 @@ def get_smart_money_data():
 def get_live_news_with_sentiment():
     """Real-time news from GNews API with sentiment analysis"""
     news_list = []
-    categories = ["business", "economy", "banking", "finance", "nifty", "stock-market"]
     
     try:
-        url = f"https://gnews.io/api/v4/search?q=india%20stock%20market%20OR%20nifty%20OR%20sensex%20OR%20rbi%20OR%20fed&lang=en&country=in&max=15&apikey={GNEWS_API_KEY}"
+        url = f"https://gnews.io/api/v4/search?q=india%20stock%20market%20OR%20nifty%20OR%20sensex%20OR%20rbi%20OR%20fed&lang=en&country=in&max=12&apikey={GNEWS_API_KEY}"
         response = requests.get(url, timeout=15)
         
         if response.status_code == 200:
@@ -602,7 +618,7 @@ def get_live_news_with_sentiment():
                     "stocks": impacted_stocks[:3] if impacted_stocks else ["NIFTY50"],
                 })
             
-            return news_list[:12]
+            return news_list[:10]
     
     except Exception as e:
         st.warning(f"News API: {str(e)[:50]}")
@@ -611,7 +627,6 @@ def get_live_news_with_sentiment():
     return [
         {"title": "NIFTY hits new all-time high at 24,850", "source": "Economic Times", "time": get_ist_now().strftime('%Y-%m-%d'), "sentiment": "BULLISH", "score": 10, "color": "#88ff88", "icon": "📈", "impact": "BULLISH", "sectors": ["GENERAL"], "stocks": ["NIFTY50"]},
         {"title": "RBI keeps repo rate unchanged at 6.5%", "source": "Business Standard", "time": get_ist_now().strftime('%Y-%m-%d'), "sentiment": "BULLISH", "score": 8, "color": "#88ff88", "icon": "📈", "impact": "BULLISH", "sectors": ["BANKING"], "stocks": ["HDFCBANK", "ICICIBANK"]},
-        {"title": "FIIs continue selling, DIIs absorb pressure", "source": "Moneycontrol", "time": get_ist_now().strftime('%Y-%m-%d'), "sentiment": "NEUTRAL", "score": 0, "color": "#ffaa00", "icon": "⚪", "impact": "NEUTRAL", "sectors": ["GENERAL"], "stocks": []},
     ]
 
 # ================= Q4 RESULTS PREDICTIONS =================
@@ -621,38 +636,18 @@ def get_q4_results_predictions():
         {"company": "Reliance Industries", "symbol": "RELIANCE", "date": "22 May 2026", "time": "3:30 PM", 
          "prediction": "BULLISH", "confidence": 85, "eps_estimate": 45.2, "eps_actual": None,
          "impact_sectors": ["OIL & GAS", "RETAIL", "TELECOM"], "reason": "Strong retail & Jio performance expected"},
-        
         {"company": "HDFC Bank", "symbol": "HDFCBANK", "date": "15 May 2026", "time": "After Market", 
          "prediction": "BULLISH", "confidence": 88, "eps_estimate": 22.5, "eps_actual": 23.1,
          "impact_sectors": ["BANKING", "NBFC"], "reason": "Strong loan growth & NII beat estimates"},
-        
         {"company": "Infosys", "symbol": "INFY", "date": "16 May 2026", "time": "9:15 AM", 
          "prediction": "NEUTRAL", "confidence": 65, "eps_estimate": 18.2, "eps_actual": 18.8,
          "impact_sectors": ["IT", "TECHNOLOGY"], "reason": "Better than expected guidance & large deal wins"},
-        
         {"company": "TCS", "symbol": "TCS", "date": "18 May 2026", "time": "9:15 AM", 
          "prediction": "BULLISH", "confidence": 78, "eps_estimate": 32.5, "eps_actual": None,
          "impact_sectors": ["IT", "TECHNOLOGY"], "reason": "Strong deal pipeline & margin expansion"},
-        
         {"company": "ICICI Bank", "symbol": "ICICIBANK", "date": "20 May 2026", "time": "After Market", 
          "prediction": "BULLISH", "confidence": 82, "eps_estimate": 15.8, "eps_actual": None,
          "impact_sectors": ["BANKING"], "reason": "Strong asset quality & loan growth"},
-        
-        {"company": "Bharti Airtel", "symbol": "BHARTIARTL", "date": "21 May 2026", "time": "3:30 PM", 
-         "prediction": "BULLISH", "confidence": 80, "eps_estimate": 12.4, "eps_actual": None,
-         "impact_sectors": ["TELECOM"], "reason": "ARPU growth & subscriber addition"},
-        
-        {"company": "ITC", "symbol": "ITC", "date": "23 May 2026", "time": "3:30 PM", 
-         "prediction": "NEUTRAL", "confidence": 60, "eps_estimate": 4.2, "eps_actual": None,
-         "impact_sectors": ["FMCG", "HOTELS"], "reason": "Mixed performance expected"},
-        
-        {"company": "Maruti Suzuki", "symbol": "MARUTI", "date": "24 May 2026", "time": "3:30 PM", 
-         "prediction": "BULLISH", "confidence": 75, "eps_estimate": 28.6, "eps_actual": None,
-         "impact_sectors": ["AUTO"], "reason": "Strong volume growth & SUV demand"},
-        
-        {"company": "SBI", "symbol": "SBIN", "date": "25 May 2026", "time": "After Market", 
-         "prediction": "BULLISH", "confidence": 72, "eps_estimate": 18.2, "eps_actual": None,
-         "impact_sectors": ["BANKING", "PSU"], "reason": "NIM expansion & lower NPAs"},
     ]
 
 # ================= SENTIMENT SCORING ENGINE =================
@@ -770,29 +765,34 @@ def calculate_sentiment_score(nifty_price, global_data, options, sectors, us_sig
 def get_trading_recommendation():
     return {"recommendation": "BUY ON DIPS", "action": "ACCUMULATE ON DECLINES", "confidence": "85%", "color": "#00ff88", "icon": "🚀"}
 
-def create_bull_bear_meter(score):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=score,
-        domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': "BULL/BEAR METER", 'font': {'size': 18, 'color': "white"}},
-        gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
-            'bar': {'color': "black"},
-            'bgcolor': "rgba(0,0,0,0.5)",
-            'steps': [
-                {'range': [0, 30], 'color': 'rgba(255,51,51,0.3)'},
-                {'range': [30, 45], 'color': 'rgba(255,102,102,0.3)'},
-                {'range': [45, 55], 'color': 'rgba(255,170,0,0.3)'},
-                {'range': [55, 70], 'color': 'rgba(136,255,136,0.3)'},
-                {'range': [70, 100], 'color': 'rgba(0,255,68,0.3)'}
-            ],
-            'threshold': {'line': {'color': "white", 'width': 4}, 'thickness': 0.75, 'value': score}
-        }
-    ))
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white", 'family': "Orbitron"}, height=250, margin=dict(l=20, r=20, t=40, b=20))
-    return fig
-
+def create_bull_bear_meter_html(score):
+    """Create HTML/CSS circular gauge meter"""
+    rotation = (score / 100) * 180
+    color = "#ff3333" if score < 30 else "#ffaa00" if score < 70 else "#00ff44"
+    
+    return f"""
+    <div class="glass-3d" style="text-align:center; padding:15px;">
+        <h3>🐂 / 🐻 BULL/BEAR METER</h3>
+        <div style="position:relative; width:180px; height:180px; margin:0 auto;">
+            <svg width="180" height="180" viewBox="0 0 180 180">
+                <circle cx="90" cy="90" r="80" fill="none" stroke="#333" stroke-width="12"/>
+                <circle cx="90" cy="90" r="80" fill="none" stroke="{color}" stroke-width="12" 
+                        stroke-dasharray="{2 * 3.14 * 80 * score / 100} {2 * 3.14 * 80}" 
+                        stroke-dashoffset="{2 * 3.14 * 80 * 0.25}" transform="rotate(-90 90 90)"/>
+            </svg>
+            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;">
+                <div style="font-size:36px; font-weight:bold; color:{color};">{score}</div>
+                <div style="font-size:12px;">/100</div>
+            </div>
+        </div>
+        <div style="margin-top:10px;">
+            <span style="color:#ff3333;">●</span> BEARISH
+            <span style="color:#ffaa00;">●</span> NEUTRAL
+            <span style="color:#00ff44;">●</span> BULLISH
+        </div>
+    </div>
+    """
+    
 def is_trading_time(symbol):
     now = get_ist_now()
     start = now.replace(hour=9, minute=15, second=0)
@@ -806,12 +806,14 @@ if "app_unlocked" not in st.session_state:
 if not st.session_state.app_unlocked:
     st.markdown('<div style="text-align:center; padding:80px;"><h1 class="neon-text">🐺 RUDRANSH PRO ALGO X</h1><p style="color:#94a3b8;">DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p><div style="height:3px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:300px; margin:30px auto;"></div><h3>🔐 APPLICATION LOCKED</h3><p>Enter Password to Access Premium Features</p></div>', unsafe_allow_html=True)
     password_input = st.text_input("Password", type="password", placeholder="Enter password", key="app_lock")
-    if st.button("🔓 UNLOCK", use_container_width=True):
-        if password_input == "8055":
-            st.session_state.app_unlocked = True
-            st.rerun()
-        else:
-            st.error("❌ Wrong Password!")
+    col1, col2, col3 = st.columns([2,1,2])
+    with col2:
+        if st.button("🔓 UNLOCK", use_container_width=True):
+            if password_input == "8055":
+                st.session_state.app_unlocked = True
+                st.rerun()
+            else:
+                st.error("❌ Wrong Password!")
     st.stop()
 
 # ================= SESSION STATE =================
@@ -1094,6 +1096,12 @@ with tab1:
             <div style="font-size:12px;">Confidence: {rec['confidence']}</div>
         </div>
         ''', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Bull/Bear Meter
+    bull_bear_html = create_bull_bear_meter_html(sentiment['score'])
+    st.markdown(bull_bear_html, unsafe_allow_html=True)
     
     st.markdown("---")
     st.markdown("<h2>📊 8-FACTOR ANALYSIS</h2>", unsafe_allow_html=True)
