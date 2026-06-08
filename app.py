@@ -3,7 +3,7 @@
 =====================================================
 VERSION: 6.0.0
 GLASS FINISHING - 95% ACCURATE SENTIMENT FRAMEWORK
-NO API RATE LIMITS - USING LOCAL DATA
+NO API CALLS - ZERO RATE LIMIT ERRORS
 """
 
 import streamlit as st
@@ -179,13 +179,12 @@ def get_ist_now():
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
 
-# ================= LOCAL DATA (NO API CALLS) =================
+# ================= LOCAL DATA (NO API CALLS - ZERO ERRORS) =================
 def get_nifty_data():
-    """Get NIFTY data - using local simulation to avoid rate limits"""
-    # Base values that change slightly each time
+    """NIFTY data - Local simulation only"""
     base_price = 24850
-    # Simulate small random movement for realism (±50 points)
-    random.seed(int(get_ist_now().timestamp() / 60))  # Changes every minute
+    current_minute = int(get_ist_now().timestamp() / 60)
+    random.seed(current_minute)
     movement = random.randint(-30, 30)
     current_price = base_price + movement
     change = movement
@@ -193,25 +192,29 @@ def get_nifty_data():
     return current_price, change, change_percent
 
 def get_banknifty_data():
-    """Get BANKNIFTY data"""
+    """BANKNIFTY data - Local simulation only"""
     base_price = 52200
-    random.seed(int(get_ist_now().timestamp() / 60) + 1)
+    current_minute = int(get_ist_now().timestamp() / 60)
+    random.seed(current_minute + 1)
     movement = random.randint(-60, 60)
     current_price = base_price + movement
     change_percent = (movement / base_price) * 100
     return current_price, change_percent
 
 def get_finnifty_data():
-    """Get FINNIFTY data - using simulated data"""
+    """FINNIFTY data - Local simulation only (NO API CALLS)"""
     base_price = 23200
-    random.seed(int(get_ist_now().timestamp() / 60) + 2)
+    current_minute = int(get_ist_now().timestamp() / 60)
+    random.seed(current_minute + 2)
     movement = random.randint(-30, 30)
     current_price = base_price + movement
     change_percent = (movement / base_price) * 100
     return current_price, change_percent
 
 def get_global_markets():
-    """Get global market data - using simulated/static data"""
+    """Global markets - Local simulation only"""
+    current_minute = int(get_ist_now().timestamp() / 60)
+    random.seed(current_minute + 3)
     return {
         "GIFT NIFTY": {"value": 24845 + random.randint(-20, 20), "change": 0.45 + random.uniform(-0.2, 0.2)},
         "DOW JONES": {"value": 39600 + random.randint(-100, 100), "change": 0.45 + random.uniform(-0.2, 0.2)},
@@ -222,8 +225,9 @@ def get_global_markets():
     }
 
 def get_fii_dii_data():
-    """Get FII/DII data"""
-    random.seed(int(get_ist_now().timestamp() / 120))
+    """FII/DII data - Local simulation only"""
+    current_minute = int(get_ist_now().timestamp() / 60)
+    random.seed(current_minute + 4)
     return {
         "FII CASH": {"value": -1256 + random.randint(-200, 200), "change": -2.3 + random.uniform(-0.5, 0.5)},
         "DII CASH": {"value": 2135 + random.randint(-200, 200), "change": 3.1 + random.uniform(-0.5, 0.5)},
@@ -232,8 +236,9 @@ def get_fii_dii_data():
     }
 
 def get_option_chain_data():
-    """Get option chain data"""
-    random.seed(int(get_ist_now().timestamp() / 60) + 3)
+    """Option chain data - Local simulation only"""
+    current_minute = int(get_ist_now().timestamp() / 60)
+    random.seed(current_minute + 5)
     return {
         "PCR": 1.15 + random.uniform(-0.05, 0.05),
         "HIGHEST CE OI": 25000 + random.randint(-100, 100),
@@ -244,7 +249,7 @@ def get_option_chain_data():
     }
 
 def get_macro_data():
-    """Get macro economic data"""
+    """Macro data - Static"""
     return {
         "repo_rate": 5.25,
         "gdp_growth": 5.8,
@@ -254,12 +259,12 @@ def get_macro_data():
 
 # ================= SENTIMENT SCORING =================
 def calculate_sentiment_score():
-    """Calculate overall sentiment score"""
+    """Calculate overall sentiment score - Local only"""
     global_data = get_global_markets()
     fii_dii = get_fii_dii_data()
     option_data = get_option_chain_data()
     
-    score = 50  # Start neutral
+    score = 50
     
     # 1. GLOBAL MARKETS (25%)
     global_score = 0
@@ -295,12 +300,9 @@ def calculate_sentiment_score():
     
     if dii_value > 0:
         score += 8
-    elif dii_value < -1000:
-        score -= 8
     
     # 3. OPTIONS DATA (25%)
     pcr = option_data.get("PCR", 1.0)
-    
     if pcr > 1.2:
         score += 12
     elif pcr > 1.0:
@@ -310,24 +312,14 @@ def calculate_sentiment_score():
     elif pcr < 1.0:
         score -= 8
     
-    oi_change_ce = option_data.get("OI CHANGE CE", 0)
-    oi_change_pe = option_data.get("OI CHANGE PE", 0)
-    
-    if oi_change_pe > oi_change_ce:
-        score += 8
-    elif oi_change_ce > oi_change_pe:
-        score -= 5
-    
     # 4. MARKET INTERNALS (15%)
     score += 10
     
     # 5. MACRO DATA (10%)
     score += 5
     
-    # Clamp score between 0 and 100
     score = max(0, min(100, score))
     
-    # Determine sentiment
     if score >= 70:
         sentiment = "STRONG BULLISH"
         sentiment_color = "#00ff44"
@@ -358,7 +350,6 @@ def calculate_sentiment_score():
     }
 
 # ================= MAIN UI =================
-# Header
 st.markdown("""
 <div style="text-align: center;">
     <h1>🐺 RUDRANSH MASTER PRO</h1>
@@ -366,7 +357,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Time Display
 now = get_ist_now()
 st.markdown(f"""
 <div style="text-align: center; margin-bottom: 20px;">
@@ -378,11 +368,9 @@ st.markdown(f"""
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# Get sentiment data
 sentiment = calculate_sentiment_score()
 nifty_price, nifty_change, nifty_change_pct = get_nifty_data()
 
-# NIFTY VIEW SECTION
 st.markdown("""
 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
     <h2>🎯 NIFTY VIEW</h2>
@@ -431,16 +419,13 @@ with col3:
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-
-# ================= 5 FACTOR ANALYSIS =================
 st.markdown("## 📊 5-FACTOR SENTIMENT ANALYSIS")
 
-# Row 1: Global Markets + FII/DII
+# Row 1
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown('<div class="glass-card"><h3>🌍 1. GLOBAL MARKETS (25%)</h3>', unsafe_allow_html=True)
-    
     global_data = get_global_markets()
     for name, data in global_data.items():
         change = data['change']
@@ -453,21 +438,15 @@ with col1:
         </div>
         """, unsafe_allow_html=True)
     
-    if sentiment['global_avg'] >= 30:
-        global_sentiment = "STRONG BULLISH (+100)"
-        global_color = "#00ff44"
-    elif sentiment['global_avg'] >= 10:
+    if sentiment['global_avg'] >= 10:
         global_sentiment = "BULLISH (+50)"
         global_color = "#88ff88"
     elif sentiment['global_avg'] >= -10:
         global_sentiment = "NEUTRAL (0)"
         global_color = "#ffaa00"
-    elif sentiment['global_avg'] >= -30:
+    else:
         global_sentiment = "BEARISH (-50)"
         global_color = "#ff6666"
-    else:
-        global_sentiment = "STRONG BEARISH (-100)"
-        global_color = "#ff3333"
     
     st.markdown(f"""
     <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;">
@@ -481,7 +460,6 @@ with col1:
 
 with col2:
     st.markdown('<div class="glass-card"><h3>💰 2. FII / DII DATA (25%)</h3>', unsafe_allow_html=True)
-    
     fii_dii = get_fii_dii_data()
     for name, data in fii_dii.items():
         color = "#ff6666" if "FII" in name and data['value'] < 0 else "#88ff88" if "DII" in name and data['value'] > 0 else "#ffaa00"
@@ -503,14 +481,12 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
 
-# Row 2: Options Data + Market Internals
+# Row 2
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown('<div class="glass-card"><h3>📊 3. OPTIONS DATA (25%)</h3>', unsafe_allow_html=True)
-    
     option_data = get_option_chain_data()
-    
     st.markdown(f"""
     <div style="display: flex; justify-content: space-between; padding: 8px 0;">
         <span>PCR (PUT CALL RATIO)</span>
@@ -536,9 +512,6 @@ with col1:
         <span>MAX PAIN</span>
         <span style="color: #00b4d8; font-weight: bold;">{option_data.get('MAX PAIN', 24800):,}</span>
     </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(f"""
     <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: bold;">OPTIONS SENTIMENT</span>
@@ -550,20 +523,17 @@ with col1:
 
 with col2:
     st.markdown('<div class="glass-card"><h3>📈 4. MARKET INTERNALS (15%)</h3>', unsafe_allow_html=True)
-    
     banknifty_price, banknifty_change = get_banknifty_data()
     finnifty_price, finnifty_change = get_finnifty_data()
-    india_vix = 13.25
-    adv_decline = 1.35
     
     st.markdown(f"""
     <div style="display: flex; justify-content: space-between; padding: 8px 0;">
         <span>ADVANCE DECLINE RATIO</span>
-        <span style="color: #00ff88;">{adv_decline}</span>
+        <span style="color: #00ff88;">1.35</span>
     </div>
     <div style="display: flex; justify-content: space-between; padding: 8px 0;">
         <span>INDIA VIX</span>
-        <span style="color: {'#00ff88' if india_vix < 15 else '#ffaa00'};">{india_vix}</span>
+        <span style="color: #00ff88;">13.25</span>
     </div>
     <div style="display: flex; justify-content: space-between; padding: 8px 0;">
         <span>BANK NIFTY</span>
@@ -573,9 +543,6 @@ with col2:
         <span>FIN NIFTY</span>
         <span style="color: {'#00ff88' if finnifty_change >= 0 else '#ff4444'};">{finnifty_price:,.0f} ({finnifty_change:+.2f}%)</span>
     </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(f"""
     <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: bold;">MARKET INTERNALS</span>
@@ -619,54 +586,24 @@ st.markdown(f"""
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= SENTIMENT SUMMARY =================
+# Sentiment Summary
 st.markdown("## 📋 SENTIMENT SUMMARY")
-
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div style="font-size: 12px;">Global Markets</div>
-        <div style="color: {global_color};">{global_sentiment.split()[0]}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f'<div class="glass-card" style="text-align: center;"><div style="font-size: 12px;">Global Markets</div><div style="color: {global_color};">{global_sentiment.split()[0]}</div></div>', unsafe_allow_html=True)
 with col2:
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div style="font-size: 12px;">FII / DII Data</div>
-        <div style="color: #88ff88;">BULLISH</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f'<div class="glass-card" style="text-align: center;"><div style="font-size: 12px;">FII / DII Data</div><div style="color: #88ff88;">BULLISH</div></div>', unsafe_allow_html=True)
 with col3:
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div style="font-size: 12px;">Options Data</div>
-        <div style="color: #00ff88;">BULLISH</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f'<div class="glass-card" style="text-align: center;"><div style="font-size: 12px;">Options Data</div><div style="color: #00ff88;">BULLISH</div></div>', unsafe_allow_html=True)
 with col4:
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div style="font-size: 12px;">Market Internals</div>
-        <div style="color: #00ff44;">BULLISH</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f'<div class="glass-card" style="text-align: center;"><div style="font-size: 12px;">Market Internals</div><div style="color: #00ff44;">BULLISH</div></div>', unsafe_allow_html=True)
 with col5:
-    st.markdown(f"""
-    <div class="glass-card" style="text-align: center;">
-        <div style="font-size: 12px;">Macro Data</div>
-        <div style="color: #ffaa00;">NEUTRAL</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<div class="glass-card" style="text-align: center;"><div style="font-size: 12px;">Macro Data</div><div style="color: #ffaa00;">NEUTRAL</div></div>', unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= OVERALL SENTIMENT =================
+# Overall Sentiment
 st.markdown(f"""
 <div class="glass-card" style="text-align: center; background: linear-gradient(135deg, rgba(0,255,68,0.15), rgba(0,180,216,0.1));">
     <h2>OVERALL SENTIMENT: {sentiment['icon']} {sentiment['sentiment']}</h2>
@@ -687,13 +624,12 @@ st.markdown(f"""
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= TRADING PLAN =================
+# Trading Plan
 st.markdown("## 🚀 TRADING PLAN")
-
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown(f"""
+    st.markdown("""
     <div class="trading-plan">
         <h3>📈 BUY ON DIPS</h3>
         <div style="margin-top: 15px;">
@@ -714,7 +650,7 @@ with col1:
     """, unsafe_allow_html=True)
 
 with col2:
-    st.markdown(f"""
+    st.markdown("""
     <div class="trading-plan">
         <h3>⚠️ RISK MANAGEMENT</h3>
         <div style="margin-top: 15px;">
@@ -732,7 +668,7 @@ with col2:
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# ================= FOOTER =================
+# Footer
 st.markdown(f"""
 <div class="footer">
     🐺 RUDRANSH MASTER PRO | {APP_AUTHOR} | {APP_LOCATION} | v{APP_VERSION}<br>
@@ -740,5 +676,4 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Auto refresh every 30 seconds
 st_autorefresh(interval=30000, key="sentiment_refresh")
