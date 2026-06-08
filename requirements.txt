@@ -1,5 +1,7 @@
-streamlit
-pandas
-yfinance
-requests
-streamlit-autorefresh
+streamlit==1.32.0
+pandas==2.2.0
+yfinance==0.2.38
+requests==2.31.0
+streamlit-autorefresh==1.0.1
+smartapi-python==1.5.0
+pyotp==2.9.0
