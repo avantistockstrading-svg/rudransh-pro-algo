@@ -1,8 +1,8 @@
 """
 🐺 RUDRANSH MASTER PRO - COMPLETE SENTIMENT DASHBOARD
 =======================================================
-VERSION: 7.0.0
-65+ INDICATORS | 8 FACTORS | GLASS FINISHING
+VERSION: 7.1.0
+CORRECTED NIFTY PRICES | 65+ INDICATORS | 8 FACTORS
 """
 
 import streamlit as st
@@ -12,13 +12,19 @@ import random
 from streamlit_autorefresh import st_autorefresh
 
 # ================= VERSION & INFO =================
-APP_VERSION = "7.0.0"
+APP_VERSION = "7.1.0"
 APP_NAME = "RUDRANSH MASTER PRO"
 APP_AUTHOR = "SATISH D. NAKHATE"
 APP_LOCATION = "TALWADE, PUNE - 412114"
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="NIFTY SENTIMENT DASHBOARD", layout="wide", page_icon="🐺")
+
+# ================= CURRENT MARKET PRICES (CORRECTED) =================
+# Current NIFTY is around 24,800
+CURRENT_NIFTY = 24800
+CURRENT_BANKNIFTY = 52200
+CURRENT_FINNIFTY = 23200
 
 # ================= GLASS FINISHING CSS =================
 st.markdown("""
@@ -140,6 +146,12 @@ st.markdown("""
         font-size: 12px;
     }
     
+    .score-positive {
+        background: rgba(0, 255, 68, 0.2);
+        color: #00ff44;
+        border: 1px solid #00ff44;
+    }
+    
     .accuracy-badge {
         background: linear-gradient(135deg, #00ff88, #00b4d8);
         border-radius: 40px;
@@ -184,38 +196,46 @@ def get_ist_now():
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
 
-# ================= DATA GENERATION (NO API CALLS) =================
+# ================= DATA GENERATION (NO API CALLS - CORRECTED PRICES) =================
 def get_nifty_data():
-    base_price = 24850
+    """NIFTY - Current around 24,800"""
     current_minute = int(get_ist_now().timestamp() / 60)
     random.seed(current_minute)
-    movement = random.randint(-30, 30)
-    return base_price + movement, movement, (movement / base_price) * 100
+    # Small movement of ±15 points for realism
+    movement = random.randint(-15, 15)
+    current_price = CURRENT_NIFTY + movement
+    change = movement
+    change_percent = (change / CURRENT_NIFTY) * 100
+    return current_price, change, change_percent
 
 def get_banknifty_data():
-    base_price = 52200
+    """BANKNIFTY - Current around 52,200"""
     current_minute = int(get_ist_now().timestamp() / 60)
     random.seed(current_minute + 1)
-    movement = random.randint(-60, 60)
-    return base_price + movement, (movement / base_price) * 100
+    movement = random.randint(-30, 30)
+    current_price = CURRENT_BANKNIFTY + movement
+    change_percent = (movement / CURRENT_BANKNIFTY) * 100
+    return current_price, change_percent
 
 def get_finnifty_data():
-    base_price = 23200
+    """FINNIFTY - Current around 23,200"""
     current_minute = int(get_ist_now().timestamp() / 60)
     random.seed(current_minute + 2)
-    movement = random.randint(-30, 30)
-    return base_price + movement, (movement / base_price) * 100
+    movement = random.randint(-15, 15)
+    current_price = CURRENT_FINNIFTY + movement
+    change_percent = (movement / CURRENT_FINNIFTY) * 100
+    return current_price, change_percent
 
 # ================= GLOBAL INDICES DATA =================
 def get_global_indices():
     current_minute = int(get_ist_now().timestamp() / 60)
     random.seed(current_minute + 10)
     return {
-        "GIFT NIFTY": {"value": 24845 + random.randint(-20, 20), "change": random.uniform(-0.5, 0.8), "flag": "🇮🇳"},
-        "DOW JONES": {"value": 39600 + random.randint(-100, 100), "change": random.uniform(-0.5, 0.8), "flag": "🇺🇸"},
-        "NASDAQ": {"value": 16203 + random.randint(-80, 80), "change": random.uniform(-0.5, 1.0), "flag": "🇺🇸"},
-        "S&P 500": {"value": 5255 + random.randint(-30, 30), "change": random.uniform(-0.4, 0.7), "flag": "🇺🇸"},
-        "RUSSELL 2000": {"value": 2045 + random.randint(-15, 15), "change": random.uniform(-0.6, 0.6), "flag": "🇺🇸"},
+        "GIFT NIFTY": {"value": CURRENT_NIFTY + random.randint(-10, 10), "change": random.uniform(-0.3, 0.5), "flag": "🇮🇳"},
+        "DOW JONES": {"value": 39600 + random.randint(-100, 100), "change": random.uniform(-0.5, 0.5), "flag": "🇺🇸"},
+        "NASDAQ": {"value": 16203 + random.randint(-80, 80), "change": random.uniform(-0.5, 0.8), "flag": "🇺🇸"},
+        "S&P 500": {"value": 5255 + random.randint(-30, 30), "change": random.uniform(-0.4, 0.6), "flag": "🇺🇸"},
+        "RUSSELL 2000": {"value": 2045 + random.randint(-15, 15), "change": random.uniform(-0.5, 0.5), "flag": "🇺🇸"},
         "NIKKEI 225": {"value": 38919 + random.randint(-150, 150), "change": random.uniform(-0.8, 0.5), "flag": "🇯🇵"},
         "HANG SENG": {"value": 18524 + random.randint(-150, 150), "change": random.uniform(-0.8, 0.4), "flag": "🇭🇰"},
         "SHANGHAI": {"value": 3150 + random.randint(-30, 30), "change": random.uniform(-0.5, 0.5), "flag": "🇨🇳"},
@@ -230,23 +250,24 @@ def get_smart_money_data():
     current_minute = int(get_ist_now().timestamp() / 60)
     random.seed(current_minute + 20)
     return {
-        "FII CASH": {"value": -1256 + random.randint(-300, 300), "change": random.uniform(-3, 3)},
-        "DII CASH": {"value": 2135 + random.randint(-300, 300), "change": random.uniform(-2, 4)},
-        "FII FUTURES": {"value": -3842 + random.randint(-400, 400), "change": random.uniform(-3, 2)},
-        "FII OPTIONS": {"value": 1925 + random.randint(-300, 300), "change": random.uniform(-2, 3)},
-        "CLIENT POSITIONS": {"value": 35.6, "change": random.uniform(-2, 2)},
-        "PRO POSITIONS": {"value": 42.3, "change": random.uniform(-2, 2)},
+        "FII CASH": {"value": -1256 + random.randint(-200, 200), "change": random.uniform(-2, 2)},
+        "DII CASH": {"value": 2135 + random.randint(-200, 200), "change": random.uniform(-2, 3)},
+        "FII FUTURES": {"value": -3842 + random.randint(-300, 300), "change": random.uniform(-2, 2)},
+        "FII OPTIONS": {"value": 1925 + random.randint(-200, 200), "change": random.uniform(-2, 2)},
+        "CLIENT POSITIONS": {"value": 35.6, "change": random.uniform(-1, 1)},
+        "PRO POSITIONS": {"value": 42.3, "change": random.uniform(-1, 1)},
     }
 
 # ================= OPTIONS DATA =================
 def get_options_data():
     current_minute = int(get_ist_now().timestamp() / 60)
     random.seed(current_minute + 30)
+    nifty_price, _, _ = get_nifty_data()
     return {
         "PCR": 1.15 + random.uniform(-0.08, 0.08),
-        "MAX PAIN": 24800 + random.randint(-50, 50),
-        "HIGHEST CE OI": 25000 + random.randint(-100, 100),
-        "HIGHEST PE OI": 24500 + random.randint(-100, 100),
+        "MAX PAIN": nifty_price + random.randint(-30, 30),
+        "HIGHEST CE OI": nifty_price + random.randint(100, 200),
+        "HIGHEST PE OI": nifty_price - random.randint(100, 200),
         "CE OI CHANGE": 5.60 + random.uniform(-1, 1),
         "PE OI CHANGE": 8.25 + random.uniform(-1, 1),
         "ATM IV": 14.5 + random.uniform(-1, 1),
@@ -290,7 +311,7 @@ def get_news_sentiment():
     random.seed(current_minute + 60)
     
     sentiments = {
-        "RBI News": random.choice(["POSITIVE", "NEUTRAL", "NEUTRAL", "SLIGHTLY POSITIVE"]),
+        "RBI News": random.choice(["POSITIVE", "NEUTRAL", "NEUTRAL"]),
         "Fed News": random.choice(["CAUTIOUS", "NEUTRAL", "SLIGHTLY HAWKISH"]),
         "War News": random.choice(["NO ESCALATION", "CEASEFIRE TALKS", "STABLE"]),
         "Inflation Data": random.choice(["COOLING", "STABLE", "SLIGHTLY ELEVATED"]),
@@ -300,8 +321,8 @@ def get_news_sentiment():
     }
     
     scores = {
-        "RBI News": 5 if "POSITIVE" in sentiments["RBI News"] else 0 if "NEUTRAL" in sentiments["RBI News"] else -3,
-        "Fed News": 3 if "DOVISH" in sentiments["Fed News"] else 0 if "NEUTRAL" in sentiments["Fed News"] else -2,
+        "RBI News": 5 if "POSITIVE" in sentiments["RBI News"] else 0,
+        "Fed News": 0 if "NEUTRAL" in sentiments["Fed News"] else -2,
         "War News": 5 if "CEASEFIRE" in sentiments["War News"] else 2 if "NO ESCALATION" in sentiments["War News"] else -5,
         "Inflation Data": 5 if "COOLING" in sentiments["Inflation Data"] else 2 if "STABLE" in sentiments["Inflation Data"] else -3,
         "GDP Data": 5 if "STRONG" in sentiments["GDP Data"] else 2 if "MODERATE" in sentiments["GDP Data"] else -2,
