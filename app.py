@@ -2453,3 +2453,41 @@ if st.session_state.algo_running and st.session_state.totp_verified:
         wolf_auto_fo_trade()
     
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
+
+# ================= TEST ANGEL ONE CONNECTION =================
+with st.expander("🔧 TEST ANGEL ONE CONNECTION", expanded=True):
+    st.markdown("### Angel One Connection Test")
+    
+    if st.button("🔐 TEST CONNECTION", use_container_width=True):
+        with st.spinner("Testing..."):
+            try:
+                from smartapi import SmartConnect
+                import pyotp
+                
+                api_key = "7yyokKoC"
+                client_id = "S470211"
+                password = "1234"
+                totp_secret = "P5XCUTXRKXQNNATBO5JZYM6SPI"
+                
+                totp = pyotp.TOTP(totp_secret)
+                current_totp = totp.now()
+                
+                st.write(f"📱 Generated TOTP: `{current_totp}`")
+                st.write(f"⏰ Current Time: {get_ist_now().strftime('%H:%M:%S')}")
+                
+                obj = SmartConnect(api_key=api_key)
+                data = obj.generateSession(client_id, password, current_totp)
+                
+                st.write("---")
+                st.write("### Response:")
+                st.json(data)
+                
+                if data.get('status'):
+                    st.success("✅ CONNECTION SUCCESSFUL!")
+                else:
+                    st.error(f"❌ Connection Failed!")
+                    st.write(f"**Error Code:** {data.get('errorcode')}")
+                    st.write(f"**Message:** {data.get('message')}")
+                    
+            except Exception as e:
+                st.error(f"Exception: {str(e)}")
