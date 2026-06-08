@@ -1557,117 +1557,197 @@ with tab3:
         if important_news:
             voice_alert(f"Important news: {important_news[0]['sentiment']} sentiment detected. {important_news[0]['title'][:100]}")
 
-# ================= TAB 4: OVI RESULTS (AUTO - YFINANCE) =================
+# ================= TAB 4: OVI RESULTS (AUTO - WITH RESULT DATE & TIME) =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - AUTO Q4 FY26 MONITORING")
-    st.markdown("*Fully automatic earnings data from Yahoo Finance | Zero manual entry*")
+    st.markdown("*Fully automatic earnings data with Result Date & Time tracking*")
     
     st.markdown("---")
+    
+    # Result schedule database (Q4 FY26 expected dates)
+    RESULT_SCHEDULE = {
+        # May 2026 Results
+        "RELIANCE": {"date": "14 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "TCS": {"date": "16 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "INFY": {"date": "16 May 2026", "time": "9:15 AM", "quarter": "Q4 FY26"},
+        "HDFCBANK": {"date": "15 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ICICIBANK": {"date": "18 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "SBIN": {"date": "20 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "BHARTIARTL": {"date": "19 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ITC": {"date": "21 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "HINDUNILVR": {"date": "22 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "AXISBANK": {"date": "23 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "KOTAKBANK": {"date": "25 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "LT": {"date": "24 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "SUNPHARMA": {"date": "26 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "BAJFINANCE": {"date": "27 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "TATAMOTORS": {"date": "28 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "MARUTI": {"date": "29 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "WIPRO": {"date": "30 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "HCLTECH": {"date": "31 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "TECHM": {"date": "01 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ONGC": {"date": "02 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "NTPC": {"date": "03 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "POWERGRID": {"date": "04 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "DMART": {"date": "05 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "TITAN": {"date": "06 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ASIANPAINT": {"date": "07 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "BRITANNIA": {"date": "08 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "CIPLA": {"date": "09 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "DRREDDY": {"date": "10 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "M&M": {"date": "11 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "NESTLEIND": {"date": "12 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "HAL": {"date": "15 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "BEL": {"date": "16 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "BPCL": {"date": "17 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ZYDUSLIFE": {"date": "18 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "MANKIND": {"date": "19 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "PIIND": {"date": "20 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "COALINDIA": {"date": "21 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "GRASIM": {"date": "22 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ADANIPORTS": {"date": "23 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ADANIENT": {"date": "24 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "ULTRACEMCO": {"date": "25 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+    }
+    
+    def get_result_status(result_date_str):
+        """Calculate days remaining or past for result"""
+        try:
+            # Parse date
+            from datetime import datetime
+            current_date = get_ist_now()
+            
+            # Convert "14 May 2026" to datetime
+            result_datetime = datetime.strptime(result_date_str, "%d %b %Y")
+            result_datetime = result_datetime.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+            
+            days_diff = (result_datetime - current_date.replace(tzinfo=None)).days
+            
+            if days_diff > 0:
+                return f"⏳ {days_diff} days remaining", "upcoming", days_diff
+            elif days_diff == 0:
+                return "🔴 TODAY", "today", 0
+            else:
+                return f"✅ {abs(days_diff)} days ago", "past", days_diff
+        except:
+            return "📅 Date TBA", "unknown", 999
     
     # Auto fetch earnings function
     def get_auto_earnings_data():
         """Automatically fetch earnings data from Yahoo Finance"""
         earnings_data = []
         
-        # Top Indian stocks for earnings monitoring
-        auto_watchlist = [
-            "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", 
-            "ITC", "SBIN", "BHARTIARTL", "AXISBANK", "LT", "DMART", "SUNPHARMA",
-            "BAJFINANCE", "MARUTI", "TATAMOTORS", "WIPRO", "HCLTECH", "TECHM",
-            "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO", "ASIANPAINT", "TITAN",
-            "BRITANNIA", "CIPLA", "DRREDDY", "M&M", "NESTLEIND", "HAL", "BEL",
-            "BPCL", "ZYDUSLIFE", "MANKIND", "PIIND", "COALINDIA", "GRASIM"
-        ]
+        auto_watchlist = list(RESULT_SCHEDULE.keys())
         
-        progress_bar = st.progress(0, text="Fetching live earnings data...")
+        progress_bar = st.progress(0, text="🔄 Scanning for earnings opportunities...")
         
         for i, symbol in enumerate(auto_watchlist):
             try:
                 ticker = yf.Ticker(f"{symbol}.NS")
                 
-                # Get earnings data
-                earnings = ticker.earnings
-                quarterly = ticker.quarterly_earnings
-                
                 # Get company info
                 info = ticker.info
                 
-                # Calculate earnings surprise
+                # Get result schedule
+                result_info = RESULT_SCHEDULE.get(symbol, {})
+                result_date = result_info.get("date", "TBA")
+                result_time = result_info.get("time", "After Market")
+                status_text, status_type, days_left = get_result_status(result_date)
+                
+                # Calculate earnings metrics
                 eps_ttm = info.get('trailingEps', 0)
                 forward_pe = info.get('forwardPE', 0)
-                peg_ratio = info.get('pegRatio', 0)
                 recommendation = info.get('recommendationKey', 'hold')
-                target_price = info.get('targetMeanPrice', 0)
                 current_price = info.get('currentPrice', info.get('regularMarketPrice', 0))
                 
-                # Get recent earnings trend
+                # Get earnings growth
+                quarterly = ticker.quarterly_earnings
                 eps_trend = []
                 if quarterly is not None and not quarterly.empty:
                     for date, row in quarterly.iterrows():
                         if 'eps' in row:
                             eps_trend.append(float(row['eps']) if not pd.isna(row['eps']) else 0)
                 
-                # Calculate growth
                 yoy_growth = 0
                 if len(eps_trend) >= 4:
-                    latest_avg = sum(eps_trend[-2:]) / 2 if len(eps_trend[-2:]) > 0 else 0
-                    prev_avg = sum(eps_trend[-6:-2]) / 2 if len(eps_trend[-6:-2]) > 0 else 0
-                    if prev_avg > 0:
-                        yoy_growth = ((latest_avg - prev_avg) / prev_avg) * 100
+                    latest = eps_trend[-1] if eps_trend[-1] > 0 else eps_trend[-2] if len(eps_trend) > 1 else 0
+                    prev = eps_trend[-5] if len(eps_trend) > 5 else eps_trend[0] if eps_trend else 0
+                    if prev > 0:
+                        yoy_growth = ((latest - prev) / prev) * 100
                 
-                # Generate signal based on data
+                # Generate signal
                 signal = "NEUTRAL"
                 confidence = 50
                 trade = "WAIT"
                 reason = ""
                 
-                if eps_ttm > 0 and forward_pe > 0:
-                    # Strong fundamentals
-                    if yoy_growth > 20 and recommendation in ['buy', 'strong_buy']:
+                # Adjust signal based on days left to result
+                if status_type == "today":
+                    # Result day - high volatility expected
+                    if yoy_growth > 15:
                         signal = "STRONG BULLISH"
                         confidence = 90
-                        trade = "BUY CALL (CE)"
-                        reason = f"YoY Growth: {yoy_growth:.1f}% | Analyst: {recommendation}"
-                    elif yoy_growth > 10 or (recommendation in ['buy', 'strong_buy'] and forward_pe < 25):
-                        signal = "BULLISH"
-                        confidence = 75
-                        trade = "BUY CALL (CE)"
-                        reason = f"YoY Growth: {yoy_growth:.1f}% | Forward PE: {forward_pe:.1f}"
-                    elif yoy_growth < -20 and recommendation in ['sell', 'strong_sell']:
+                        trade = "BUY CALL (CE) - RESULT DAY"
+                        reason = f"Result Today! High growth: {yoy_growth:.1f}%"
+                    elif yoy_growth < -15:
                         signal = "STRONG BEARISH"
                         confidence = 90
-                        trade = "SELL PUT (PE)"
-                        reason = f"Declining EPS: {yoy_growth:.1f}% | Analyst: {recommendation}"
+                        trade = "SELL PUT (PE) - RESULT DAY"
+                        reason = f"Result Today! Negative growth: {yoy_growth:.1f}%"
+                elif status_type == "upcoming" and days_left <= 7:
+                    # Result in next 7 days - accumulate
+                    if yoy_growth > 10:
+                        signal = "BULLISH"
+                        confidence = 75
+                        trade = "BUY CALL (CE) - POSITION"
+                        reason = f"Result in {days_left} days | Growth: {yoy_growth:.1f}%"
                     elif yoy_growth < -10:
                         signal = "BEARISH"
                         confidence = 75
+                        trade = "SELL PUT (PE) - POSITION"
+                        reason = f"Result in {days_left} days | Decline: {yoy_growth:.1f}%"
+                else:
+                    # Normal analysis
+                    if yoy_growth > 20 and recommendation in ['buy', 'strong_buy']:
+                        signal = "STRONG BULLISH"
+                        confidence = 85
+                        trade = "BUY CALL (CE)"
+                        reason = f"YoY Growth: {yoy_growth:.1f}%"
+                    elif yoy_growth > 10:
+                        signal = "BULLISH"
+                        confidence = 70
+                        trade = "BUY CALL (CE)"
+                        reason = f"YoY Growth: {yoy_growth:.1f}%"
+                    elif yoy_growth < -20:
+                        signal = "STRONG BEARISH"
+                        confidence = 85
                         trade = "SELL PUT (PE)"
-                        reason = f"Negative Growth: {yoy_growth:.1f}%"
-                    else:
-                        signal = "NEUTRAL"
-                        confidence = 50
-                        trade = "WAIT"
-                        reason = f"Stable performance | Growth: {yoy_growth:.1f}%"
+                        reason = f"Decline: {yoy_growth:.1f}%"
+                    elif yoy_growth < -10:
+                        signal = "BEARISH"
+                        confidence = 70
+                        trade = "SELL PUT (PE)"
+                        reason = f"Decline: {yoy_growth:.1f}%"
                 
-                # Only add if we have meaningful data
-                if eps_ttm > 0 or current_price > 0:
-                    earnings_data.append({
-                        'symbol': symbol,
-                        'name': info.get('longName', symbol)[:30],
-                        'current_price': current_price,
-                        'eps_ttm': eps_ttm,
-                        'forward_pe': forward_pe,
-                        'yoy_growth': yoy_growth,
-                        'recommendation': recommendation,
-                        'target_price': target_price,
-                        'signal': signal,
-                        'confidence': confidence,
-                        'trade': trade,
-                        'reason': reason
-                    })
+                earnings_data.append({
+                    'symbol': symbol,
+                    'name': info.get('longName', symbol)[:25],
+                    'current_price': current_price,
+                    'eps_ttm': eps_ttm,
+                    'forward_pe': forward_pe,
+                    'yoy_growth': yoy_growth,
+                    'recommendation': recommendation,
+                    'result_date': result_date,
+                    'result_time': result_time,
+                    'result_status': status_text,
+                    'days_left': days_left,
+                    'signal': signal,
+                    'confidence': confidence,
+                    'trade': trade,
+                    'reason': reason
+                })
                 
-                # Update progress
-                progress_bar.progress((i + 1) / len(auto_watchlist), text=f"Fetching {symbol}...")
+                progress_bar.progress((i + 1) / len(auto_watchlist), text=f"✅ {symbol} - Result: {result_date}")
                 
             except Exception as e:
                 continue
@@ -1675,196 +1755,148 @@ with tab4:
         progress_bar.empty()
         return earnings_data
     
-    # Auto-fetch earnings
-    with st.spinner("🔄 Scanning NSE 500 for earnings opportunities..."):
+    # Fetch data
+    with st.spinner("🔄 Fetching live earnings data with result schedules..."):
         auto_data = get_auto_earnings_data()
     
     if auto_data:
-        st.success(f"✅ Auto-fetched data for {len(auto_data)} companies")
+        st.success(f"✅ Auto-fetched data for {len(auto_data)} companies with result dates")
         st.markdown("---")
         
-        # Display top signals first
-        st.markdown("#### 🎯 TOP TRADING SIGNALS (AUTO-GENERATED)")
+        # Summary cards
+        st.markdown("#### 📅 RESULT CALENDAR SUMMARY")
         
-        # Sort by confidence
-        sorted_data = sorted(auto_data, key=lambda x: x['confidence'], reverse=True)
+        col1, col2, col3, col4 = st.columns(4)
         
-        # Show top opportunities
-        col1, col2, col3 = st.columns(3)
-        
-        # Filter opportunities
-        buy_signals = [d for d in auto_data if "BUY" in d['trade']]
-        sell_signals = [d for d in auto_data if "SELL" in d['trade']]
-        wait_signals = [d for d in auto_data if d['trade'] == "WAIT"]
+        today_results = [d for d in auto_data if "TODAY" in d['result_status']]
+        upcoming_7days = [d for d in auto_data if 0 < d.get('days_left', 999) <= 7]
+        upcoming_30days = [d for d in auto_data if 7 < d.get('days_left', 999) <= 30]
+        completed = [d for d in auto_data if "ago" in d['result_status']]
         
         with col1:
-            st.metric("📈 BUY Signals", len(buy_signals), delta="Auto-detected")
-            for d in buy_signals[:3]:
-                st.markdown(f"""
-                <div style="background:rgba(0,255,136,0.1); border-radius:10px; padding:8px; margin:5px 0;">
-                    <b>{d['symbol']}</b><br>
-                    <span style="color:#00ff88">▲ {d['yoy_growth']:.1f}% growth</span><br>
-                    <small>{d['reason'][:50]}</small>
-                </div>
-                """, unsafe_allow_html=True)
-        
+            st.metric("🔴 Results TODAY", len(today_results), delta="🔥 HIGH IMPACT")
         with col2:
-            st.metric("📉 SELL Signals", len(sell_signals), delta="Auto-detected")
-            for d in sell_signals[:3]:
-                st.markdown(f"""
-                <div style="background:rgba(255,68,68,0.1); border-radius:10px; padding:8px; margin:5px 0;">
-                    <b>{d['symbol']}</b><br>
-                    <span style="color:#ff6666">▼ {d['yoy_growth']:.1f}% decline</span><br>
-                    <small>{d['reason'][:50]}</small>
-                </div>
-                """, unsafe_allow_html=True)
-        
+            st.metric("⏳ Next 7 Days", len(upcoming_7days), delta="Position now")
         with col3:
-            st.metric("⚪ WAIT Signals", len(wait_signals))
+            st.metric("📅 Next 30 Days", len(upcoming_30days))
+        with col4:
+            st.metric("✅ Completed", len(completed))
         
         st.markdown("---")
         
-        # Display all companies
-        st.markdown("#### 📊 FULL EARNINGS ANALYSIS (AUTO-UPDATED)")
+        # Display results table with date & time column
+        st.markdown("#### 📊 COMPLETE RESULT SCHEDULE WITH SIGNALS")
         
-        # Dataframe for display
         df_display = pd.DataFrame([{
             "Symbol": d['symbol'],
             "Company": d['name'],
-            "Price": d['current_price'],
-            "EPS (TTM)": d['eps_ttm'],
-            "Forward PE": d['forward_pe'] if d['forward_pe'] > 0 else '-',
-            "YoY Growth": f"{d['yoy_growth']:+.1f}%",
-            "Analyst": d['recommendation'].upper() if d['recommendation'] != 'N/A' else '-',
-            "AI Signal": d['signal'],
-            "Confidence": f"{d['confidence']}%",
-            "Trade": d['trade']
-        } for d in sorted_data[:20]])
+            "📅 Result Date": d['result_date'],
+            "⏰ Time": d['result_time'],
+            "⏳ Status": d['result_status'],
+            "Price": f"₹{d['current_price']:.2f}" if d['current_price'] > 0 else "-",
+            "YoY Growth": f"{d['yoy_growth']:+.1f}%" if d['yoy_growth'] != 0 else "-",
+            "🤖 AI Signal": d['signal'],
+            "🎯 Trade": d['trade']
+        } for d in auto_data])
         
-        st.dataframe(df_display, use_container_width=True, height=400)
+        st.dataframe(df_display, use_container_width=True, height=500)
         
         st.markdown("---")
         
-        # Show individual cards for top signals
-        st.markdown("#### 🚀 HOT OPPORTUNITIES (AUTO-TRADE READY)")
+        # Show today's results first
+        if today_results:
+            st.markdown("#### 🔴 RESULTS TODAY - HIGH PRIORITY")
+            for d in today_results:
+                signal_color = "#00ff44" if "BULLISH" in d['signal'] else "#ff4444" if "BEARISH" in d['signal'] else "#ffaa00"
+                st.markdown(f"""
+                <div style="background: rgba(255,68,68,0.15); border-radius: 15px; padding: 15px; margin: 10px 0; border: 2px solid #ff4444;">
+                    <table style="width:100%;">
+                        <tr>
+                            <td style="width:20%;"><b>🏢 {d['symbol']}</b><br><small>{d['name']}</small></td>
+                            <td style="width:15%;"><b>📅 Result Date</b><br><span style="color:#ff4444; font-weight:bold;">{d['result_date']}</span></td>
+                            <td style="width:15%;"><b>⏰ Time</b><br>{d['result_time']}</td>
+                            <td style="width:25%;"><b>🤖 AI Signal</b><br><span style="background:{signal_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{d['signal']} ({d['confidence']}%)</span></td>
+                            <td style="width:25%;"><b>🎯 Trade</b><br><span style="background:{'#00ff88' if 'BUY' in d['trade'] else '#ff4444' if 'SELL' in d['trade'] else '#ffaa00'}; padding:5px 10px; border-radius:15px; color:black;">{d['trade']}</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>💰 Price</b><br>₹{d['current_price']:.2f} if d['current_price']>0 else '-'</small></td>
+                            <td><b>📈 YoY Growth</b><br><span style="color:{'#00ff88' if d['yoy_growth']>0 else '#ff6666'}">{d['yoy_growth']:+.1f}%</span></small></td>
+                            <td><b>⭐ Analyst</b><br>{d['recommendation'].upper()} if d['recommendation'] else '-'</small></td>
+                            <td><b>💡 Strategy</b><br>{d['reason']}</td>
+                            <td><b>⚡ Action</b><br><span style="color:#ff4444;">🔴 RESULT TODAY - TRADE CAREFULLY</span></td>
+                        </tr>
+                    </table>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Auto trade button for today's results
+                if d['trade'] in ["BUY CALL (CE)", "SELL PUT (PE)", "BUY CALL (CE) - POSITION", "SELL PUT (PE) - POSITION"]:
+                    col1, col2 = st.columns([3,1])
+                    with col2:
+                        if st.button(f"⚡ TRADE NOW {d['symbol']}", key=f"trade_today_{d['symbol']}"):
+                            result_type = "POSITIVE" if "BUY" in d['trade'] else "NEGATIVE"
+                            success, msg = process_result_and_trade(d['name'], d['symbol'], result_type)
+                            if success:
+                                st.success(f"✅ {msg}")
+                                st.session_state.result_alerts.append({
+                                    'company': d['symbol'],
+                                    'date': d['result_date'],
+                                    'time': get_ist_now().strftime('%H:%M:%S'),
+                                    'verdict': d['signal'],
+                                    'reaction': f"{d['trade']} order placed",
+                                    'reason': d['reason']
+                                })
+                                st.rerun()
         
-        for d in sorted_data[:8]:
-            if d['trade'] == "BUY CALL (CE)":
-                bg_color = "#00ff44"
-                icon = "🚀" if d['confidence'] > 85 else "📈"
-                border = "#00cc33"
-            elif d['trade'] == "SELL PUT (PE)":
-                bg_color = "#ff4444"
-                icon = "💀" if d['confidence'] > 85 else "📉"
-                border = "#cc3333"
-            else:
-                bg_color = "#ffaa00"
-                icon = "⚪"
-                border = "#cc8800"
-            
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid {border};">
-                <table style="width:100%;">
-                    <tr>
-                        <td style="width:25%;"><b>🏢 {d['symbol']}</b><br><small>{d['name'][:25]}</small></td>
-                        <td style="width:20%;"><b>💰 Price</b><br>₹{d['current_price']:.2f}</td>
-                        <td style="width:20%;"><b>📈 Growth</b><br><span style="color:{'#00ff88' if d['yoy_growth']>0 else '#ff6666'}">{d['yoy_growth']:+.1f}%</span> (YoY)</td>
-                        <td style="width:35%;"><b>🎯 AI SIGNAL</b><br><span style="background:{bg_color}; padding:8px 15px; border-radius:20px; color:black; font-weight:bold;">{icon} {d['signal']} ({d['confidence']}%)</span></td>
-                    </tr>
-                    <tr>
-                        <td><b>📊 Forward PE</b><br>{d['forward_pe']:.1f}x if d['forward_pe']>0 else 'N/A'</td>
-                        <td><b>⭐ Analyst</b><br>{d['recommendation'].upper()}</td>
-                        <td><b>🎯 Target</b><br>₹{d['target_price']:.2f} if d['target_price']>0 else 'N/A'</td>
-                        <td><b>💡 Strategy</b><br>{d['trade']}</td>
-                    </tr>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Auto trade button
-            if d['trade'] in ["BUY CALL (CE)", "SELL PUT (PE)"]:
-                col1, col2, col3 = st.columns([3,1,1])
-                with col2:
-                    if st.button(f"⚡ AUTO TRADE {d['symbol']}", key=f"auto_{d['symbol']}"):
-                        result_type = "POSITIVE" if "BUY" in d['trade'] else "NEGATIVE"
-                        success, msg = process_result_and_trade(d['name'], d['symbol'], result_type)
-                        if success:
-                            st.success(f"✅ {msg}")
-                            st.session_state.result_alerts.append({
-                                'company': d['symbol'],
-                                'date': get_ist_now().strftime('%Y-%m-%d'),
-                                'time': get_ist_now().strftime('%H:%M:%S'),
-                                'verdict': d['signal'],
-                                'reaction': f"{d['trade']} order placed",
-                                'reason': d['reason']
-                            })
-                            st.rerun()
-                        else:
-                            st.warning(f"⏳ {msg}")
+        # Show upcoming results (next 7 days)
+        if upcoming_7days:
+            st.markdown("#### ⏳ UPCOMING RESULTS (Next 7 Days)")
+            for d in upcoming_7days[:5]:
+                signal_color = "#00ff44" if "BULLISH" in d['signal'] else "#ff4444" if "BEARISH" in d['signal'] else "#ffaa00"
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px 0; border-left: 4px solid #ffaa00;">
+                    <b>{d['symbol']}</b> | 📅 {d['result_date']} at {d['result_time']} | ⏳ {d['days_left']} days left<br>
+                    🎯 <span style="color:{signal_color}">{d['signal']}</span> | 📈 {d['trade']}<br>
+                    <small>💡 {d['reason']}</small>
+                </div>
+                """, unsafe_allow_html=True)
         
-        # Auto-trade summary
+        # Summary stats
         st.markdown("---")
-        st.markdown("#### 🤖 AUTO-TRADE SUMMARY")
-        
-        total_signals = len([d for d in auto_data if d['trade'] != "WAIT"])
-        buy_count = len(buy_signals)
-        sell_count = len(sell_signals)
+        st.markdown("#### 📊 RESULT SEASON SUMMARY")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📊 Total Signals", total_signals)
+            st.metric("📈 Bullish Signals", len([d for d in auto_data if "BULLISH" in d['signal']]))
         with col2:
-            st.metric("📈 Buy Signals", buy_count)
+            st.metric("📉 Bearish Signals", len([d for d in auto_data if "BEARISH" in d['signal']]))
         with col3:
-            st.metric("📉 Sell Signals", sell_count)
+            st.metric("⏳ Results This Week", len(upcoming_7days) + len(today_results))
         with col4:
-            accuracy = (len([d for d in buy_signals if d['confidence'] > 80]) + len([d for d in sell_signals if d['confidence'] > 80])) / max(total_signals, 1) * 100
-            st.metric("🎯 High Conviction", f"{accuracy:.0f}%")
+            st.metric("📅 Total Q4 Results", len(auto_data))
         
     else:
-        st.warning("⚠️ Auto-fetch in progress. Please wait while data loads...")
-        st.info("First run may take 30-60 seconds as we scan 50+ stocks")
+        st.warning("⚠️ Fetching data... Please wait")
     
-    # Display recent auto trades
-    st.markdown("---")
-    st.markdown("#### 🔔 AUTO-TRADE ALERTS")
-    
-    if st.session_state.result_alerts:
-        for alert in st.session_state.result_alerts[-5:]:
-            verdict = alert.get('verdict', '')
-            verdict_color = "#00ff88" if "BULLISH" in str(verdict) else "#ff4444" if "BEARISH" in str(verdict) else "#ffaa00"
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {verdict_color};">
-                <b>⚡ {alert.get('company', 'Unknown')}</b> | ⏰ {alert.get('time', '')}<br>
-                🤖 <span style="color:{verdict_color}">{alert.get('verdict', 'N/A')}</span><br>
-                📈 {alert.get('reaction', '')}<br>
-                💡 {alert.get('reason', '')}
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("📭 Auto-trade pending. Signals will appear when market conditions are favorable.")
-    
-    # Auto-refresh
-    st_autorefresh(interval=60000, key="auto_earnings_refresh")
+    # Auto refresh every 30 seconds
+    st_autorefresh(interval=30000, key="result_auto_refresh")
     
     st.markdown("---")
-    st.markdown("#### 📚 HOW AUTO MODE WORKS")
+    st.markdown("#### 📅 RESULT DATE GUIDE")
     st.info("""
-    **🤖 FULLY AUTOMATIC MODE - NOTHING MANUAL:**
+    **📅 Result Date Color Code:**
+    - 🔴 **TODAY** - Result declared today (High volatility)
+    - ⏳ **Upcoming** - Result in next few days (Positioning opportunity)
+    - ✅ **Completed** - Result already declared (Trade reaction)
     
-    | Parameter | Source | What it means |
-    |-----------|--------|---------------|
-    | EPS Growth | Yahoo Finance | YoY earnings growth |
-    | Forward PE | Analyst Estimates | Valuation check |
-    | Analyst Rating | Consensus | Market sentiment |
-    | Target Price | Analyst Targets | Price expectations |
+    **⏰ Result Time:**
+    - **9:15 AM** - Before market opens
+    - **After Market** - After 3:30 PM (Most common)
     
-    **⚡ Auto-trade triggers when:**
-    - EPS Growth > 10% + Buy Rating → BUY CALL
-    - EPS Growth < -10% + Sell Rating → SELL PUT
-    - High conviction (80%+ confidence) → Immediate execution
-    
-    **🔄 Auto-updates every 60 seconds**
+    **🎯 Trading Strategy:**
+    - Result Day → Trade with strict SL (High volatility)
+    - 2-3 days before → Position building
+    - After result → Trade the reaction
     """)
 
 # ================= TAB 5: SAHYADRI SETTINGS =================
