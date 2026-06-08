@@ -1557,91 +1557,83 @@ with tab3:
         if important_news:
             voice_alert(f"Important news: {important_news[0]['sentiment']} sentiment detected. {important_news[0]['title'][:100]}")
 
-# ================= TAB 4: OVI RESULTS (AUTO - WITH RESULT DATE & TIME) =================
+# ================= TAB 4: OVI RESULTS (ONLY TODAY + NEXT 2 DAYS) =================
 with tab4:
-    st.markdown("### 📈 OVI RESULTS - AUTO Q4 FY26 MONITORING")
-    st.markdown("*Fully automatic earnings data with Result Date & Time tracking*")
+    st.markdown("### 📈 OVI RESULTS - Q4 FY26 MONITORING")
+    st.markdown("*Showing ONLY Today's + Next 2 Days Results*")
     
     st.markdown("---")
     
     # Result schedule database (Q4 FY26 expected dates)
     RESULT_SCHEDULE = {
-        # May 2026 Results
-        "RELIANCE": {"date": "14 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "TCS": {"date": "16 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "INFY": {"date": "16 May 2026", "time": "9:15 AM", "quarter": "Q4 FY26"},
-        "HDFCBANK": {"date": "15 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ICICIBANK": {"date": "18 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "SBIN": {"date": "20 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "BHARTIARTL": {"date": "19 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ITC": {"date": "21 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "HINDUNILVR": {"date": "22 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "AXISBANK": {"date": "23 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "KOTAKBANK": {"date": "25 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "LT": {"date": "24 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "SUNPHARMA": {"date": "26 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "BAJFINANCE": {"date": "27 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "TATAMOTORS": {"date": "28 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "MARUTI": {"date": "29 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "WIPRO": {"date": "30 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "HCLTECH": {"date": "31 May 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "TECHM": {"date": "01 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ONGC": {"date": "02 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "NTPC": {"date": "03 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "POWERGRID": {"date": "04 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "DMART": {"date": "05 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "TITAN": {"date": "06 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ASIANPAINT": {"date": "07 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        # आजचे निकाल (8 June 2026)
         "BRITANNIA": {"date": "08 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "CIPLA": {"date": "09 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "DRREDDY": {"date": "10 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "M&M": {"date": "11 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "NESTLEIND": {"date": "12 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "HAL": {"date": "15 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "BEL": {"date": "16 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "BPCL": {"date": "17 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ZYDUSLIFE": {"date": "18 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "MANKIND": {"date": "19 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "PIIND": {"date": "20 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "COALINDIA": {"date": "21 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "GRASIM": {"date": "22 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ADANIPORTS": {"date": "23 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ADANIENT": {"date": "24 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
-        "ULTRACEMCO": {"date": "25 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "CIPLA": {"date": "08 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        
+        # उद्याचे निकाल (9 June 2026)
+        "DRREDDY": {"date": "09 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        "M&M": {"date": "09 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        
+        # परवाचे निकाल (10 June 2026)
+        "NESTLEIND": {"date": "10 Jun 2026", "time": "After Market", "quarter": "Q4 FY26"},
+        
+        # हे सगळे झालेले निकाल - काढून टाकले
+        # "RELIANCE", "TCS", "INFY" etc - पूर्वीचे झालेले
     }
     
-    def get_result_status(result_date_str):
-        """Calculate days remaining or past for result"""
-        try:
-            # Parse date
-            from datetime import datetime
-            current_date = get_ist_now()
-            
-            # Convert "14 May 2026" to datetime
-            result_datetime = datetime.strptime(result_date_str, "%d %b %Y")
-            result_datetime = result_datetime.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
-            
-            days_diff = (result_datetime - current_date.replace(tzinfo=None)).days
-            
-            if days_diff > 0:
-                return f"⏳ {days_diff} days remaining", "upcoming", days_diff
-            elif days_diff == 0:
-                return "🔴 TODAY", "today", 0
-            else:
-                return f"✅ {abs(days_diff)} days ago", "past", days_diff
-        except:
-            return "📅 Date TBA", "unknown", 999
+    # Dynamic watchlist - फक्त upcoming results चे
+    def get_upcoming_results():
+        """Get only today's and next 2 days results"""
+        from datetime import datetime, timedelta
+        
+        current_date = get_ist_now().date()
+        today_str = current_date.strftime("%d %b %Y")
+        tomorrow_str = (current_date + timedelta(days=1)).strftime("%d %b %Y")
+        dayafter_str = (current_date + timedelta(days=2)).strftime("%d %b %Y")
+        
+        upcoming_symbols = []
+        for symbol, info in RESULT_SCHEDULE.items():
+            result_date = info.get("date", "")
+            if result_date in [today_str, tomorrow_str, dayafter_str]:
+                upcoming_symbols.append(symbol)
+        
+        return upcoming_symbols
     
-    # Auto fetch earnings function
+    def get_result_status(result_date_str):
+        """Check if result is today, tomorrow, or day after"""
+        try:
+            from datetime import datetime, timedelta
+            current_date = get_ist_now().date()
+            result_datetime = datetime.strptime(result_date_str, "%d %b %Y").date()
+            
+            days_diff = (result_datetime - current_date).days
+            
+            if days_diff == 0:
+                return "🔴 TODAY", "today"
+            elif days_diff == 1:
+                return "⏳ TOMORROW", "tomorrow"
+            elif days_diff == 2:
+                return "📅 DAY AFTER", "dayafter"
+            else:
+                return None, None  # Filter out
+        except:
+            return None, None
+    
+    # Auto fetch earnings function - फक्त upcoming results साठी
     def get_auto_earnings_data():
-        """Automatically fetch earnings data from Yahoo Finance"""
+        """Automatically fetch earnings data ONLY for today + next 2 days"""
         earnings_data = []
         
-        auto_watchlist = list(RESULT_SCHEDULE.keys())
+        upcoming_symbols = get_upcoming_results()
         
-        progress_bar = st.progress(0, text="🔄 Scanning for earnings opportunities...")
+        if not upcoming_symbols:
+            return []
         
-        for i, symbol in enumerate(auto_watchlist):
+        # Simple progress without blinking
+        status_text = st.empty()
+        status_text.info(f"📊 Loading {len(upcoming_symbols)} upcoming results...")
+        
+        for i, symbol in enumerate(upcoming_symbols):
             try:
                 ticker = yf.Ticker(f"{symbol}.NS")
                 
@@ -1652,7 +1644,10 @@ with tab4:
                 result_info = RESULT_SCHEDULE.get(symbol, {})
                 result_date = result_info.get("date", "TBA")
                 result_time = result_info.get("time", "After Market")
-                status_text, status_type, days_left = get_result_status(result_date)
+                status_text_display, status_type = get_result_status(result_date)
+                
+                if status_text_display is None:
+                    continue  # Skip if not in next 3 days
                 
                 # Calculate earnings metrics
                 eps_ttm = info.get('trailingEps', 0)
@@ -1675,165 +1670,147 @@ with tab4:
                     if prev > 0:
                         yoy_growth = ((latest - prev) / prev) * 100
                 
-                # Generate signal
+                # Generate signal based on days left
                 signal = "NEUTRAL"
                 confidence = 50
                 trade = "WAIT"
                 reason = ""
                 
-                # Adjust signal based on days left to result
                 if status_type == "today":
                     # Result day - high volatility expected
-                    if yoy_growth > 15:
-                        signal = "STRONG BULLISH"
-                        confidence = 90
-                        trade = "BUY CALL (CE) - RESULT DAY"
-                        reason = f"Result Today! High growth: {yoy_growth:.1f}%"
-                    elif yoy_growth < -15:
-                        signal = "STRONG BEARISH"
-                        confidence = 90
-                        trade = "SELL PUT (PE) - RESULT DAY"
-                        reason = f"Result Today! Negative growth: {yoy_growth:.1f}%"
-                elif status_type == "upcoming" and days_left <= 7:
-                    # Result in next 7 days - accumulate
                     if yoy_growth > 10:
-                        signal = "BULLISH"
-                        confidence = 75
-                        trade = "BUY CALL (CE) - POSITION"
-                        reason = f"Result in {days_left} days | Growth: {yoy_growth:.1f}%"
-                    elif yoy_growth < -10:
-                        signal = "BEARISH"
-                        confidence = 75
-                        trade = "SELL PUT (PE) - POSITION"
-                        reason = f"Result in {days_left} days | Decline: {yoy_growth:.1f}%"
-                else:
-                    # Normal analysis
-                    if yoy_growth > 20 and recommendation in ['buy', 'strong_buy']:
                         signal = "STRONG BULLISH"
-                        confidence = 85
-                        trade = "BUY CALL (CE)"
-                        reason = f"YoY Growth: {yoy_growth:.1f}%"
-                    elif yoy_growth > 10:
-                        signal = "BULLISH"
-                        confidence = 70
-                        trade = "BUY CALL (CE)"
-                        reason = f"YoY Growth: {yoy_growth:.1f}%"
-                    elif yoy_growth < -20:
-                        signal = "STRONG BEARISH"
-                        confidence = 85
-                        trade = "SELL PUT (PE)"
-                        reason = f"Decline: {yoy_growth:.1f}%"
+                        confidence = 90
+                        trade = "🔥 BUY CALL (CE)"
+                        reason = f"Result TODAY! High growth: {yoy_growth:.1f}%"
                     elif yoy_growth < -10:
+                        signal = "STRONG BEARISH"
+                        confidence = 90
+                        trade = "🔥 SELL PUT (PE)"
+                        reason = f"Result TODAY! Negative growth: {yoy_growth:.1f}%"
+                    else:
+                        signal = "HIGH IMPACT"
+                        confidence = 80
+                        trade = "⚠️ STAY READY"
+                        reason = f"Result TODAY - Be ready for volatility"
+                elif status_type == "tomorrow":
+                    if yoy_growth > 15:
+                        signal = "BULLISH"
+                        confidence = 80
+                        trade = "📈 BUY CALL (CE)"
+                        reason = f"Result TOMORROW | Growth: {yoy_growth:.1f}%"
+                    elif yoy_growth < -15:
                         signal = "BEARISH"
-                        confidence = 70
-                        trade = "SELL PUT (PE)"
-                        reason = f"Decline: {yoy_growth:.1f}%"
+                        confidence = 80
+                        trade = "📉 SELL PUT (PE)"
+                        reason = f"Result TOMORROW | Decline: {yoy_growth:.1f}%"
+                    else:
+                        signal = "NEUTRAL"
+                        confidence = 60
+                        trade = "👀 WATCH"
+                        reason = f"Result tomorrow - Monitor"
+                else:  # dayafter
+                    if yoy_growth > 20:
+                        signal = "BULLISH"
+                        confidence = 75
+                        trade = "📈 BUY CALL (CE)"
+                        reason = f"Result in 2 days | Growth: {yoy_growth:.1f}%"
+                    elif yoy_growth < -20:
+                        signal = "BEARISH"
+                        confidence = 75
+                        trade = "📉 SELL PUT (PE)"
+                        reason = f"Result in 2 days | Decline: {yoy_growth:.1f}%"
+                    else:
+                        signal = "NEUTRAL"
+                        confidence = 50
+                        trade = "👀 WATCH"
+                        reason = "Position building opportunity"
                 
                 earnings_data.append({
                     'symbol': symbol,
                     'name': info.get('longName', symbol)[:25],
                     'current_price': current_price,
-                    'eps_ttm': eps_ttm,
                     'forward_pe': forward_pe,
                     'yoy_growth': yoy_growth,
                     'recommendation': recommendation,
                     'result_date': result_date,
                     'result_time': result_time,
-                    'result_status': status_text,
-                    'days_left': days_left,
+                    'status': status_text_display,
+                    'status_type': status_type,
                     'signal': signal,
                     'confidence': confidence,
                     'trade': trade,
                     'reason': reason
                 })
                 
-                progress_bar.progress((i + 1) / len(auto_watchlist), text=f"✅ {symbol} - Result: {result_date}")
+                # Update status without blinking
+                status_text.info(f"📊 Loaded {i+1}/{len(upcoming_symbols)}: {symbol}")
                 
             except Exception as e:
                 continue
         
-        progress_bar.empty()
+        status_text.empty()
         return earnings_data
     
+    # Sort by date (today first, then tomorrow, then day after)
+    def sort_by_date(data):
+        order = {"today": 0, "tomorrow": 1, "dayafter": 2}
+        return sorted(data, key=lambda x: order.get(x.get('status_type', 'dayafter'), 3))
+    
     # Fetch data
-    with st.spinner("🔄 Fetching live earnings data with result schedules..."):
-        auto_data = get_auto_earnings_data()
+    auto_data = get_auto_earnings_data()
     
     if auto_data:
-        st.success(f"✅ Auto-fetched data for {len(auto_data)} companies with result dates")
-        st.markdown("---")
+        # Sort data
+        auto_data = sort_by_date(auto_data)
         
         # Summary cards
-        st.markdown("#### 📅 RESULT CALENDAR SUMMARY")
+        st.markdown("#### 📅 UPCOMING RESULTS CALENDAR")
         
-        col1, col2, col3, col4 = st.columns(4)
+        today_count = len([d for d in auto_data if d['status_type'] == 'today'])
+        tomorrow_count = len([d for d in auto_data if d['status_type'] == 'tomorrow'])
+        dayafter_count = len([d for d in auto_data if d['status_type'] == 'dayafter'])
         
-        today_results = [d for d in auto_data if "TODAY" in d['result_status']]
-        upcoming_7days = [d for d in auto_data if 0 < d.get('days_left', 999) <= 7]
-        upcoming_30days = [d for d in auto_data if 7 < d.get('days_left', 999) <= 30]
-        completed = [d for d in auto_data if "ago" in d['result_status']]
-        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("🔴 Results TODAY", len(today_results), delta="🔥 HIGH IMPACT")
+            st.metric("🔴 TODAY", today_count, delta="🔥 RESULT DAY")
         with col2:
-            st.metric("⏳ Next 7 Days", len(upcoming_7days), delta="Position now")
+            st.metric("⏳ TOMORROW", tomorrow_count)
         with col3:
-            st.metric("📅 Next 30 Days", len(upcoming_30days))
-        with col4:
-            st.metric("✅ Completed", len(completed))
+            st.metric("📅 DAY AFTER", dayafter_count)
         
         st.markdown("---")
         
-        # Display results table with date & time column
-        st.markdown("#### 📊 COMPLETE RESULT SCHEDULE WITH SIGNALS")
-        
-        df_display = pd.DataFrame([{
-            "Symbol": d['symbol'],
-            "Company": d['name'],
-            "📅 Result Date": d['result_date'],
-            "⏰ Time": d['result_time'],
-            "⏳ Status": d['result_status'],
-            "Price": f"₹{d['current_price']:.2f}" if d['current_price'] > 0 else "-",
-            "YoY Growth": f"{d['yoy_growth']:+.1f}%" if d['yoy_growth'] != 0 else "-",
-            "🤖 AI Signal": d['signal'],
-            "🎯 Trade": d['trade']
-        } for d in auto_data])
-        
-        st.dataframe(df_display, use_container_width=True, height=500)
-        
-        st.markdown("---")
-        
-        # Show today's results first
+        # TODAY'S RESULTS (Highest Priority)
+        today_results = [d for d in auto_data if d['status_type'] == 'today']
         if today_results:
-            st.markdown("#### 🔴 RESULTS TODAY - HIGH PRIORITY")
+            st.markdown("### 🔴 TODAY'S RESULTS - HIGH IMPACT")
             for d in today_results:
-                signal_color = "#00ff44" if "BULLISH" in d['signal'] else "#ff4444" if "BEARISH" in d['signal'] else "#ffaa00"
+                signal_color = "#ff4444"  # Red for high impact
                 st.markdown(f"""
-                <div style="background: rgba(255,68,68,0.15); border-radius: 15px; padding: 15px; margin: 10px 0; border: 2px solid #ff4444;">
+                <div style="background: rgba(255,68,68,0.2); border-radius: 15px; padding: 15px; margin: 10px 0; border: 2px solid #ff4444;">
                     <table style="width:100%;">
                         <tr>
-                            <td style="width:20%;"><b>🏢 {d['symbol']}</b><br><small>{d['name']}</small></td>
-                            <td style="width:15%;"><b>📅 Result Date</b><br><span style="color:#ff4444; font-weight:bold;">{d['result_date']}</span></td>
-                            <td style="width:15%;"><b>⏰ Time</b><br>{d['result_time']}</td>
-                            <td style="width:25%;"><b>🤖 AI Signal</b><br><span style="background:{signal_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{d['signal']} ({d['confidence']}%)</span></td>
-                            <td style="width:25%;"><b>🎯 Trade</b><br><span style="background:{'#00ff88' if 'BUY' in d['trade'] else '#ff4444' if 'SELL' in d['trade'] else '#ffaa00'}; padding:5px 10px; border-radius:15px; color:black;">{d['trade']}</span></td>
+                            <td style="width:25%;"><b>🏢 {d['symbol']}</b><br><small>{d['name']}</small></td>
+                            <td style="width:20%;"><b>📅 Result</b><br><span style="color:#ff4444; font-weight:bold;">{d['result_date']}</span>@{d['result_time']}</td>
+                            <td style="width:25%;"><b>🎯 TRADE SIGNAL</b><br><span style="background:#ff4444; padding:8px 15px; border-radius:20px; color:white; font-weight:bold;">🔥 {d['trade']}</span></td>
+                            <td style="width:30%;"><b>💡 Strategy</b><br>{d['reason']}</td>
                         </tr>
                         <tr>
                             <td><b>💰 Price</b><br>₹{d['current_price']:.2f} if d['current_price']>0 else '-'</small></td>
                             <td><b>📈 YoY Growth</b><br><span style="color:{'#00ff88' if d['yoy_growth']>0 else '#ff6666'}">{d['yoy_growth']:+.1f}%</span></small></td>
-                            <td><b>⭐ Analyst</b><br>{d['recommendation'].upper()} if d['recommendation'] else '-'</small></td>
-                            <td><b>💡 Strategy</b><br>{d['reason']}</td>
-                            <td><b>⚡ Action</b><br><span style="color:#ff4444;">🔴 RESULT TODAY - TRADE CAREFULLY</span></td>
+                            <td><b>⭐ Analyst</b><br>{d['recommendation'].upper() if d['recommendation'] else '-'}</small></td>
+                            <td><b>⚡ Priority</b><br><span style="color:#ff4444;">🔴 URGENT - Result Today</span></td>
                         </tr>
                     </table>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Auto trade button for today's results
-                if d['trade'] in ["BUY CALL (CE)", "SELL PUT (PE)", "BUY CALL (CE) - POSITION", "SELL PUT (PE) - POSITION"]:
+                # Auto trade button
+                if "BUY" in d['trade'] or "SELL" in d['trade']:
                     col1, col2 = st.columns([3,1])
                     with col2:
-                        if st.button(f"⚡ TRADE NOW {d['symbol']}", key=f"trade_today_{d['symbol']}"):
+                        if st.button(f"⚡ TRADE {d['symbol']}", key=f"trade_today_{d['symbol']}"):
                             result_type = "POSITIVE" if "BUY" in d['trade'] else "NEGATIVE"
                             success, msg = process_result_and_trade(d['name'], d['symbol'], result_type)
                             if success:
@@ -1848,55 +1825,78 @@ with tab4:
                                 })
                                 st.rerun()
         
-        # Show upcoming results (next 7 days)
-        if upcoming_7days:
-            st.markdown("#### ⏳ UPCOMING RESULTS (Next 7 Days)")
-            for d in upcoming_7days[:5]:
-                signal_color = "#00ff44" if "BULLISH" in d['signal'] else "#ff4444" if "BEARISH" in d['signal'] else "#ffaa00"
+        # TOMORROW'S RESULTS
+        tomorrow_results = [d for d in auto_data if d['status_type'] == 'tomorrow']
+        if tomorrow_results:
+            st.markdown("### ⏳ TOMORROW'S RESULTS")
+            for d in tomorrow_results:
                 st.markdown(f"""
-                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px 0; border-left: 4px solid #ffaa00;">
-                    <b>{d['symbol']}</b> | 📅 {d['result_date']} at {d['result_time']} | ⏳ {d['days_left']} days left<br>
-                    🎯 <span style="color:{signal_color}">{d['signal']}</span> | 📈 {d['trade']}<br>
-                    <small>💡 {d['reason']}</small>
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 8px 0; border-left: 4px solid #ffaa00;">
+                    <table style="width:100%;">
+                        <tr>
+                            <td style="width:25%;"><b>🏢 {d['symbol']}</b><br><small>{d['name'][:20]}</small></td>
+                            <td style="width:20%;">📅 {d['result_date']} @ {d['result_time']}</small></td>
+                            <td style="width:25%;"><span style="background:{'#00ff88' if 'BUY' in d['trade'] else '#ff6666' if 'SELL' in d['trade'] else '#ffaa00'}; padding:5px 10px; border-radius:15px; color:black;">{d['trade']}</span></small></td>
+                            <td style="width:30%;"><small>{d['reason']}</small></td>
+                        </tr>
+                    </table>
                 </div>
                 """, unsafe_allow_html=True)
         
-        # Summary stats
-        st.markdown("---")
-        st.markdown("#### 📊 RESULT SEASON SUMMARY")
+        # DAY AFTER TOMORROW'S RESULTS
+        dayafter_results = [d for d in auto_data if d['status_type'] == 'dayafter']
+        if dayafter_results:
+            st.markdown("### 📅 DAY AFTER TOMORROW")
+            for d in dayafter_results:
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.2); border-radius: 15px; padding: 10px; margin: 5px 0; border-left: 4px solid #00b4d8;">
+                    <b>{d['symbol']}</b> | 📅 {d['result_date']} | 📈 YoY: {d['yoy_growth']:+.1f}% | {d['trade']}
+                </div>
+                """, unsafe_allow_html=True)
         
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("📈 Bullish Signals", len([d for d in auto_data if "BULLISH" in d['signal']]))
-        with col2:
-            st.metric("📉 Bearish Signals", len([d for d in auto_data if "BEARISH" in d['signal']]))
-        with col3:
-            st.metric("⏳ Results This Week", len(upcoming_7days) + len(today_results))
-        with col4:
-            st.metric("📅 Total Q4 Results", len(auto_data))
+        # No refresh/blinking - remove auto refresh
+        # st_autorefresh removed to prevent blinking
         
     else:
-        st.warning("⚠️ Fetching data... Please wait")
+        st.info("📭 No results scheduled for today or next 2 days")
+        st.markdown("""
+        ### 📅 What to expect:
+        - **TODAY's results** will appear here automatically
+        - Results are usually declared **After Market (3:30 PM)**
+        - Check back during earnings season
+        
+        ### 🔔 Next expected results:
+        - BRITANNIA - Today (8 June)
+        - CIPLA - Today (8 June)
+        - DR REDDY - Tomorrow (9 June)
+        - M&M - Tomorrow (9 June)
+        """)
     
-    # Auto refresh every 30 seconds
-    st_autorefresh(interval=30000, key="result_auto_refresh")
+    # Recent alerts (without auto refresh)
+    st.markdown("---")
+    st.markdown("#### 🔔 RECENT TRADE ALERTS")
+    
+    if st.session_state.result_alerts:
+        for alert in st.session_state.result_alerts[-5:]:
+            verdict = alert.get('verdict', '')
+            verdict_color = "#00ff88" if "BULLISH" in str(verdict) else "#ff4444" if "BEARISH" in str(verdict) else "#ffaa00"
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 8px; margin: 5px 0;">
+                <b>⚡ {alert.get('company', 'Unknown')}</b> | {alert.get('time', '')}<br>
+                📈 {alert.get('reaction', '')}
+            </div>
+            """, unsafe_allow_html=True)
     
     st.markdown("---")
-    st.markdown("#### 📅 RESULT DATE GUIDE")
+    st.markdown("### 📅 RESULT DATE LEGEND")
     st.info("""
-    **📅 Result Date Color Code:**
-    - 🔴 **TODAY** - Result declared today (High volatility)
-    - ⏳ **Upcoming** - Result in next few days (Positioning opportunity)
-    - ✅ **Completed** - Result already declared (Trade reaction)
+    | Color | Meaning | Action |
+    |-------|---------|--------|
+    | 🔴 **TODAY** | Result declared today | HIGH ALERT - Trade with strict SL |
+    | ⏳ **TOMORROW** | Result tomorrow | Position building opportunity |
+    | 📅 **DAY AFTER** | Result in 2 days | Accumulate slowly |
     
-    **⏰ Result Time:**
-    - **9:15 AM** - Before market opens
-    - **After Market** - After 3:30 PM (Most common)
-    
-    **🎯 Trading Strategy:**
-    - Result Day → Trade with strict SL (High volatility)
-    - 2-3 days before → Position building
-    - After result → Trade the reaction
+    **⏰ Result Time:** Most results are declared **After Market (3:30 PM)**
     """)
 
 # ================= TAB 5: SAHYADRI SETTINGS =================
