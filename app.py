@@ -126,6 +126,35 @@ def angel_one_login():
         
         # Login
         data = obj.generateSession(ANGEL_CLIENT_CODE, ANGEL_PASSWORD, totp)
+
+def angel_one_login():
+    """Connect to Angel One SmartAPI"""
+    try:
+        obj = SmartConnect(api_key=ANGEL_API_KEY)
+        totp = pyotp.TOTP(ANGEL_TOTP_SECRET).now()
+        data = obj.generateSession(ANGEL_CLIENT_CODE, ANGEL_PASSWORD, totp)
+        
+        if data.get('status'):
+            # ⭐🌟🌟 हा नवीन कोड येथे पेस्ट करा 🌟🌟🌟⭐
+            # refreshToken सेव्ह करा
+            refresh_token = data.get('data', {}).get('refreshToken')
+            if refresh_token:
+                st.session_state['angel_refresh_token'] = refresh_token
+                print(f"✅ Refresh Token Saved: {refresh_token[:20]}...")
+            
+            # Profile sync करा (हे Client ID लिंकिंगसाठी महत्त्वाचे आहे)
+            try:
+                profile = obj.getProfile(refresh_token)
+                if profile and profile.get('status'):
+                    print(f"✅ Profile Synced: {profile.get('data', {}).get('clientcode')}")
+            except Exception as profile_err:
+                print(f"Profile sync warning: {profile_err}")
+            
+            return obj, data
+        return None, None
+    except Exception as e:
+        print(f"Angel One login error: {e}")
+        return None, None
         
         if data.get('status'):
             return obj, data
