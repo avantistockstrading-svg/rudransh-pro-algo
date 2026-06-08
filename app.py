@@ -2746,32 +2746,216 @@ if st.session_state.algo_running and st.session_state.totp_verified:
     
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
-# ================= TEST ANGEL ONE CONNECTION =================
-with st.expander("🔧 TEST ANGEL ONE CONNECTION", expanded=True):
-    st.markdown("### Angel One Connection Test")
-    if st.button("🔐 TEST CONNECTION", use_container_width=True):
-        with st.spinner("Testing..."):
-            try:
-                from smartapi import SmartConnect
-                import pyotp
-                api_key = "7yyokKoC"
-                client_id = "S470211"
-                password = "1234"
-                totp_secret = "P5XCUTXRKXQNNATBO5JZYM6SPI"
-                totp = pyotp.TOTP(totp_secret)
-                current_totp = totp.now()
-                st.write(f"📱 Generated TOTP: `{current_totp}`")
-                st.write(f"⏰ Current Time: {get_ist_now().strftime('%H:%M:%S')}")
-                obj = SmartConnect(api_key=api_key)
-                data = obj.generateSession(client_id, password, current_totp)
-                st.write("---")
-                st.write("### Response:")
-                st.json(data)
-                if data.get('status'):
-                    st.success("✅ CONNECTION SUCCESSFUL!")
-                else:
-                    st.error(f"❌ Connection Failed!")
-                    st.write(f"**Error Code:** {data.get('errorcode')}")
-                    st.write(f"**Message:** {data.get('message')}")
-            except Exception as e:
-                st.error(f"Exception: {str(e)}")
+# ================= FII/DII DATA FUNCTIONS =================
+def get_fii_dii_data():
+    """Get FII/DII trading activity data"""
+    return {
+        "DII": {"buy": 16683.18, "sell": 11517.94, "net": 5165.24},
+        "FII": {"buy": 8842.08, "sell": 14397.75, "net": -5555.67},
+        "date": "08-Jun-2026"
+    }
+
+def get_market_outlook():
+    """Combined market outlook based on FII/DII, NIFTY trend, and Technicals"""
+    
+    fii_dii = get_fii_dii_data()
+    nifty_trend = get_nifty_trend()
+    nifty_signal, nifty_price, indicators = get_strict_signal("NIFTY", nifty_trend, "NEUTRAL")
+    
+    score = 0
+    reasons = []
+    
+    # FII/DII स्कोअर
+    total_net = fii_dii["FII"]["net"] + fii_dii["DII"]["net"]
+    
+    if total_net > 3000:
+        score += 3
+        reasons.append("✅ FII/DII Net +3000 Cr (Strong institutional buying)")
+    elif total_net > 1000:
+        score += 2
+        reasons.append("✅ FII/DII Net +1000 Cr (Moderate buying)")
+    elif total_net > 0:
+        score += 1
+        reasons.append("✅ FII/DII Net Positive (Light buying)")
+    elif total_net < -3000:
+        score -= 3
+        reasons.append("❌ FII/DII Net -3000 Cr (Strong selling)")
+    elif total_net < -1000:
+        score -= 2
+        reasons.append("❌ FII/DII Net -1000 Cr (Moderate selling)")
+    elif total_net < 0:
+        score -= 1
+        reasons.append("❌ FII/DII Net Negative (Light selling)")
+    else:
+        reasons.append("⚪ FII/DII Net Neutral")
+    
+    # NIFTY ट्रेंड स्कोअर
+    if nifty_trend == "POSITIVE":
+        score += 2
+        reasons.append("📈 NIFTY Trend: POSITIVE (Above 20 EMA)")
+    elif nifty_trend == "NEGATIVE":
+        score -= 2
+        reasons.append("📉 NIFTY Trend: NEGATIVE (Below 20 EMA)")
+    else:
+        reasons.append("➡️ NIFTY Trend: NEUTRAL")
+    
+    # Strict Signal स्कोअर
+    if nifty_signal == "BUY":
+        score += 3
+        reasons.append("🎯 STRICT SIGNAL: BUY")
+    elif nifty_signal == "SELL":
+        score -= 3
+        reasons.append("🎯 STRICT SIGNAL: SELL")
+    else:
+        reasons.append("⏳ STRICT SIGNAL: WAIT")
+    
+    # अंतिम निर्णय
+    if score >= 4:
+        outlook = "🚀 STRONG BULLISH"
+        outlook_color = "#00ff44"
+        action = "BUY CALL OPTIONS"
+        strategy = "खरेदीच्या संधी शोधा. TP1, TP2 वर पार्शियल बुकिंग करा."
+        levels = "Support: नुकतेच बनलेले Low | Resistance: आठवड्याचे High"
+    elif score >= 1:
+        outlook = "📈 BULLISH"
+        outlook_color = "#88ff88"
+        action = "BUY ON DIPS"
+        strategy = "किरकोळ दुरुस्तीमध्ये खरेदी करा. SL कडक ठेवा."
+        levels = "Support: 20 EMA | Resistance: पूर्वीचे High"
+    elif score <= -4:
+        outlook = "💀 STRONG BEARISH"
+        outlook_color = "#ff3333"
+        action = "SELL PUT OPTIONS"
+        strategy = "विक्रीच्या संधी शोधा. उठावात विक्री करा."
+        levels = "Resistance: 20 EMA | Support: पूर्वीचे Low"
+    elif score <= -1:
+        outlook = "📉 BEARISH"
+        outlook_color = "#ff6666"
+        action = "SELL ON RISE"
+        strategy = "उठावात विक्री करा. Long ट्रेड टाळा."
+        levels = "Resistance: नुकतेच बनलेले High | Support: आठवड्याचे Low"
+    else:
+        outlook = "➡️ SIDEWAYS / NEUTRAL"
+        outlook_color = "#ffaa00"
+        action = "WAIT & WATCH"
+        strategy = "स्पष्ट दिशा येईपर्यंत प्रतीक्षा करा."
+        levels = "Range: पूर्वीचे High ते पूर्वीचे Low"
+    
+    return {
+        "outlook": outlook,
+        "color": outlook_color,
+        "action": action,
+        "strategy": strategy,
+        "levels": levels,
+        "score": score,
+        "reasons": reasons,
+        "nifty_price": nifty_price,
+        "nifty_trend": nifty_trend,
+        "nifty_signal": nifty_signal,
+        "fii_net": fii_dii["FII"]["net"],
+        "dii_net": fii_dii["DII"]["net"],
+        "total_net": total_net,
+        "date": fii_dii["date"]
+    }
+
+def display_fii_dii():
+    """Display FII/DII data"""
+    data = get_fii_dii_data()
+    
+    st.markdown("---")
+    st.markdown("#### 🏦 FII / DII ACTIVITY")
+    st.markdown(f"*Date: {data['date']}*")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        dii = data["DII"]
+        net_color = "#00ff88" if dii["net"] > 0 else "#ff4444"
+        st.markdown(f"""
+        <div style="background: rgba(0,255,136,0.1); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #00ff88;">
+            <h3>🏦 DII</h3>
+            <p>Buy: ₹{dii['buy']:,.2f} Cr</p>
+            <p>Sell: ₹{dii['sell']:,.2f} Cr</p>
+            <p style="color:{net_color}; font-weight:bold;">Net: ₹{dii['net']:+,.2f} Cr</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        fii = data["FII"]
+        net_color = "#00ff88" if fii["net"] > 0 else "#ff4444"
+        st.markdown(f"""
+        <div style="background: rgba(255,68,68,0.1); border-radius: 15px; padding: 15px; text-align: center; border: 1px solid #ff4444;">
+            <h3>🌍 FII/FPI</h3>
+            <p>Buy: ₹{fii['buy']:,.2f} Cr</p>
+            <p>Sell: ₹{fii['sell']:,.2f} Cr</p>
+            <p style="color:{net_color}; font-weight:bold;">Net: ₹{fii['net']:+,.2f} Cr</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+def display_market_outlook_ui():
+    """Display Market Outlook"""
+    outlook = get_market_outlook()
+    
+    st.markdown("---")
+    st.markdown("## 🎯 MARKET OUTLOOK")
+    
+    st.markdown(f"""
+    <div style="background:{outlook['color']}22; border-radius: 20px; padding: 20px; text-align: center; border: 2px solid {outlook['color']};">
+        <h1 style="color:{outlook['color']};">{outlook['outlook']}</h1>
+        <h2>🎯 ACTION: {outlook['action']}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px;">
+            <h3>📋 STRATEGY</h3>
+            <p>{outlook['strategy']}</p>
+            <h3>📊 LEVELS</h3>
+            <p>{outlook['levels']}</p>
+            <h3>📈 NIFTY</h3>
+            <p>Price: {outlook['nifty_price']:.2f}<br>Trend: {outlook['nifty_trend']}<br>Signal: {outlook['nifty_signal']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        score_percent = 50 + (outlook['score'] * 5)
+        score_percent = max(0, min(100, score_percent))
+        
+        st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px;">
+            <h3>📈 SCORE</h3>
+            <div style="background:#333; border-radius:10px; height:30px;">
+                <div style="background:{outlook['color']}; width:{score_percent}%; border-radius:10px; height:30px; text-align:center; line-height:30px; color:black;">
+                    {outlook['score']}/10
+                </div>
+            </div>
+            <h3>🔍 REASONS</h3>
+            <ul>{"".join([f"<li>{r}</li>" for r in outlook['reasons'][:5]])}</ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Market Sentiment
+    total_net = outlook['total_net']
+    if total_net > 0:
+        sentiment = "🟢 BULLISH"
+        sentiment_color = "#00ff88"
+    elif total_net < 0:
+        sentiment = "🔴 BEARISH"
+        sentiment_color = "#ff4444"
+    else:
+        sentiment = "🟡 NEUTRAL"
+        sentiment_color = "#ffaa00"
+    
+    st.markdown(f"""
+    <div style="background:{sentiment_color}22; border-radius:15px; padding:15px; text-align:center;">
+        <h3 style="color:{sentiment_color};">MARKET SENTIMENT: {sentiment}</h3>
+        <p>FII Net: ₹{outlook['fii_net']:+,.2f} Cr | DII Net: ₹{outlook['dii_net']:+,.2f} Cr</p>
+        <small>Data Date: {outlook['date']}</small>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.caption("⚠️ स्वतःचे संशोधन करणे आवश्यक आहे.")
+
