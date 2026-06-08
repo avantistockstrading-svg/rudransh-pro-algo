@@ -175,26 +175,6 @@ st.markdown("""
         font-size: 10px;
         color: #00ff88;
     }
-    
-    .grid-4 {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
-    }
-    
-    .grid-3 {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-    }
-    
-    @media only screen and (max-width: 768px) {
-        h1 { font-size: 28px !important; }
-        h2 { font-size: 18px !important; }
-        .metric-value { font-size: 16px !important; }
-        .glass-card { padding: 12px !important; }
-        .grid-4 { grid-template-columns: repeat(2, 1fr); }
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -605,7 +585,7 @@ with col2:
     """, unsafe_allow_html=True)
 
 with col3:
-    st.markdown(f"""
+    st.markdown("""
     <div class="glass-card" style="text-align: center;">
         <div style="font-size: 11px; color: #94a3b8;">RECOMMENDATION</div>
         <div style="font-size: 24px; color: #00ff88; font-weight: bold;">BUY ON DIPS</div>
@@ -625,92 +605,92 @@ col1, col2, col3, col4 = st.columns(4)
 factors = sentiment['factors']
 
 with col1:
+    val = factors['Global Markets']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>🌍 GLOBAL</div>
         <div class="factor-weight">15%</div>
-        <div style="color: {'#00ff44' if factors['Global Markets'] > 0 else '#ff4444' if factors['Global Markets'] < 0 else '#ffaa00'}">
-            {factors['Global Markets']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
+    val = factors['Smart Money']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>💰 SMART MONEY</div>
         <div class="factor-weight">20%</div>
-        <div style="color: {'#00ff44' if factors['Smart Money'] > 0 else '#ff4444' if factors['Smart Money'] < 0 else '#ffaa00'}">
-            {factors['Smart Money']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
+    val = factors['Options Chain']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>📊 OPTIONS</div>
         <div class="factor-weight">25%</div>
-        <div style="color: {'#00ff44' if factors['Options Chain'] > 0 else '#ff4444' if factors['Options Chain'] < 0 else '#ffaa00'}">
-            {factors['Options Chain']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col4:
+    val = factors['Sector Strength']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>🏦 SECTORS</div>
         <div class="factor-weight">15%</div>
-        <div style="color: {'#00ff44' if factors['Sector Strength'] > 0 else '#ff4444' if factors['Sector Strength'] < 0 else '#ffaa00'}">
-            {factors['Sector Strength']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
+    val = factors['News Sentiment']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>📰 NEWS</div>
         <div class="factor-weight">10%</div>
-        <div style="color: {'#00ff44' if factors['News Sentiment'] > 0 else '#ff4444' if factors['News Sentiment'] < 0 else '#ffaa00'}">
-            {factors['News Sentiment']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
+    val = factors['VIX']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>📈 VIX</div>
         <div class="factor-weight">5%</div>
-        <div style="color: {'#00ff44' if factors['VIX'] > 0 else '#ff4444' if factors['VIX'] < 0 else '#ffaa00'}">
-            {factors['VIX']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
+    val = factors['DXY/US Bond']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>🇺🇸 DXY/BOND</div>
         <div class="factor-weight">5%</div>
-        <div style="color: {'#00ff44' if factors['DXY/US Bond'] > 0 else '#ff4444' if factors['DXY/US Bond'] < 0 else '#ffaa00'}">
-            {factors['DXY/US Bond']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col4:
+    val = factors['Crude/Gold']
+    color = "#00ff44" if val > 0 else "#ff4444" if val < 0 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>🛢️ CRUDE/GOLD</div>
         <div class="factor-weight">5%</div>
-        <div style="color: {'#00ff44' if factors['Crude/Gold'] > 0 else '#ff4444' if factors['Crude/Gold'] < 0 else '#ffaa00'}">
-            {factors['Crude/Gold']:+.0f}
-        </div>
+        <div style="color: {color}">{val:+.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -740,9 +720,19 @@ smart_money = get_smart_money_data()
 cols = st.columns(3)
 for idx, (name, data) in enumerate(smart_money.items()):
     with cols[idx % 3]:
-        color = "#88ff88" if "DII" in name or data['value'] > 0 and "CLIENT" not in name else "#ff6666" if data['value'] < 0 else "#ffaa00"
-        prefix = "▲" if data['value'] > 0 and "POSITIONS" not in name else "▼" if data['value'] < 0 and "POSITIONS" not in name else ""
-        value_display = f"{prefix} ₹{abs(data['value']):,}" if "POSITIONS" not in name else f"{data['value']:.1f}%"
+        if "DII" in name or (data['value'] > 0 and "CLIENT" not in name and "PRO" not in name):
+            color = "#88ff88"
+        elif data['value'] < 0 and "CLIENT" not in name and "PRO" not in name:
+            color = "#ff6666"
+        else:
+            color = "#ffaa00"
+        
+        if "POSITIONS" in name:
+            value_display = f"{data['value']:.1f}%"
+        else:
+            prefix = "▲" if data['value'] > 0 else "▼" if data['value'] < 0 else ""
+            value_display = f"{prefix} ₹{abs(data['value']):,}"
+        
         st.markdown(f"""
         <div class="indicator-card">
             <div>{name}</div>
@@ -759,10 +749,11 @@ options = get_options_data()
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
+    pcr_color = "#00ff88" if options['PCR'] > 1.0 else "#ff6666" if options['PCR'] < 0.9 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>PCR (Put Call Ratio)</div>
-        <div style="font-size: 24px; color: #00ff88;">{options['PCR']:.2f}</div>
+        <div style="font-size: 24px; color: {pcr_color};">{options['PCR']:.2f}</div>
         <div class="factor-weight">{'Bullish' if options['PCR'] > 1.0 else 'Bearish' if options['PCR'] < 0.9 else 'Neutral'}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -777,10 +768,11 @@ with col2:
     """, unsafe_allow_html=True)
 
 with col3:
+    vix_color = "#00ff44" if options['INDIA VIX'] < 14 else "#ffaa00"
     st.markdown(f"""
     <div class="glass-card" style="text-align: center;">
         <div>INDIA VIX</div>
-        <div style="font-size: 24px; color: {'#00ff44' if options['INDIA VIX'] < 14 else '#ffaa00'};">{options['INDIA VIX']:.2f}</div>
+        <div style="font-size: 24px; color: {vix_color};">{options['INDIA VIX']:.2f}</div>
         <div class="factor-weight">{'Low Fear' if options['INDIA VIX'] < 14 else 'Elevated'}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -794,27 +786,6 @@ with col4:
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("""
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;">
-""", unsafe_allow_html=True)
-
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown(f"""
-    <div class="indicator-card">
-        <div>📈 HIGHEST CE OI: {options['HIGHEST CE OI']:,}</div>
-        <div style="color: #ffaa00;">OI Change: +{options['CE OI CHANGE']:.2f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-with col2:
-    st.markdown(f"""
-    <div class="indicator-card">
-        <div>📉 HIGHEST PE OI: {options['HIGHEST PE OI']:,}</div>
-        <div style="color: #00ff88;">OI Change: +{options['PE OI CHANGE']:.2f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
 # ================= SECTOR STRENGTH =================
@@ -826,14 +797,21 @@ for idx, (name, data) in enumerate(sector_items):
     with cols[idx % 4]:
         color = "#00ff44" if data['change'] >= 0 else "#ff4444"
         arrow = "▲" if data['change'] >= 0 else "▼"
-        value_display = f"{data['value']:,.0f}" if 'value' in data else ""
-        st.markdown(f"""
-        <div class="indicator-card">
-            <div>{name}</div>
-            <div>{value_display}</div>
-            <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
+        if 'value' in data:
+            st.markdown(f"""
+            <div class="indicator-card">
+                <div>{name}</div>
+                <div>{data['value']:,.0f}</div>
+                <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="indicator-card">
+                <div>{name}</div>
+                <div style="color: {color};">{arrow} {abs(data['change']):.2f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
@@ -843,9 +821,10 @@ us_signals = get_us_signals()
 cols = st.columns(3)
 for idx, (name, data) in enumerate(us_signals.items()):
     with cols[idx % 3]:
-        color = "#00ff44" if data['change'] >= 0 and name != "US 10Y BOND YIELD" else "#ff4444" if data['change'] < 0 and name != "US 10Y BOND YIELD" else "#ffaa00"
         if name == "US 10Y BOND YIELD":
-            color = "#ffaa00" if data['value'] > 4.3 else "#00ff44"
+            color = "#00ff44" if data['value'] < 4.3 else "#ffaa00"
+        else:
+            color = "#00ff44" if data['change'] >= 0 else "#ff4444"
         arrow = "▲" if data['change'] >= 0 else "▼"
         symbol = "$" if name in ["CRUDE OIL", "GOLD", "SILVER"] else ""
         st.markdown(f"""
@@ -862,13 +841,18 @@ st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 st.markdown("<h2>📰 NEWS SENTIMENT</h2>", unsafe_allow_html=True)
 news_sentiments, news_scores = get_news_sentiment()
 cols = st.columns(4)
-for idx, (name, sentiment) in enumerate(news_sentiments.items()):
+for idx, (name, sentiment_text) in enumerate(news_sentiments.items()):
     with cols[idx % 4]:
-        color = "#00ff44" if "POSITIVE" in sentiment or "COOLING" in sentiment or "STRONG" in sentiment else "#ff6666" if "NEGATIVE" in sentiment or "HAWKISH" in sentiment else "#ffaa00"
+        if "POSITIVE" in sentiment_text or "COOLING" in sentiment_text or "STRONG" in sentiment_text:
+            color = "#00ff44"
+        elif "NEGATIVE" in sentiment_text or "HAWKISH" in sentiment_text or "ESCALATION" in sentiment_text:
+            color = "#ff6666"
+        else:
+            color = "#ffaa00"
         st.markdown(f"""
         <div class="indicator-card">
             <div>{name}</div>
-            <div style="color: {color}; font-size: 12px;">{sentiment}</div>
+            <div style="color: {color}; font-size: 12px;">{sentiment_text}</div>
             <div class="factor-weight">{news_scores[name]:+d}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -876,7 +860,7 @@ for idx, (name, sentiment) in enumerate(news_sentiments.items()):
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
 # ================= FINAL SENTIMENT =================
-st.markdown(f"""
+final_sentiment_html = f"""
 <div class="glass-card" style="text-align: center; background: linear-gradient(135deg, rgba(0,255,68,0.15), rgba(0,180,216,0.1));">
     <h2>📊 FINAL SENTIMENT: {sentiment['icon']} {sentiment['sentiment']}</h2>
     <div class="progress-container" style="width: 80%; margin: 15px auto;">
@@ -892,7 +876,8 @@ st.markdown(f"""
         <div><span style="color: #00ff44;">●</span> STRONG BULLISH</div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(final_sentiment_html, unsafe_allow_html=True)
 
 st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
