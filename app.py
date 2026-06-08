@@ -13,9 +13,14 @@ import requests
 import math
 from streamlit_autorefresh import st_autorefresh
 
-# ================= ANGEL ONE IMPORTS =================
-from smartapi import SmartConnect
-import pyotp
+# ================= ANGEL ONE IMPORTS (with error handling) =================
+try:
+    from smartapi import SmartConnect
+    import pyotp
+    ANGEL_AVAILABLE = True
+except ImportError:
+    ANGEL_AVAILABLE = False
+    print("⚠️ Angel One libraries not installed")
 
 # ================= VERSION & INFO =================
 APP_VERSION = "5.0.0"
@@ -28,6 +33,39 @@ FMP_API_KEY = "g62iRyBkxKanERvftGLyuFr0krLbCZeV"
 GNEWS_API_KEY = "7dbec44567a0bc1a8e232f664b3f3dbf"
 TELEGRAM_BOT = "8780889811:AAEGAY61WhqBv2t4r0uW1mzACFrsSSgfl1c"
 TELEGRAM_CHAT = "1983026913"
+
+def angel_one_login():
+    """Connect to Angel One SmartAPI"""
+    if not ANGEL_AVAILABLE:
+        return None, None
+    try:
+        obj = SmartConnect(api_key=ANGEL_API_KEY)
+        totp = pyotp.TOTP(ANGEL_TOTP_SECRET).now()
+        data = obj.generateSession(ANGEL_CLIENT_CODE, ANGEL_PASSWORD, totp)
+        if data.get('status'):
+            return obj, data
+        return None, None
+    except Exception as e:
+        print(f"Angel One login error: {e}")
+        return None, None
+
+def get_live_premium_angel(symbol, strike_price, expiry, option_type):
+    if not ANGEL_AVAILABLE:
+        return 0
+    try:
+        if "angel_obj" not in st.session_state or st.session_state.angel_obj is None:
+            return 0
+        if option_type.upper() == "CE":
+            opt_type = "CE"
+        else:
+            opt_type = "PE"
+        trading_symbol = f"NFO:{symbol}{expiry}{strike_price}{opt_type}"
+        ltp_data = st.session_state.angel_obj.ltpData("NFO", trading_symbol, opt_type)
+        if ltp_data and ltp_data.get('status'):
+            return float(ltp_data['data']['ltp'])
+        return 0
+    except:
+        return 0
 
 # ================= ANGEL ONE API KEYS =================
 ANGEL_API_KEY = "7yyokKoC"
