@@ -2209,6 +2209,240 @@ with st.expander("📋 MY DAILY TRADES JOURNAL", expanded=True):
     else:
         st.info("📭 No trades saved yet. Use the form above to add trades.")
 
+# ================= CHECK & EXECUTE WOLF ORDERS =================
+def check_and_execute_orders_with_journal():
+    """Check pending orders and execute if conditions met"""
+    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
+    
+    for order in pending_orders:
+        current_price = get_live_price(order['symbol'])
+        
+        if current_price > 0 and current_price >= order.get('buy_above', 0):
+            order['status'] = 'EXECUTED'
+            order['entry_price'] = current_price
+            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
+            
+            active_order = {
+                'symbol': order['symbol'],
+                'option_type': order.get('option_type', 'CALL (CE)'),
+                'strike_price': order.get('strike_price', 0),
+                'qty': order.get('qty', 1),
+                'entry_price': current_price,
+                'entry_time': order['entry_time'],
+                'sl': order.get('sl', current_price * 0.95),
+                'target': order.get('target', current_price * 1.05),
+                'tp1': order.get('tp1', current_price * 1.05),
+                'tp2': order.get('tp2', current_price * 1.10),
+                'tp3': order.get('tp3', current_price * 1.15),
+                'tp1_booked': order.get('tp1_booked', False),
+                'tp2_booked': order.get('tp2_booked', False),
+                'tp3_booked': order.get('tp3_booked', False),
+                'signal_type': order.get('signal_type', '🐺 WOLF'),
+                'signal': order.get('signal', 'BUY')
+            }
+            st.session_state.active_orders.append(active_order)
+            add_to_journal(active_order)
+            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
+
+def monitor_active_orders_with_pnl():
+    """Monitor active orders for SL/TP hits"""
+    orders_to_remove = []
+    
+    for i, order in enumerate(st.session_state.active_orders):
+        symbol = order['symbol']
+        current_price = get_live_price(symbol)
+        
+        if current_price <= 0:
+            continue
+        
+        # TP1 TRACKING
+        if not order.get('tp1_booked', False) and order.get('tp1'):
+            if order['option_type'] == "CALL (CE)":
+                tp1_hit = current_price >= order.get('tp1', 999999)
+            else:
+                tp1_hit = current_price <= order.get('tp1', 0)
+            
+            if tp1_hit:
+                order['tp1_booked'] = True
+                send_telegram(f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f}")
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP1 hit for {symbol}")
+        
+        # TP2 TRACKING with SL Shift
+        if not order.get('tp2_booked', False) and order.get('tp2'):
+            if order['option_type'] == "CALL (CE)":
+                tp2_hit = current_price >= order.get('tp2', 999999)
+            else:
+                tp2_hit = current_price <= order.get('tp2', 0)
+            
+            if tp2_hit:
+                order['tp2_booked'] = True
+                order['sl'] = order['entry_price']
+                send_telegram(f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | SL Shifted to Entry")
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
+        
+        # TP3 TRACKING
+        if not order.get('tp3_booked', False) and order.get('tp3'):
+            if order['option_type'] == "CALL (CE)":
+                tp3_hit = current_price >= order.get('tp3', 999999)
+            else:
+                tp3_hit = current_price <= order.get('tp3', 0)
+            
+            if tp3_hit:
+                order['tp3_booked'] = True
+                send_telegram(f"✅ TP3 HIT: {symbol} at ₹{current_price:.2f} | TRADE COMPLETE")
+                if st.session_state.voice_enabled:
+                    voice_alert(f"TP3 hit for {symbol}, trade complete")
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+                continue
+        
+        # SL CHECK
+        if order['option_type'] == "CALL (CE)":
+            if current_price <= order.get('sl', 0):
+                exit_reason = "SL HIT"
+                orders_to_remove.append((i, order, current_price, exit_reason))
+        else:
+            if current_price >= order.get('sl', 999999):
+                exit_reason = "SL HIT"
+                orders_to_remove.append((i, order, current_price, exit_reason))
+    
+    # Remove completed orders
+    for idx, order, exit_price, reason in reversed(orders_to_remove):
+        add_to_journal(order, exit_price, reason)
+        st.session_state.active_orders.pop(idx)
+
+def auto_trade_from_signal_with_journal():
+    """Auto trade based on strict signals"""
+    if not st.session_state.auto_trade_enabled:
+        return
+    
+    nifty_trend = get_nifty_trend()
+    symbols_to_check = ["NIFTY"]
+    
+    for symbol in symbols_to_check:
+        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
+        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
+        
+        if signal in ["BUY", "SELL"]:
+            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+            trade_type = "BUY" if signal == "BUY" else "SELL"
+            can_trade = can_take_trade(symbol, trade_type)
+            
+            if not already_active and can_trade and is_trading_time(symbol):
+                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
+                limit_price = price - 5
+                if limit_price <= 0:
+                    limit_price = price
+                
+                strike_interval = 50
+                strike_price = math.floor(limit_price / strike_interval) * strike_interval
+                
+                sl_percent = st.session_state.auto_trade_sl_percent / 100
+                target_percent = st.session_state.auto_trade_target_percent / 100
+                
+                if signal == "BUY":
+                    sl_price = limit_price * (1 - sl_percent)
+                    tp1_price = limit_price * (1 + (target_percent * 0.5))
+                    tp2_price = limit_price * (1 + target_percent)
+                else:
+                    sl_price = limit_price * (1 + sl_percent)
+                    tp1_price = limit_price * (1 - (target_percent * 0.5))
+                    tp2_price = limit_price * (1 - target_percent)
+                
+                st.session_state.wolf_orders.append({
+                    'symbol': symbol,
+                    'option_type': option_type,
+                    'strike_price': strike_price,
+                    'qty': st.session_state.auto_trade_qty,
+                    'buy_above': limit_price,
+                    'sl': sl_price,
+                    'target': tp2_price,
+                    'tp1': tp1_price,
+                    'tp2': tp2_price,
+                    'status': 'PENDING',
+                    'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                    'signal_type': '⚙️ SAHYADRI',
+                    'signal': signal
+                })
+                
+                increment_trade_count(symbol, trade_type)
+                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} @ {limit_price}")
+
+def wolf_auto_fo_trade():
+    """Auto trade for all F&O symbols"""
+    if not st.session_state.auto_trade_enabled:
+        return
+    
+    nifty_trend = get_nifty_trend()
+    nifty_positive = (nifty_trend == "POSITIVE")
+    
+    for symbol in FO_SCRIPTS[:20]:
+        already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
+        if already_active:
+            continue
+        
+        already_pending = any(o.get('symbol') == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
+        if already_pending:
+            continue
+        
+        if not is_trading_time(symbol):
+            continue
+        
+        indicators = get_technical_indicators(symbol)
+        if indicators is None:
+            continue
+        
+        sector = SECTOR_MAPPING.get(symbol, "NIFTY")
+        sector_trend = get_sector_trend(sector)
+        
+        ema_buy = (nifty_positive and
+                   not indicators.get("sideways", False) and
+                   sector_trend == "BULLISH" and
+                   indicators.get("ema9", 0) > indicators.get("ema20", 0) and
+                   indicators.get("current_price", 0) > indicators.get("ema200", 0) and
+                   indicators.get("rsi", 0) >= 60 and
+                   indicators.get("adx", 0) >= 25 and
+                   indicators.get("volume_filter", False) and
+                   indicators.get("strong_bull", False))
+        
+        if ema_buy:
+            current_price = indicators["current_price"]
+            option_type = "CALL (CE)"
+            
+            if symbol == "NIFTY":
+                strike_interval = 50
+            elif symbol in ["CRUDE", "NATURALGAS"]:
+                strike_interval = 100
+            else:
+                strike_interval = 10
+            
+            strike_price = math.floor(current_price / strike_interval) * strike_interval
+            
+            entry_price = current_price
+            tp1_price = entry_price * 1.10
+            tp2_price = entry_price * 1.20
+            sl_price = entry_price * 0.90
+            
+            st.session_state.wolf_orders.append({
+                'symbol': symbol,
+                'option_type': option_type,
+                'strike_price': strike_price,
+                'qty': st.session_state.auto_trade_qty,
+                'buy_above': current_price,
+                'sl': sl_price,
+                'target': tp2_price,
+                'tp1': tp1_price,
+                'tp2': tp2_price,
+                'status': 'PENDING',
+                'placed_time': get_ist_now().strftime('%H:%M:%S'),
+                'auto_trade': True,
+                'signal_type': '🐺 WOLF AUTO',
+                'signal': 'BUY'
+            })
+            
+            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f}")
+
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
     check_and_execute_orders_with_journal()
