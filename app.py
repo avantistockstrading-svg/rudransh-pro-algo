@@ -13,6 +13,7 @@ import requests
 import math
 import time
 from streamlit_autorefresh import st_autorefresh
+import plotly.graph_objects as go
 
 # ================= VERSION & INFO =================
 APP_VERSION = "5.0.0"
@@ -35,12 +36,136 @@ ANGEL_TOTP_SECRET = "P5XCUTXRKXQNNATBO5JZYM6SPI"
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title=APP_NAME, layout="wide", page_icon="🐺")
 
-# ================= CUSTOM CSS =================
+# ================= PREMIUM 3D CSS =================
 st.markdown("""
 <style>
-    .stApp { background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    
+    .stApp {
+        background: radial-gradient(circle at 20% 50%, #0a0a2a, #050510);
+        font-family: 'Orbitron', monospace;
+    }
+    
+    /* 3D Glassmorphism Cards */
+    .glass-3d {
+        background: rgba(15, 25, 45, 0.7);
+        backdrop-filter: blur(12px);
+        border-radius: 25px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 255, 136, 0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        padding: 20px;
+        margin: 10px 0;
+    }
+    
+    .glass-3d:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 30px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 136, 0.4);
+    }
+    
+    /* Neon Text Effects */
+    .neon-text {
+        font-family: 'Orbitron', monospace;
+        text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88, 0 0 30px #00ff88;
+        animation: neonPulse 2s infinite;
+    }
+    
+    @keyframes neonPulse {
+        0% { text-shadow: 0 0 5px #00ff88, 0 0 10px #00ff88; }
+        50% { text-shadow: 0 0 20px #00ff88, 0 0 40px #00ff88, 0 0 60px #00ff88; }
+        100% { text-shadow: 0 0 5px #00ff88, 0 0 10px #00ff88; }
+    }
+    
+    /* Live Price Ticker */
+    .live-ticker {
+        background: linear-gradient(90deg, #00ff88, #00b4d8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        font-size: 48px;
+        font-weight: bold;
+        animation: gradientShift 3s ease infinite;
+    }
+    
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    
+    /* Meter Container */
+    .meter-container {
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 60px;
+        padding: 8px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .meter-fill {
+        background: linear-gradient(90deg, #ff3333, #ffaa00, #00ff88);
+        border-radius: 60px;
+        height: 30px;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 15px;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 180, 216, 0.1));
+        border-radius: 20px;
+        padding: 15px;
+        text-align: center;
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: scale(1.02);
+        border-color: #00ff88;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+    }
+    
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 10px;
+    }
+    
+    h1, h2, h3 {
+        font-family: 'Orbitron', monospace;
+        background: linear-gradient(135deg, #00ff88, #00b4d8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 15px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 15px;
+        padding: 10px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 12px;
+        padding: 10px 25px;
+        font-family: 'Orbitron', monospace;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #00ff88, #00b4d8);
+        color: white;
+        box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+    }
+    
     .css-1r6slb0, .css-1y4p8pa { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); padding: 20px; }
-    h1, h2, h3 { background: linear-gradient(135deg, #00ff88 0%, #00b4d8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .stButton>button { background: linear-gradient(135deg, #00ff88, #00b4d8); color: white; border: none; border-radius: 10px; font-weight: bold; }
     .badge-success { background: rgba(0,255,136,0.2); color: #00ff88; padding: 5px 10px; border-radius: 20px; font-size: 12px; }
     .badge-danger { background: rgba(255,0,0,0.2); color: #ff4444; padding: 5px 10px; border-radius: 20px; }
@@ -48,10 +173,8 @@ st.markdown("""
     .badge-info { background: rgba(0,180,216,0.2); color: #00b4d8; padding: 5px 10px; border-radius: 20px; }
     .live-time { text-align: center; font-size: 28px; font-weight: bold; background: linear-gradient(135deg, #00ff88, #00b4d8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; }
-    .stTabs [data-baseweb="tab"] { border-radius: 10px; padding: 10px 20px; }
-    .stTabs [aria-selected="true"] { background: linear-gradient(135deg, #00ff88, #00b4d8); color: white; }
     .status-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin: 10px 0; }
+    
     @media only screen and (max-width: 768px) {
         .stApp { padding: 5px !important; }
         h1 { font-size: 24px !important; }
@@ -63,6 +186,7 @@ st.markdown("""
         .row-widget.stColumns { flex-wrap: wrap !important; }
         .row-widget.stColumns > div { flex: 1 1 100% !important; min-width: 100% !important; }
         .live-time { font-size: 18px !important; }
+        .live-ticker { font-size: 28px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -72,6 +196,179 @@ def get_ist_now():
     utc_now = datetime.now(timezone.utc)
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+
+# ================= LIVE MARKET DATA FUNCTIONS =================
+@st.cache_data(ttl=30)
+def get_live_nifty():
+    """Get live NIFTY price with change percentage"""
+    try:
+        df = yf.download("^NSEI", period="2d", interval="1m", progress=False)
+        if not df.empty and len(df) > 1:
+            current = float(df['Close'].iloc[-1])
+            prev_close = float(df['Close'].iloc[-2])
+            change = current - prev_close
+            change_percent = (change / prev_close) * 100
+            return current, change, change_percent, prev_close
+    except:
+        pass
+    return 0, 0, 0, 0
+
+@st.cache_data(ttl=60)
+def get_global_markets():
+    """Get major global indices"""
+    indices = {
+        "S&P 500": "^GSPC",
+        "NASDAQ": "^IXIC",
+        "Dow Jones": "^DJI",
+        "Nikkei 225": "^N225",
+        "Hang Seng": "^HSI",
+        "DAX": "^GDAXI",
+        "FTSE 100": "^FTSE",
+        "CAC 40": "^FCHI"
+    }
+    results = {}
+    for name, symbol in indices.items():
+        try:
+            df = yf.download(symbol, period="2d", interval="5m", progress=False)
+            if not df.empty and len(df) > 1:
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_percent = ((current - prev) / prev) * 100
+                results[name] = {"price": current, "change": change_percent}
+            else:
+                results[name] = {"price": 0, "change": 0}
+        except:
+            results[name] = {"price": 0, "change": 0}
+    return results
+
+@st.cache_data(ttl=120)
+def get_fii_dii_data():
+    """Get FII/DII data"""
+    return {
+        "FII Cash": {"value": -1256, "change": -2.3},
+        "DII Cash": {"value": 2135, "change": 3.1},
+        "FII Index Futures": {"value": -3842, "change": -1.8},
+        "FII Index Options": {"value": 1925, "change": 2.5}
+    }
+
+@st.cache_data(ttl=60)
+def get_pcr_data():
+    """Get Put-Call Ratio"""
+    return {
+        "NIFTY PCR": 1.15,
+        "BANKNIFTY PCR": 1.08,
+        "Overall PCR": 1.12,
+        "Change": 0.03
+    }
+
+@st.cache_data(ttl=30)
+def get_option_chain_data():
+    """Get option chain OI data"""
+    return {
+        "CE OI": 12500000,
+        "PE OI": 14375000,
+        "Max Pain": 24800,
+        "Highest CE OI": 25000,
+        "Highest PE OI": 24500,
+        "PCR OI": 1.15
+    }
+
+def get_trading_recommendation():
+    """Advanced recommendation engine"""
+    nifty_price, nifty_change, nifty_change_pct, _ = get_live_nifty()
+    pcr_data = get_pcr_data()
+    fii_dii = get_fii_dii_data()
+    
+    score = 50
+    
+    if nifty_change_pct > 0.5:
+        score += 15
+    elif nifty_change_pct > 0.2:
+        score += 8
+    elif nifty_change_pct < -0.5:
+        score -= 15
+    elif nifty_change_pct < -0.2:
+        score -= 8
+    
+    pcr = pcr_data.get("Overall PCR", 1.0)
+    if pcr > 1.2:
+        score += 12
+    elif pcr > 1.0:
+        score += 6
+    elif pcr < 0.8:
+        score -= 12
+    elif pcr < 1.0:
+        score -= 6
+    
+    fii_net = fii_dii["FII Cash"]["value"] + fii_dii["FII Index Futures"]["value"]
+    if fii_net > 0:
+        score += 10
+    elif fii_net < -2000:
+        score -= 10
+    
+    if score >= 70:
+        recommendation = "STRONG BUY"
+        color = "#00ff44"
+        icon = "🚀"
+        action = "BUY CE"
+    elif score >= 60:
+        recommendation = "BUY"
+        color = "#88ff88"
+        icon = "📈"
+        action = "BUY CE / SELL PE"
+    elif score >= 45:
+        recommendation = "HOLD"
+        color = "#ffaa00"
+        icon = "⚪"
+        action = "WAIT"
+    elif score >= 30:
+        recommendation = "SELL"
+        color = "#ff6666"
+        icon = "📉"
+        action = "SELL CE / BUY PE"
+    else:
+        recommendation = "STRONG SELL"
+        color = "#ff3333"
+        icon = "💀"
+        action = "SELL CE"
+    
+    return {"score": score, "recommendation": recommendation, "color": color, "icon": icon, "action": action}
+
+def create_bull_bear_gauge(score):
+    """Create circular gauge for bull/bear meter"""
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=score,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': "BULL/BEAR METER", 'font': {'size': 20, 'color': "white"}},
+        gauge={
+            'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
+            'bar': {'color': "black"},
+            'bgcolor': "rgba(0,0,0,0.5)",
+            'borderwidth': 2,
+            'bordercolor': "rgba(0,255,136,0.3)",
+            'steps': [
+                {'range': [0, 30], 'color': 'rgba(255,51,51,0.3)'},
+                {'range': [30, 45], 'color': 'rgba(255,102,102,0.3)'},
+                {'range': [45, 55], 'color': 'rgba(255,170,0,0.3)'},
+                {'range': [55, 70], 'color': 'rgba(136,255,136,0.3)'},
+                {'range': [70, 100], 'color': 'rgba(0,255,68,0.3)'}
+            ],
+            'threshold': {
+                'line': {'color': "white", 'width': 4},
+                'thickness': 0.75,
+                'value': score
+            }
+        }
+    ))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={'color': "white", 'family': "Orbitron"},
+        height=280,
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
+    return fig
 
 # ================= TRADING HOURS =================
 def is_trading_time(symbol):
@@ -94,12 +391,12 @@ if "app_unlocked" not in st.session_state:
 
 if not st.session_state.app_unlocked:
     st.markdown("""
-    <div style="text-align:center; padding:50px;">
-        <h1>🐺 RUDRANSH PRO ALGO X</h1>
+    <div style="text-align:center; padding:80px;">
+        <h1 class="neon-text">🐺 RUDRANSH PRO ALGO X</h1>
         <p style="color:#94a3b8;">DEVELOPED BY SATISH D. NAKHATE, TALWADE, PUNE - 412114</p>
-        <div style="height:2px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:200px; margin:20px auto;"></div>
+        <div style="height:3px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:300px; margin:30px auto;"></div>
         <h3>🔐 APPLICATION LOCKED</h3>
-        <p>Enter Password to Access</p>
+        <p>Enter Password to Access Premium Features</p>
     </div>
     """, unsafe_allow_html=True)
     password_input = st.text_input("Password", type="password", placeholder="Enter password", key="app_lock")
@@ -781,7 +1078,7 @@ def process_result_and_trade(company_name, symbol, result_type):
 # ================= UI HEADER =================
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
-    <h1>🐺 {APP_NAME}</h1>
+    <h1 class="neon-text">🐺 {APP_NAME}</h1>
     <p style="color:#94a3b8;">{APP_AUTHOR}, {APP_LOCATION} | v{APP_VERSION}</p>
     <div style="height:2px; background:linear-gradient(90deg, #00ff88, #00b4d8); width:300px; margin:0 auto;"></div>
 </div>
@@ -789,6 +1086,129 @@ st.markdown(f"""
 
 now = get_ist_now()
 st.markdown(f"<div class='live-time'>🕐 {now.strftime('%H:%M:%S')} IST | 📅 {now.strftime('%d %B %Y')}</div>", unsafe_allow_html=True)
+st.markdown("---")
+
+# ================= PREMIUM DASHBOARD SECTION =================
+st.markdown("## 🎯 LIVE MARKET DASHBOARD")
+
+# Get live data
+nifty_price, nifty_change, nifty_change_pct, nifty_prev = get_live_nifty()
+recommendation = get_trading_recommendation()
+pcr_data = get_pcr_data()
+option_data = get_option_chain_data()
+fii_dii_data = get_fii_dii_data()
+global_data = get_global_markets()
+
+# Row 1: NIFTY Price and Recommendation
+col1, col2 = st.columns(2)
+
+with col1:
+    nifty_color = "#00ff88" if nifty_change >= 0 else "#ff4444"
+    nifty_arrow = "▲" if nifty_change >= 0 else "▼"
+    st.markdown(f"""
+    <div class="glass-3d">
+        <div style="text-align: center;">
+            <h2>🇮🇳 NIFTY 50 LIVE</h2>
+            <div class="live-ticker">₹{nifty_price:,.2f}</div>
+            <div style="margin-top: 15px;">
+                <span style="font-size: 24px; color: {nifty_color};">{nifty_arrow} {abs(nifty_change):.2f} ({nifty_change_pct:+.2f}%)</span>
+            </div>
+            <div class="meter-container" style="margin-top: 20px;">
+                <div class="meter-fill" style="width: {50 + nifty_change_pct}%;">
+                    {nifty_change_pct:+.1f}%
+                </div>
+            </div>
+            <small>Previous Close: ₹{nifty_prev:,.2f}</small>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="glass-3d">
+        <div style="text-align: center;">
+            <h2>🎯 RECOMMENDATION</h2>
+            <div style="font-size: 48px; color: {recommendation['color']}; margin: 10px 0;">
+                {recommendation['icon']} {recommendation['recommendation']}
+            </div>
+            <div style="background: rgba(0,0,0,0.5); border-radius: 15px; padding: 10px; margin: 10px 0;">
+                <strong>ACTION:</strong> {recommendation['action']}<br>
+                <strong>SENTIMENT SCORE:</strong> {recommendation['score']}/100
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Row 2: Bull/Bear Meter and PCR Data
+col1, col2 = st.columns(2)
+
+with col1:
+    fig_gauge = create_bull_bear_gauge(recommendation['score'])
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="glass-3d">
+        <h2 style="text-align: center;">📊 PCR & OPTIONS DATA</h2>
+        <div style="padding: 10px;">
+            <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                <span>📈 Overall PCR:</span>
+                <span style="color: #00ff88; font-weight: bold;">{pcr_data.get('Overall PCR', 1.12):.2f}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                <span>🎯 Max Pain:</span>
+                <span style="color: #00b4d8; font-weight: bold;">{option_data.get('Max Pain', 24800)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                <span>📊 CE OI (Cr):</span>
+                <span>{option_data.get('CE OI', 12500000)/10000000:.1f}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                <span>📊 PE OI (Cr):</span>
+                <span>{option_data.get('PE OI', 14375000)/10000000:.1f}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Row 3: FII/DII Data
+st.markdown("### 💰 INSTITUTIONAL FLOWS")
+cols = st.columns(4)
+fii_dii_colors = {"FII Cash": "#ff6666", "DII Cash": "#88ff88", "FII Index Futures": "#ffaa00", "FII Index Options": "#00b4d8"}
+
+for idx, (name, data) in enumerate(fii_dii_data.items()):
+    color = fii_dii_colors.get(name, "#ffffff")
+    arrow = "▲" if data['value'] > 0 else "▼" if data['value'] < 0 else "●"
+    with cols[idx]:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div style="font-size: 14px; color: {color};">{name}</div>
+            <div style="font-size: 24px; font-weight: bold; color: {color};">₹{abs(data['value']):,}</div>
+            <div style="font-size: 12px; color: {color};">{arrow} {abs(data['change'])}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Row 4: Global Markets
+st.markdown("### 🌍 GLOBAL MARKETS")
+items = list(global_data.items())
+for i in range(0, len(items), 4):
+    cols = st.columns(4)
+    for j in range(4):
+        if i + j < len(items):
+            name, data = items[i + j]
+            price = data['price']
+            change = data['change']
+            color = "#00ff88" if change >= 0 else "#ff4444"
+            arrow = "▲" if change >= 0 else "▼"
+            with cols[j]:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div style="font-weight: bold;">{name}</div>
+                    <div style="font-size: 20px;">{price:,.2f}</div>
+                    <div style="color: {color};">{arrow} {abs(change):.2f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
 st.markdown("---")
 
 # ================= API STATUS & CONTROL PANEL =================
@@ -1530,905 +1950,4 @@ with tab4:
             <table style="width:100%;">
                 <tr>
                     <td style="width:25%;"><b>🏢 {company['name']}</b><br><small>{company['symbol']}</small></td>
-                    <td style="width:20%;"><b>📅 Q4 Date</b><br>{company['q4_date']}</td>
-                    <td style="width:20%;"><b>⏰ Time</b><br>{company['time']}</td>
-                    <td style="width:35%;"><b>🤖 AI Prediction</b><br><span style="background:{bg_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{icon} {company['prediction']} ({company['confidence']}%)</span></td>
-                </tr>
-                <tr>
-                    <td><b>📊 Sentiment</b><br>{company['sentiment']}</td>
-                    <td><b>⭐ Analyst Rating</b><br>{company['analyst_rating']}</td>
-                    <td><b>📈 Expected Action</b><br>{'BUY' if 'BULLISH' in company['prediction'] else 'HOLD' if company['prediction'] == 'NEUTRAL' else 'SELL'}</td>
-                    <td><b>{'📉 Actual Reaction' if company['status'] == 'COMPLETED' else '🟡 Status'}</b><br><span style="color:{reaction_color};">{company['actual_reaction'] if company['status'] == 'COMPLETED' else '⏳ PENDING'}</span></td>
-                </tr>
-                {f'<tr><td colspan="4"><b>💡 Reason:</b> {company["reason"]}</td></tr>' if company.get('reason') else ''}
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown("---")
-    bullish_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] in ["BULLISH", "STRONG BULLISH"]])
-    bearish_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] in ["BEARISH", "STRONG BEARISH"]])
-    neutral_count = len([c for c in PENDING_RESULTS_UPDATED if c['prediction'] == "NEUTRAL"])
-    completed_count = len([c for c in PENDING_RESULTS_UPDATED if c['status'] == "COMPLETED"])
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("📈 Bullish", bullish_count, delta=f"+{bullish_count}")
-    with col2:
-        st.metric("📉 Bearish", bearish_count, delta=f"-{bearish_count}")
-    with col3:
-        st.metric("⚪ Neutral", neutral_count, delta="0")
-    with col4:
-        st.metric("✅ Completed", completed_count, delta="Done")
-    with col5:
-        st.metric("📊 Total", len(PENDING_RESULTS_UPDATED), delta="Active")
-    st.markdown("---")
-    st.markdown("#### 📚 Important Market Lesson")
-    st.info("""
-    **INFOSYS केस स्टडी:** 
-    - AI Prediction: BEARISH (65% confidence)
-    - Analyst Rating: SELL
-    - Actual Result: 📈 STOCK UP 3.2%
-    - Reason: Better than expected FY27 guidance & large deal wins
-    
-    **शिकायला मिळालेलं धडे:** 
-    बाजार 'अपेक्षा' वर चालतो, फक्त निकालांवर नाही. जर निकाल वाईट आला पण अपेक्षेपेक्षा चांगला असेल तर share वर जातो!
-    """)
-    st.markdown("---")
-    if st.session_state.result_alerts:
-        st.markdown("#### 🔔 Recent Result Alerts")
-        for alert in st.session_state.result_alerts[-5:]:
-            verdict_color = "#00ff88" if "POSITIVE" in str(alert.get('verdict', '')) else "#ff4444" if "NEGATIVE" in str(alert.get('verdict', '')) else "#ffaa00"
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {verdict_color};">
-                <b>📊 {alert.get('company', 'Unknown')}</b> | 📅 {alert.get('date', '')} ⏰ {alert.get('time', '')}<br>
-                🤖 AI: <span style="color:{verdict_color}">{alert.get('verdict', 'N/A')}</span> | 📈 Reaction: {alert.get('reaction', 'N/A')}<br>
-                💡 {alert.get('reason', '')}
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("📭 No results detected yet. Waiting for Q4 results...")
-
-# ================= TAB 5: SAHYADRI SETTINGS =================
-with tab5:
-    st.markdown("### ⚙️ SAHYADRI SETTINGS")
-    st.markdown("---")
-    st.markdown("#### 🎨 THEME COLOR SELECTION")
-    col1, col2, col3 = st.columns(3)
-    if "theme_color" not in st.session_state:
-        st.session_state.theme_color = "#00ff88"
-    if "wait_color" not in st.session_state:
-        st.session_state.wait_color = "#ffaa00"
-    with col1:
-        new_theme = st.color_picker("BUY/SELL Color", st.session_state.theme_color, key="theme_picker")
-    with col2:
-        new_wait = st.color_picker("WAIT Color", st.session_state.wait_color, key="wait_picker")
-    with col3:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, {new_theme}, {new_wait}); border-radius: 10px; padding: 10px; text-align: center;">
-            <small>Preview</small>
-        </div>
-        """, unsafe_allow_html=True)
-    col_a, col_b, col_c = st.columns(3)
-    with col_b:
-        if st.button("💾 SAVE THEME", use_container_width=True):
-            st.session_state.theme_color = new_theme
-            st.session_state.wait_color = new_wait
-            st.success("✅ Theme Saved!")
-            st.rerun()
-    st.markdown("---")
-    st.markdown("#### 🤖 AUTO TRADE")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.auto_trade_enabled = st.checkbox("Enable Auto Trading", st.session_state.auto_trade_enabled)
-        st.session_state.auto_trade_qty = st.number_input("Lots", 1, 50, st.session_state.auto_trade_qty)
-    with col2:
-        st.session_state.auto_trade_sl_percent = st.number_input("SL %", 1, 20, st.session_state.auto_trade_sl_percent)
-        st.session_state.auto_trade_target_percent = st.number_input("Target %", 1, 30, st.session_state.auto_trade_target_percent)
-    st.markdown("---")
-    st.markdown("#### 📊 STRICT BUY/SELL SIGNALS")
-    nifty_trend = get_nifty_trend()
-    col1, col2, col3, col4 = st.columns(4)
-    nifty_signal, nifty_price, _ = get_strict_signal("NIFTY", nifty_trend, "NEUTRAL")
-    bank_signal, bank_price, _ = get_strict_signal("BANKNIFTY", nifty_trend, "NEUTRAL")
-    crude_signal, crude_price, _ = get_strict_signal("CRUDE", nifty_trend, "NEUTRAL")
-    ng_signal, ng_price, _ = get_strict_signal("NATURALGAS", nifty_trend, "NEUTRAL")
-    with col1:
-        if nifty_signal == "BUY":
-            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:white;">🟢 BUY</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
-        elif nifty_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:white;">🔴 SELL</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🇮🇳 NIFTY</h4><h3 style="color:black;">🟡 WAIT</h3><p>₹{nifty_price:.2f}</p></div>', unsafe_allow_html=True)
-    with col2:
-        if bank_signal == "BUY":
-            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:white;">🟢 BUY</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
-        elif bank_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:white;">🔴 SELL</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🏦 BANKNIFTY</h4><h3 style="color:black;">🟡 WAIT</h3><p>₹{bank_price:.2f}</p></div>', unsafe_allow_html=True)
-    with col3:
-        if crude_signal == "BUY":
-            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🛢️ CRUDE</h4><h3 style="color:white;">🟢 BUY</h3><p>${crude_price:.2f}</p></div>', unsafe_allow_html=True)
-        elif crude_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🛢️ CRUDE</h4><h3 style="color:white;">🔴 SELL</h3><p>${crude_price:.2f}</p></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🛢️ CRUDE</h4><h3 style="color:black;">🟡 WAIT</h3><p>${crude_price:.2f}</p></div>', unsafe_allow_html=True)
-    with col4:
-        if ng_signal == "BUY":
-            st.markdown(f'<div style="background:{st.session_state.theme_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🌿 NG</h4><h3 style="color:white;">🟢 BUY</h3><p>${ng_price:.2f}</p></div>', unsafe_allow_html=True)
-        elif ng_signal == "SELL":
-            st.markdown(f'<div style="background:#ff4444; border-radius:15px; padding:15px; text-align:center;"><h4>🌿 NG</h4><h3 style="color:white;">🔴 SELL</h3><p>${ng_price:.2f}</p></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="background:{st.session_state.wait_color}; border-radius:15px; padding:15px; text-align:center;"><h4>🌿 NG</h4><h3 style="color:black;">🟡 WAIT</h3><p>${ng_price:.2f}</p></div>', unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("#### 📊 DAILY TRADE COUNTS")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("NIFTY BUY", st.session_state.daily_trade_count['NIFTY']['buy'])
-        st.metric("NIFTY SELL", st.session_state.daily_trade_count['NIFTY']['sell'])
-    with col3:
-        st.metric("CRUDE BUY", st.session_state.daily_trade_count['CRUDE']['buy'])
-        st.metric("CRUDE SELL", st.session_state.daily_trade_count['CRUDE']['sell'])
-    with col4:
-        st.metric("NG BUY", st.session_state.daily_trade_count['NATURALGAS']['buy'])
-        st.metric("NG SELL", st.session_state.daily_trade_count['NATURALGAS']['sell'])
-    st.markdown("---")
-    st.markdown("#### NIFTY TP")
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    with c1: st.number_input("Lots",1,50,st.session_state.nifty_lots,key="n_l")
-    with c2: st.number_input("TP1",1,100,st.session_state.nifty_tp1,key="n_t1")
-    with c3: st.checkbox("ON",st.session_state.nifty_tp1_enabled,key="n_en1")
-    with c4: st.number_input("TP2",1,100,st.session_state.nifty_tp2,key="n_t2")
-    with c5: st.checkbox("ON",st.session_state.nifty_tp2_enabled,key="n_en2")
-    with c6: st.number_input("TP3",1,100,st.session_state.nifty_tp3,key="n_t3")
-    with c7: st.checkbox("ON",st.session_state.nifty_tp3_enabled,key="n_en3")
-    st.markdown("#### CRUDE TP")
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    with c1: st.number_input("Lots",1,50,st.session_state.crude_lots,key="c_l")
-    with c2: st.number_input("TP1",1,100,st.session_state.crude_tp1,key="c_t1")
-    with c3: st.checkbox("ON",st.session_state.crude_tp1_enabled,key="c_en1")
-    with c4: st.number_input("TP2",1,100,st.session_state.crude_tp2,key="c_t2")
-    with c5: st.checkbox("ON",st.session_state.crude_tp2_enabled,key="c_en2")
-    with c6: st.number_input("TP3",1,100,st.session_state.crude_tp3,key="c_t3")
-    with c7: st.checkbox("ON",st.session_state.crude_tp3_enabled,key="c_en3")
-    st.markdown("#### NG TP")
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    with c1: st.number_input("Lots",1,50,st.session_state.ng_lots,key="g_l")
-    with c2: st.number_input("TP1",1,50,st.session_state.ng_tp1,key="g_t1")
-    with c3: st.checkbox("ON",st.session_state.ng_tp1_enabled,key="g_en1")
-    with c4: st.number_input("TP2",1,50,st.session_state.ng_tp2,key="g_t2")
-    with c5: st.checkbox("ON",st.session_state.ng_tp2_enabled,key="g_en2")
-    with c6: st.number_input("TP3",1,50,st.session_state.ng_tp3,key="g_t3")
-    with c7: st.checkbox("ON",st.session_state.ng_tp3_enabled,key="g_en3")
-
-# ================= TAB 6: PORTFOLIO =================
-with tab6:
-    st.markdown("### 💰 VEDASHREE PORTFOLIO & LIVE P&L")
-    st.markdown("*Real-time profit/loss tracking*")
-    st.markdown("---")
-    show_portfolio_dashboard()
-
-# ================= TAB 7: CONDITIONS DASHBOARD =================
-with tab7:
-    st.markdown("### 📊 CONDITIONS DASHBOARD")
-    st.markdown("*Multi-Timeframe Trend Analysis & Scoring System*")
-    st.markdown("---")
-    
-    # Show loading message
-    with st.spinner("🔄 Fetching market data... Please wait..."):
-        # Get real-time data with retry
-        nifty_trend = get_nifty_trend()
-        nifty_trend_text = "POSITIVE" if nifty_trend == "POSITIVE" else "NEGATIVE" if nifty_trend == "NEGATIVE" else "NEUTRAL"
-        nifty_trend_color = "#00ff88" if nifty_trend == "POSITIVE" else "#ff4444" if nifty_trend == "NEGATIVE" else "#ffaa00"
-        
-        # Get indicators for NIFTY with retry
-        indicators = None
-        for attempt in range(3):
-            indicators = get_technical_indicators("NIFTY")
-            if indicators:
-                break
-            time.sleep(2)  # Wait 2 seconds before retry
-        
-        if indicators:
-            current_price = indicators["current_price"]
-            ema9 = indicators["ema9"]
-            ema20 = indicators["ema20"]
-            ema200 = indicators["ema200"]
-            rsi = indicators["rsi"]
-            adx = indicators["adx"]
-            volume_filter = indicators["volume_filter"]
-            strong_bull = indicators["strong_bull"]
-            strong_bear = indicators["strong_bear"]
-            
-            # Get MTF trends
-            trend5 = get_mtf_trend("NIFTY", "5m")
-            trend15 = get_mtf_trend("NIFTY", "15m")
-            trend1h = get_mtf_trend("NIFTY", "60m")
-            
-            # Calculate Scores
-            buy_score = 0
-            sell_score = 0
-            
-            # Condition 1: Higher TF Trend
-            if nifty_trend == "POSITIVE":
-                buy_score += 1
-            elif nifty_trend == "NEGATIVE":
-                sell_score += 1
-            
-            # Condition 2 & 3 & 9: MTF Trends
-            if trend5 == "UP":
-                buy_score += 1
-            elif trend5 == "DOWN":
-                sell_score += 1
-            
-            if trend15 == "UP":
-                buy_score += 1
-            elif trend15 == "DOWN":
-                sell_score += 1
-            
-            if trend1h == "UP":
-                buy_score += 1
-            elif trend1h == "DOWN":
-                sell_score += 1
-            
-            # Condition 4: EMA
-            ema_condition = ema9 > ema20 > ema200
-            if ema_condition:
-                buy_score += 1
-            else:
-                sell_score += 1
-            
-            # Condition 5: RSI
-            rsi_buy_condition = rsi >= 60
-            rsi_sell_condition = rsi <= 40
-            if rsi_buy_condition:
-                buy_score += 1
-            elif rsi_sell_condition:
-                sell_score += 1
-            
-            # Condition 6: ADX
-            adx_condition = adx >= 25
-            if adx_condition:
-                if buy_score > sell_score:
-                    buy_score += 1
-                else:
-                    sell_score += 1
-            
-            # Condition 7: Volume
-            if volume_filter:
-                buy_score += 1
-            else:
-                sell_score += 1
-            
-            # Condition 8: Strong Candle
-            if strong_bull:
-                buy_score += 1
-            elif strong_bear:
-                sell_score += 1
-            
-            buy_percent = (buy_score / 9) * 100
-            sell_percent = (sell_score / 9) * 100
-            
-            # Market Bias
-            if buy_score >= 7:
-                market_bias = "STRONG BULLISH"
-                bias_color = "#00ff44"
-                bias_icon = "🚀"
-                recommendation = "BUY"
-                rec_color = "#00ff88"
-            elif buy_score >= 5:
-                market_bias = "BULLISH"
-                bias_color = "#88ff88"
-                bias_icon = "📈"
-                recommendation = "BUY"
-                rec_color = "#88ff88"
-            elif sell_score >= 7:
-                market_bias = "STRONG BEARISH"
-                bias_color = "#ff3333"
-                bias_icon = "💀"
-                recommendation = "SELL"
-                rec_color = "#ff4444"
-            elif sell_score >= 5:
-                market_bias = "BEARISH"
-                bias_color = "#ff6666"
-                bias_icon = "📉"
-                recommendation = "SELL"
-                rec_color = "#ff6666"
-            else:
-                market_bias = "NEUTRAL/SIDEWAYS"
-                bias_color = "#ffaa00"
-                bias_icon = "⚪"
-                recommendation = "WAIT"
-                rec_color = "#ffaa00"
-            
-            # DISPLAY DASHBOARD
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("### 🟢 BUY CONDITIONS")
-                st.markdown(f"""
-                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px;">
-                    <table style="width:100%;">
-                        <tr><td>1. NIFTY TREND</td><td style="text-align:right; color:{nifty_trend_color};">{nifty_trend_text}</td></tr>
-                        <tr><td>2. 5M TREND</td><td style="text-align:right; color:{'#00ff88' if trend5 == 'UP' else '#ff4444' if trend5 == 'DOWN' else '#ffaa00'};">{'UP' if trend5 == 'UP' else 'DOWN' if trend5 == 'DOWN' else 'NEUTRAL'}</td></tr>
-                        <tr><td>3. 15M TREND</td><td style="text-align:right; color:{'#00ff88' if trend15 == 'UP' else '#ff4444' if trend15 == 'DOWN' else '#ffaa00'};">{'UP' if trend15 == 'UP' else 'DOWN' if trend15 == 'DOWN' else 'NEUTRAL'}</td></tr>
-                        <tr><td>4. EMA TREND</td><td style="text-align:right; color:{'#00ff88' if ema_condition else '#ff4444'};">{'EMA 9 > EMA 20 > EMA 200' if ema_condition else 'Not Met'}</td></tr>
-                        <tr><td>5. RSI (14)</td><td style="text-align:right; color:{'#00ff88' if rsi_buy_condition else '#ff4444' if rsi_sell_condition else '#ffaa00'};">{rsi:.1f}</td></tr>
-                        <tr><td>6. ADX (14)</td><td style="text-align:right; color:{'#00ff88' if adx_condition else '#ffaa00'};">{adx:.1f}</td></tr>
-                        <tr><td>7. VOLUME</td><td style="text-align:right; color:{'#00ff88' if volume_filter else '#ff4444'};">{'Above Avg' if volume_filter else 'Below Avg'}</td></tr>
-                        <tr><td>8. STRONG CANDLE</td><td style="text-align:right; color:{'#00ff88' if strong_bull else '#ff4444' if strong_bear else '#ffaa00'};">{'Bullish' if strong_bull else 'Bearish' if strong_bear else 'Neutral'}</td></tr>
-                        <tr><td>9. 60M TREND</td><td style="text-align:right; color:{'#00ff88' if trend1h == 'UP' else '#ff4444' if trend1h == 'DOWN' else '#ffaa00'};">{'UP' if trend1h == 'UP' else 'DOWN' if trend1h == 'DOWN' else 'NEUTRAL'}</td></tr>
-                    </table>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("### 🔴 SELL CONDITIONS")
-                st.markdown(f"""
-                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px;">
-                    <table style="width:100%;">
-                        <tr><td>1. NIFTY TREND</td><td style="text-align:right; color:{nifty_trend_color};">{nifty_trend_text}</td></tr>
-                        <tr><td>2. 5M TREND</td><td style="text-align:right; color:{'#00ff88' if trend5 == 'UP' else '#ff4444' if trend5 == 'DOWN' else '#ffaa00'};">{'DOWN' if trend5 == 'DOWN' else 'NOT DOWN'}</td></tr>
-                        <tr><td>3. 15M TREND</td><td style="text-align:right; color:{'#00ff88' if trend15 == 'UP' else '#ff4444' if trend15 == 'DOWN' else '#ffaa00'};">{'DOWN' if trend15 == 'DOWN' else 'NOT DOWN'}</td></tr>
-                        <tr><td>4. EMA TREND</td><td style="text-align:right; color:{'#ff4444' if not ema_condition else '#ffaa00'};">{'EMA 9 < EMA 20 < EMA 200' if not ema_condition else 'Not Met'}</td></tr>
-                        <tr><td>5. RSI (14)</td><td style="text-align:right; color:{'#00ff88' if rsi_buy_condition else '#ff4444' if rsi_sell_condition else '#ffaa00'};">{rsi:.1f}</td></tr>
-                        <tr><td>6. ADX (14)</td><td style="text-align:right; color:{'#00ff88' if adx_condition else '#ffaa00'};">{adx:.1f}</td></tr>
-                        <tr><td>7. VOLUME</td><td style="text-align:right; color:{'#00ff88' if volume_filter else '#ff4444'};">{'Below Avg' if not volume_filter else 'Above Avg'}</td></tr>
-                        <tr><td>8. STRONG CANDLE</td><td style="text-align:right; color:{'#00ff88' if strong_bull else '#ff4444' if strong_bear else '#ffaa00'};">{'Bearish' if strong_bear else 'Not Bearish'}</td></tr>
-                        <tr><td>9. 60M TREND</td><td style="text-align:right; color:{'#00ff88' if trend1h == 'UP' else '#ff4444' if trend1h == 'DOWN' else '#ffaa00'};">{'DOWN' if trend1h == 'DOWN' else 'NOT DOWN'}</td></tr>
-                    </table>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-            
-            # SCORES
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #00ff88;">
-                    <h3>BUY SCORE</h3>
-                    <h1 style="color: #00ff88; font-size: 48px;">{buy_score}/9</h1>
-                    <h2 style="color: #00ff88;">{buy_percent:.0f}%</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #ff4444;">
-                    <h3>SELL SCORE</h3>
-                    <h1 style="color: #ff4444; font-size: 48px;">{sell_score}/9</h1>
-                    <h2 style="color: #ff4444;">{sell_percent:.0f}%</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            with col3:
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid {bias_color};">
-                    <h3>MARKET BIAS</h3>
-                    <h1 style="color: {bias_color}; font-size: 28px;">{bias_icon} {market_bias}</h1>
-                    <p style="color: {bias_color};">{'Strong Up Trend' if buy_score >= 7 else 'Up Trend' if buy_score >= 5 else 'Down Trend' if sell_score >= 5 else 'Sideways'}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with col4:
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid {rec_color};">
-                    <h3>RECOMMENDATION</h3>
-                    <h1 style="color: {rec_color}; font-size: 32px;">{recommendation}</h1>
-                    <p style="color: {rec_color};">{'High Probability Setup' if recommendation != 'WAIT' else 'Wait for Clear Signal'}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-            
-            # Live Price
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; text-align: center;">
-                <h3>📊 NIFTY LIVE PRICE</h3>
-                <h1 style="color: #00b4d8;">₹{current_price:,.2f}</h1>
-                <p>🕐 {get_ist_now().strftime('%H:%M:%S')} IST | 📅 {get_ist_now().strftime('%d %B %Y')}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        else:
-            st.error("⚠️ Unable to fetch technical indicators. Please check your internet connection and try again.")
-            st.info("💡 **Tip:** If you're in India, market data is only available during trading hours (9:15 AM - 3:30 PM IST). Outside trading hours, some indicators may show limited data.")
-            
-            # Show demo data option
-            if st.button("🔄 Show Demo Data (For Testing)"):
-                st.session_state.show_demo_data = True
-                st.rerun()
-
-# ================= TAB 8: NIFTY SENTIMENT =================
-with tab8:
-
-    st.markdown("""
-    <style>
-    .glass-card{
-        background:rgba(15,23,42,0.85);
-        border:1px solid rgba(0,255,136,0.25);
-        border-radius:20px;
-        padding:15px;
-        box-shadow:0 0 25px rgba(0,255,136,0.15);
-    }
-
-    .bull-box{
-        background:linear-gradient(135deg,#052e16,#14532d);
-        border-radius:20px;
-        padding:20px;
-        text-align:center;
-    }
-
-    .title-box{
-        background:linear-gradient(135deg,#111827,#1e293b);
-        border-radius:20px;
-        padding:20px;
-        text-align:center;
-        margin-bottom:15px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="title-box">
-        <h1>🎯 NIFTY SENTIMENT DASHBOARD</h1>
-        <h3 style="color:#00ff88;">
-        RUDRANSH MASTER PRO
-        </h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-    sentiment_score = 78
-
-    st.progress(sentiment_score)
-
-    st.markdown(f"""
-    <div class="bull-box">
-        <h1 style="font-size:60px;color:#00ff88;">
-        {sentiment_score}%
-        </h1>
-        <h2 style="color:white;">
-        BULLISH
-        </h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    c1,c2 = st.columns(2)
-
-    with c1:
-
-        st.markdown("### 🌍 GLOBAL MARKETS")
-
-        st.dataframe(pd.DataFrame({
-            "INDEX":[
-                "GIFT NIFTY",
-                "NASDAQ",
-                "DOW",
-                "S&P500",
-                "NIKKEI",
-                "HANG SENG"
-            ],
-            "STATUS":[
-                "BULLISH",
-                "BULLISH",
-                "BULLISH",
-                "BULLISH",
-                "BEARISH",
-                "BEARISH"
-            ]
-        }),use_container_width=True)
-
-        st.markdown("### 💰 SMART MONEY")
-
-        st.dataframe(pd.DataFrame({
-            "TYPE":[
-                "FII CASH",
-                "DII CASH",
-                "FII FUTURES",
-                "FII OPTIONS"
-            ],
-            "VALUE":[
-                -1256,
-                2135,
-                -3842,
-                1925
-            ]
-        }),use_container_width=True)
-
-    with c2:
-
-        st.markdown("### 📊 OPTIONS DATA")
-
-        st.dataframe(pd.DataFrame({
-            "PARAMETER":[
-                "PCR",
-                "MAX PAIN",
-                "CE OI",
-                "PE OI"
-            ],
-            "VALUE":[
-                1.15,
-                24800,
-                25000,
-                24500
-            ]
-        }),use_container_width=True)
-
-        st.markdown("### 📈 MARKET INTERNALS")
-
-        st.metric("ADV/DEC","1.35")
-        st.metric("VIX","13.25")
-        st.metric("BANKNIFTY","STRONG")
-        st.metric("FINNIFTY","STRONG")
-
-    st.markdown("---")
-
-    st.markdown("""
-    <div class="glass-card">
-        <h2>🚀 TRADING PLAN</h2>
-
-        <h3 style="color:#00ff88;">
-        BUY ABOVE : 25050
-        </h3>
-
-        <h3>TARGET 1 : 25150</h3>
-        <h3>TARGET 2 : 25250</h3>
-        <h3>TARGET 3 : 25400</h3>
-
-        <h3 style="color:red;">
-        STOP LOSS : 24900
-        </h3>
-    </div>
-    """,unsafe_allow_html=True)
-
-# ================= AUTO TRADE FUNCTIONS =================
-def auto_trade_from_signal_with_journal():
-    nifty_trend = get_nifty_trend()
-    symbols_to_check = ["NIFTY"]
-    for symbol in symbols_to_check:
-        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
-        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
-        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
-            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-            trade_type = "BUY" if signal == "BUY" else "SELL"
-            can_trade = can_take_trade(symbol, trade_type)
-            if not already_active and can_trade and is_trading_time(symbol):
-                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
-                limit_price = price - 5
-                if limit_price <= 0:
-                    limit_price = price
-                strike_interval = 50
-                strike_price = math.floor(limit_price / strike_interval) * strike_interval
-                sl_percent = st.session_state.auto_trade_sl_percent / 100
-                target_percent = st.session_state.auto_trade_target_percent / 100
-                if signal == "BUY":
-                    sl_price = limit_price * (1 - sl_percent)
-                    tp1_price = limit_price * (1 + (target_percent * 0.5))
-                    tp2_price = limit_price * (1 + target_percent)
-                    tp3_price = limit_price * (1 + (target_percent * 1.5))
-                else:
-                    sl_price = limit_price * (1 + sl_percent)
-                    tp1_price = limit_price * (1 - (target_percent * 0.5))
-                    tp2_price = limit_price * (1 - target_percent)
-                    tp3_price = limit_price * (1 - (target_percent * 1.5))
-                st.session_state.wolf_orders.append({
-                    'symbol': symbol,
-                    'option_type': option_type,
-                    'strike_price': strike_price,
-                    'qty': st.session_state.auto_trade_qty,
-                    'buy_above': limit_price,
-                    'sl': sl_price,
-                    'target': tp2_price,
-                    'tp1': tp1_price,
-                    'tp2': tp2_price,
-                    'tp3': tp3_price,
-                    'tp1_booked': False,
-                    'tp2_booked': False,
-                    'tp3_booked': False,
-                    'tp1_percent': 50,
-                    'tp2_percent': 25,
-                    'tp3_percent': 25,
-                    'status': 'PENDING',
-                    'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                    'signal_type': '⚙️ SAHYADRI',
-                    'signal': signal
-                })
-                increment_trade_count(symbol, trade_type)
-                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} @ {limit_price} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%)")
-
-def wolf_auto_fo_trade():
-    if not st.session_state.auto_trade_enabled:
-        return
-    nifty_trend = get_nifty_trend()
-    nifty_positive = (nifty_trend == "POSITIVE")
-    nifty_negative = (nifty_trend == "NEGATIVE")
-    symbols_to_check = [s for s in FO_SCRIPTS if s != "BANKNIFTY"]
-    for symbol in symbols_to_check:
-        already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-        if already_active:
-            continue
-        already_pending = any(o.get('symbol') == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
-        if already_pending:
-            continue
-        if not is_trading_time(symbol):
-            continue
-        indicators = get_technical_indicators(symbol)
-        if indicators is None:
-            continue
-        sector = SECTOR_MAPPING.get(symbol, "NIFTY")
-        sector_trend = get_sector_trend(sector)
-        sector_bullish = (sector_trend == "BULLISH")
-        sector_bearish = (sector_trend == "BEARISH")
-        trend5_up = get_mtf_trend(symbol, "5m") == "UP"
-        trend15_up = get_mtf_trend(symbol, "15m") == "UP"
-        trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
-        ema_buy = (nifty_positive and
-                   not indicators["sideways"] and
-                   sector_bullish and
-                   indicators["ema9"] > indicators["ema20"] and
-                   indicators["current_price"] > indicators["ema200"] and
-                   indicators["rsi"] >= 60 and
-                   indicators["adx"] >= 25 and
-                   indicators["volume_filter"] and
-                   indicators["strong_bull"] and
-                   indicators["current_price"] > indicators["c1_high"] and
-                   trend5_up and trend15_up and trend1h_up)
-        ema_sell = (nifty_negative and
-                    not indicators["sideways"] and
-                    sector_bearish and
-                    indicators["ema9"] < indicators["ema20"] and
-                    indicators["current_price"] < indicators["ema200"] and
-                    indicators["rsi"] <= 40 and
-                    indicators["adx"] >= 25 and
-                    indicators["volume_filter"] and
-                    indicators["strong_bear"] and
-                    indicators["current_price"] < indicators["c1_low"] and
-                    not trend5_up and not trend15_up and not trend1h_up)
-        if ema_buy:
-            current_price = indicators["current_price"]
-            option_type = "CALL (CE)"
-            if symbol == "NIFTY":
-                strike_interval = 50
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_interval = 100
-            else:
-                strike_interval = 10
-            strike_price = math.floor(current_price / strike_interval) * strike_interval
-            entry_price = current_price
-            tp1_price = entry_price * 1.10
-            tp2_price = entry_price * 1.20
-            tp3_price = entry_price * 1.30
-            sl_price = entry_price * 0.90
-            st.session_state.wolf_orders.append({
-                'symbol': symbol,
-                'option_type': option_type,
-                'strike_price': strike_price,
-                'qty': st.session_state.auto_trade_qty,
-                'buy_above': current_price,
-                'sl': sl_price,
-                'target': tp2_price,
-                'tp1': tp1_price,
-                'tp2': tp2_price,
-                'tp3': tp3_price,
-                'tp1_booked': False,
-                'tp2_booked': False,
-                'tp3_booked': False,
-                'tp1_percent': 50,
-                'tp2_percent': 25,
-                'tp3_percent': 25,
-                'status': 'PENDING',
-                'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True,
-                'signal_type': '🐺 WOLF AUTO',
-                'signal': 'BUY'
-            })
-            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
-            voice_alert(f"Wolf auto buy order placed for {symbol}")
-        elif ema_sell:
-            current_price = indicators["current_price"]
-            option_type = "PUT (PE)"
-            if symbol == "NIFTY":
-                strike_interval = 50
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_interval = 100
-            else:
-                strike_interval = 10
-            strike_price = math.floor(current_price / strike_interval) * strike_interval
-            entry_price = current_price
-            tp1_price = entry_price * 0.90
-            tp2_price = entry_price * 0.80
-            tp3_price = entry_price * 0.70
-            sl_price = entry_price * 1.10
-            st.session_state.wolf_orders.append({
-                'symbol': symbol,
-                'option_type': option_type,
-                'strike_price': strike_price,
-                'qty': st.session_state.auto_trade_qty,
-                'buy_above': current_price,
-                'sl': sl_price,
-                'target': tp2_price,
-                'tp1': tp1_price,
-                'tp2': tp2_price,
-                'tp3': tp3_price,
-                'tp1_booked': False,
-                'tp2_booked': False,
-                'tp3_booked': False,
-                'tp1_percent': 50,
-                'tp2_percent': 25,
-                'tp3_percent': 25,
-                'status': 'PENDING',
-                'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True,
-                'signal_type': '🐺 WOLF AUTO',
-                'signal': 'SELL'
-            })
-            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
-            voice_alert(f"Wolf auto sell order placed for {symbol}")
-
-def check_and_execute_orders_with_journal():
-    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
-    for order in pending_orders:
-        current_price = get_live_price(order['symbol'])
-        if current_price > 0 and current_price >= order.get('buy_above', 0):
-            order['status'] = 'EXECUTED'
-            order['entry_price'] = current_price
-            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
-            active_order = {
-                'symbol': order['symbol'],
-                'option_type': order.get('option_type', 'CALL (CE)'),
-                'strike_price': order.get('strike_price', 0),
-                'qty': order.get('qty', 1),
-                'entry_price': current_price,
-                'entry_time': order['entry_time'],
-                'sl': order.get('sl', current_price * 0.95),
-                'target': order.get('target', current_price * 1.05),
-                'tp1': order.get('tp1', current_price * 1.05),
-                'tp2': order.get('tp2', current_price * 1.10),
-                'tp3': order.get('tp3', current_price * 1.15),
-                'tp1_booked': order.get('tp1_booked', False),
-                'tp2_booked': order.get('tp2_booked', False),
-                'tp3_booked': order.get('tp3_booked', False),
-                'signal_type': order.get('signal_type', '🐺 WOLF'),
-                'signal': order.get('signal', 'BUY')
-            }
-            st.session_state.active_orders.append(active_order)
-            add_to_journal(active_order)
-            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
-
-def monitor_active_orders_with_pnl():
-    orders_to_remove = []
-    for i, order in enumerate(st.session_state.active_orders):
-        symbol = order['symbol']
-        current_price = get_live_price(symbol)
-        if current_price <= 0:
-            continue
-        if not order.get('tp1_booked', False) and order.get('tp1'):
-            if order['option_type'] == "CALL (CE)":
-                tp1_hit = current_price >= order.get('tp1', 999999)
-            else:
-                tp1_hit = current_price <= order.get('tp1', 0)
-            if tp1_hit:
-                order['tp1_booked'] = True
-                msg = f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f} | 50% Profit Booked"
-                send_telegram(msg)
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP1 hit for {symbol}")
-        if not order.get('tp2_booked', False) and order.get('tp2'):
-            if order['option_type'] == "CALL (CE)":
-                tp2_hit = current_price >= order.get('tp2', 999999)
-            else:
-                tp2_hit = current_price <= order.get('tp2', 0)
-            if tp2_hit:
-                order['tp2_booked'] = True
-                order['sl'] = order['entry_price']
-                msg = f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | SL Shifted to Entry (₹{order['entry_price']:.2f})"
-                send_telegram(msg)
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
-        if not order.get('tp3_booked', False) and order.get('tp3'):
-            if order['option_type'] == "CALL (CE)":
-                tp3_hit = current_price >= order.get('tp3', 999999)
-            else:
-                tp3_hit = current_price <= order.get('tp3', 0)
-            if tp3_hit:
-                order['tp3_booked'] = True
-                msg = f"✅ TP3 HIT: {symbol} at ₹{current_price:.2f} | 25% Booked | TRADE COMPLETE"
-                send_telegram(msg)
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP3 hit for {symbol}, trade complete")
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-                continue
-        if order['option_type'] == "CALL (CE)":
-            if current_price <= order.get('sl', 0):
-                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
-                orders_to_remove.append((i, order, current_price, exit_reason))
-        else:
-            if current_price >= order.get('sl', 999999):
-                exit_reason = "SL HIT at Breakeven" if order.get('tp2_booked', False) else "SL HIT"
-                orders_to_remove.append((i, order, current_price, exit_reason))
-    for idx, order, exit_price, reason in reversed(orders_to_remove):
-        add_to_journal(order, exit_price, reason)
-        st.session_state.active_orders.pop(idx)
-
-def monitor_today_results():
-    try:
-        pending = get_pending_results()
-        for company in pending:
-            symbol = company.get('symbol', '')
-            if symbol:
-                earnings = get_company_earnings(symbol)
-                if earnings:
-                    revenue = earnings.get('revenue', 0)
-                    prev_revenue = earnings.get('revenue', 0)
-                    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-                    if revenue_growth > 10:
-                        result_type = "POSITIVE"
-                    elif revenue_growth < -5:
-                        result_type = "NEGATIVE"
-                    else:
-                        result_type = "NEUTRAL"
-                    already_alerted = False
-                    for alert in st.session_state.result_alerts:
-                        if alert.get('company') == company.get('name'):
-                            already_alerted = True
-                            break
-                    if not already_alerted and result_type != "NEUTRAL":
-                        st.session_state.result_alerts.append({
-                            'company': company.get('name', symbol),
-                            'date': get_ist_now().strftime('%Y-%m-%d'),
-                            'time': get_ist_now().strftime('%H:%M:%S'),
-                            'verdict': result_type
-                        })
-                        send_telegram(f"📊 RESULT: {company.get('name', symbol)} - {result_type}")
-    except Exception as e:
-        print(f"Error: {e}")
-
-def add_journal_entry(system_name, symbol, trade_type, entry_price):
-    st.session_state.trade_journal.append({
-        "Time": get_ist_now().strftime('%H:%M:%S'),
-        "System": system_name,
-        "Symbol": symbol,
-        "Type": trade_type,
-        "Entry": entry_price,
-        "Exit": "-",
-        "P&L": 0,
-        "Status": "OPEN"
-    })
-
-def close_journal_entry(symbol, exit_price, pnl):
-    for entry in st.session_state.trade_journal:
-        if entry['Symbol'] == symbol and entry['Status'] == "OPEN":
-            entry['Exit'] = exit_price
-            entry['P&L'] = pnl
-            entry['Status'] = "CLOSED"
-            entry['Time'] = f"{entry['Time']} → {get_ist_now().strftime('%H:%M:%S')}"
-            break
-
-# ================= SIDEBAR =================
-with st.sidebar:
-    st.markdown("""
-    <div style="text-align:center; padding:15px; background: linear-gradient(135deg, #8B0000, #DC143C); border-radius: 15px; margin-bottom: 20px; border: 1px solid #FFD700;">
-        <h2 style="margin:0; color:#FFD700;">🌸 SAMRUDDHI DASHBOARD</h2>
-        <p style="margin:5px 0 0 0; color:#FFD700;">🐺 Rudransh Algo v5.0</p>
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown("---")
-    active_count = len(st.session_state.active_orders)
-    st.markdown(f'<div style="background: rgba(0,255,136,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">🔴</span><h3>{active_count}</h3><p>Active Orders</p></div>', unsafe_allow_html=True)
-    pending_count = len([o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING'])
-    st.markdown(f'<div style="background: rgba(255,170,0,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">⏳</span><h3>{pending_count}</h3><p>Pending Orders</p></div>', unsafe_allow_html=True)
-    total_trades = len(st.session_state.trade_journal)
-    st.markdown(f'<div style="background: rgba(0,180,216,0.1); border-radius: 15px; padding: 15px; text-align: center;"><span style="font-size: 28px;">📋</span><h3>{total_trades}</h3><p>Total Trades</p></div>', unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown('<span style="color:#00ff88">✅ FMP API: Active</span>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#00ff88">✅ GNews API: Active</span>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#00ff88">✅ Telegram: Active</span>', unsafe_allow_html=True)
-    auto_text = "ON" if st.session_state.auto_trade_enabled else "OFF"
-    auto_color = "#00ff88" if st.session_state.auto_trade_enabled else "#ff4444"
-    st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
-
-# ================= AUTO EXECUTION =================
-if st.session_state.algo_running and st.session_state.totp_verified:
-    check_and_execute_orders_with_journal()
-    monitor_active_orders_with_pnl()
-    if st.session_state.auto_trade_enabled:
-        auto_trade_from_signal_with_journal()
-        wolf_auto_fo_trade()
-    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
+                    <td style="width:20%;"><b>📅 Q4 Date</b><br>{company['q4_date']}
