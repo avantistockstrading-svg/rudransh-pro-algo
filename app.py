@@ -1557,201 +1557,285 @@ with tab3:
         if important_news:
             voice_alert(f"Important news: {important_news[0]['sentiment']} sentiment detected. {important_news[0]['title'][:100]}")
 
-# ================= TAB 4: OVI RESULTS (REAL TIME) =================
+# ================= TAB 4: OVI RESULTS (REAL TIME - NSELib) =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - REAL TIME Q4 FY26 MONITORING")
-    st.markdown("*Live earnings data from Yahoo Finance with AI predictions & trading signals*")
+    st.markdown("*Live earnings data directly from NSE India | Powered by NSELib*")
     
     st.markdown("---")
     
-    # Yahoo Finance वरून रिअल डेटा मिळवा
-    def get_earnings_from_yahoo(symbol):
-        """Fetch earnings from Yahoo Finance"""
-        try:
-            ticker = yf.Ticker(f"{symbol}.NS")
-            earnings = ticker.earnings
-            if earnings is not None and not earnings.empty:
-                latest = earnings.iloc[-1]
-                return {
-                    'symbol': symbol,
-                    'eps_actual': latest.get('earnings', 0) if hasattr(latest, 'get') else latest.iloc[0] if len(latest) > 0 else 0,
-                    'date': latest.name.strftime('%Y-%m-%d') if hasattr(latest.name, 'strftime') else str(latest.name),
-                    'revenue': ticker.financials.loc['Total Revenue'].iloc[0] if 'Total Revenue' in ticker.financials.index else None
-                }
-        except Exception as e:
-            pass
-        return None
-    
-    # Indian stocks list
-    EARNINGS_WATCHLIST = [
-        "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC", "SBIN",
-        "BHARTIARTL", "AXISBANK", "LT", "DMART", "SUNPHARMA", "BAJFINANCE", "TITAN",
-        "MARUTI", "TATAMOTORS", "WIPRO", "HCLTECH", "ONGC", "ULTRACEMCO", "ADANIPORTS",
-        "ADANIENT", "ASIANPAINT", "BRITANNIA", "CIPLA", "DRREDDY", "M&M", "NESTLEIND"
-    ]
-    
-    # मॅन्युअल एंट्री साठी - तुम्ही स्वतः निकाल टाकू शकता
-    st.markdown("#### 📝 Manual Result Entry (जर API काम करत नसेल तर)")
-    
-    with st.expander("➕ Click here to add results manually", expanded=False):
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            manual_symbol = st.selectbox("Symbol", EARNINGS_WATCHLIST, key="manual_sym")
-        with col2:
-            manual_eps = st.number_input("EPS Actual", value=0.0, step=5.0, key="manual_eps")
-        with col3:
-            manual_eps_est = st.number_input("EPS Estimate", value=0.0, step=5.0, key="manual_est")
-        with col4:
-            manual_reaction = st.selectbox("Market Reaction", ["POSITIVE", "NEUTRAL", "NEGATIVE"], key="manual_reaction")
-        
-        if st.button("📊 Add Result", use_container_width=True):
-            # Calculate surprise
-            if manual_eps_est > 0:
-                surprise = ((manual_eps - manual_eps_est) / manual_eps_est) * 100
-            else:
-                surprise = 0
-            
-            # Generate signal
-            if surprise > 10:
-                signal = "STRONG BULLISH 🔥"
-                trade = "BUY CALL CE"
-            elif surprise > 5:
-                signal = "BULLISH 📈"
-                trade = "BUY CALL CE"
-            elif surprise < -10:
-                signal = "STRONG BEARISH 💀"
-                trade = "SELL PUT PE"
-            elif surprise < -5:
-                signal = "BEARISH 📉"
-                trade = "SELL PUT PE"
-            else:
-                signal = "NEUTRAL ⚪"
-                trade = "WAIT"
-            
-            st.session_state.result_alerts.append({
-                'company': manual_symbol,
-                'date': get_ist_now().strftime('%Y-%m-%d'),
-                'time': get_ist_now().strftime('%H:%M:%S'),
-                'verdict': signal,
-                'reaction': f"EPS: {manual_eps} | Surprise: {surprise:+.1f}%",
-                'reason': f"Suggested Trade: {trade}",
-                'eps_actual': manual_eps,
-                'eps_estimate': manual_eps_est,
-                'surprise': surprise
-            })
-            st.success(f"✅ Result added for {manual_symbol}")
-            st.rerun()
+    # Import nselib
+    try:
+        from nselib import capital_market, derivatives
+        nselib_available = True
+        st.success("✅ NSELib Connected - Direct NSE Data Feed Active")
+    except ImportError:
+        nselib_available = False
+        st.error("❌ NSELib not installed. Please run: pip install nselib")
+        st.info("Installing NSELib will enable real-time NSE data without any API key!")
     
     st.markdown("---")
     
-    # Display manually entered results
-    st.markdown("#### 📊 Today's Results & Trading Signals")
-    
-    if st.session_state.result_alerts:
-        # Filter today's results
-        today = get_ist_now().strftime('%Y-%m-%d')
-        today_results = [r for r in st.session_state.result_alerts if r.get('date') == today]
+    if nselib_available:
+        # Fetch real-time financial results from NSE
+        def get_nse_financial_results():
+            """Fetch financial results directly from NSE using NSELib"""
+            try:
+                with st.spinner("Fetching live results from NSE India..."):
+                    results = capital_market.financial_results_for_equity()
+                    if results is not None and len(results) > 0:
+                        return results
+                    else:
+                        return None
+            except Exception as e:
+                st.error(f"Error fetching from NSE: {str(e)}")
+                return None
         
-        if today_results:
-            for alert in today_results[-10:]:
-                verdict = alert.get('verdict', '')
-                eps_act = alert.get('eps_actual', 'N/A')
-                eps_est = alert.get('eps_estimate', 'N/A')
-                surprise = alert.get('surprise', 0)
+        # Fetch results
+        nse_results = get_nse_financial_results()
+        
+        if nse_results is not None and len(nse_results) > 0:
+            st.markdown(f"#### 📊 Live Results from NSE - {len(nse_results)} Companies Found")
+            
+            # Display as dataframe
+            df_results = pd.DataFrame(nse_results)
+            st.dataframe(df_results, use_container_width=True, height=400)
+            st.markdown("---")
+            
+            # Analysis function
+            def analyze_result(row):
+                """Generate trading signal based on results"""
+                try:
+                    # Get key metrics
+                    yoy_change = row.get('YoY Change (%)', 0)
+                    if pd.isna(yoy_change):
+                        yoy_change = 0
+                    
+                    qoq_change = row.get('QoQ Change (%)', 0)
+                    if pd.isna(qoq_change):
+                        qoq_change = 0
+                    
+                    # Generate signal based on growth
+                    if yoy_change > 20:
+                        signal = "STRONG BULLISH"
+                        confidence = 90
+                        trade = "BUY CALL (CE)"
+                        icon = "🚀"
+                        bg_color = "#00ff44"
+                    elif yoy_change > 10:
+                        signal = "BULLISH"
+                        confidence = 75
+                        trade = "BUY CALL (CE)"
+                        icon = "📈"
+                        bg_color = "#88ff88"
+                    elif yoy_change < -20:
+                        signal = "STRONG BEARISH"
+                        confidence = 90
+                        trade = "SELL PUT (PE)"
+                        icon = "💀"
+                        bg_color = "#ff3333"
+                    elif yoy_change < -10:
+                        signal = "BEARISH"
+                        confidence = 75
+                        trade = "SELL PUT (PE)"
+                        icon = "📉"
+                        bg_color = "#ff6666"
+                    else:
+                        signal = "NEUTRAL"
+                        confidence = 50
+                        trade = "WAIT / HOLD"
+                        icon = "⚪"
+                        bg_color = "#ffaa00"
+                    
+                    return signal, confidence, trade, icon, bg_color, yoy_change, qoq_change
+                except:
+                    return "NEUTRAL", 50, "WAIT", "⚪", "#ffaa00", 0, 0
+            
+            # Display company-wise cards
+            st.markdown("#### 📊 Company-wise Results Analysis")
+            
+            for idx, row in df_results.iterrows():
+                symbol = row.get('Symbol', row.get('Company Name', f'Company_{idx}'))
+                company_name = row.get('Company Name', symbol)
+                amount = row.get('Amount (Rs. in Cr)', 0)
+                yoy_percent = row.get('YoY Change (%)', 0)
+                qoq_percent = row.get('QoQ Change (%)', 0)
+                result_date = row.get('Date of Board Meeting', row.get('Result Date', 'N/A'))
                 
-                # Color coding
-                if "BULLISH" in verdict:
-                    bg_color = "#00ff44"
-                    border_color = "#00cc33"
-                    icon = "🚀" if "STRONG" in verdict else "📈"
-                    trade_signal = "🟢 BUY CALL (CE)"
-                    trade_color = "#00ff88"
-                elif "BEARISH" in verdict:
-                    bg_color = "#ff4444"
-                    border_color = "#cc3333"
-                    icon = "💀" if "STRONG" in verdict else "📉"
-                    trade_signal = "🔴 SELL PUT (PE)"
-                    trade_color = "#ff4444"
-                else:
-                    bg_color = "#ffaa00"
-                    border_color = "#cc8800"
-                    icon = "⚪"
-                    trade_signal = "🟡 WAIT"
-                    trade_color = "#ffaa00"
+                signal, confidence, trade, icon, bg_color, yoy, qoq = analyze_result(row)
                 
                 st.markdown(f"""
-                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid {border_color};">
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid {bg_color};">
                     <table style="width:100%;">
                         <tr>
-                            <td style="width:20%;"><b>🏢 {alert['company']}</b></td>
-                            <td style="width:15%;"><b>📅 Date</b><br>{alert['date']}</td>
-                            <td style="width:15%;"><b>⏰ Time</b><br>{alert['time']}</td>
-                            <td style="width:25%;"><b>🤖 AI Signal</b><br><span style="background:{bg_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{icon} {verdict}</span></td>
-                            <td style="width:25%;"><b>🎯 Trade Signal</b><br><span style="background:{trade_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{trade_signal}</span></td>
+                            <td style="width:20%;"><b>🏢 {company_name}</b><br><small>{symbol}</small></td>
+                            <td style="width:15%;"><b>📅 Result Date</b><br>{result_date}</td>
+                            <td style="width:20%;"><b>💰 Amount</b><br>₹{amount:.2f} Cr</td>
+                            <td style="width:25%;"><b>🤖 AI Signal</b><br><span style="background:{bg_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{icon} {signal} ({confidence}%)</span></td>
+                            <td style="width:20%;"><b>🎯 Trade</b><br><span style="background:{'#00ff88' if 'BUY' in trade else '#ff4444' if 'SELL' in trade else '#ffaa00'}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{trade}</span></td>
                         </tr>
                         <tr>
-                            <td colspan="2"><b>📊 EPS</b><br>Actual: {eps_act}<br>Estimate: {eps_est}</td>
-                            <td colspan="2"><b>📈 Surprise</b><br>{surprise:+.1f}%</td>
-                            <td><b>📉 Action</b><br>{alert.get('reaction', '')}</td>
-                        </tr>
-                        <tr>
-                            <td colspan="5"><b>💡 Analysis:</b> {alert.get('reason', '')}</td>
+                            <td colspan="2"><b>📊 YoY Growth</b><br>{yoy:+.1f}%</td>
+                            <td colspan="2"><b>📈 QoQ Growth</b><br>{qoq:+.1f}%</td>
+                            <td><b>⭐ Status</b><br>{'Completed' if str(result_date) != 'N/A' else 'Pending'}</td>
                         </tr>
                     </table>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Auto Trade Button
-                if "BULLISH" in verdict or "BEARISH" in verdict:
-                    if st.button(f"📈 AUTO TRADE {alert['company']}", key=f"auto_trade_{alert['company']}_{alert['time']}"):
-                        result_type = "POSITIVE" if "BULLISH" in verdict else "NEGATIVE"
-                        success, msg = process_result_and_trade(alert['company'], alert['company'], result_type)
+                # Auto trade button
+                if signal in ["STRONG BULLISH", "BULLISH", "BEARISH", "STRONG BEARISH"]:
+                    if st.button(f"📈 Trade {symbol}", key=f"trade_nse_{symbol}_{idx}"):
+                        result_type = "POSITIVE" if "BULLISH" in signal else "NEGATIVE"
+                        success, msg = process_result_and_trade(company_name, symbol, result_type)
                         if success:
                             st.success(f"✅ {msg}")
+                            st.session_state.result_alerts.append({
+                                'company': company_name,
+                                'symbol': symbol,
+                                'date': get_ist_now().strftime('%Y-%m-%d'),
+                                'time': get_ist_now().strftime('%H:%M:%S'),
+                                'verdict': signal,
+                                'reaction': f"{trade} order placed",
+                                'yoy_growth': yoy,
+                                'qoq_growth': qoq
+                            })
+                            st.rerun()
                         else:
                             st.warning(f"⏳ {msg}")
+            
+            # Summary statistics
+            st.markdown("---")
+            st.markdown("#### 📊 Earnings Season Summary")
+            
+            signals_list = []
+            for idx, row in df_results.iterrows():
+                signal, _, _, _, _, _, _ = analyze_result(row)
+                signals_list.append(signal)
+            
+            bullish = len([s for s in signals_list if "BULLISH" in s])
+            bearish = len([s for s in signals_list if "BEARISH" in s])
+            neutral = len([s for s in signals_list if s == "NEUTRAL"])
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("📈 Bullish Signals", bullish, delta=f"+{bullish}")
+            with col2:
+                st.metric("📉 Bearish Signals", bearish, delta=f"-{bearish}")
+            with col3:
+                st.metric("⚪ Neutral", neutral, delta="0")
+            with col4:
+                st.metric("📊 Total Results", len(df_results), delta="Today")
+        
         else:
-            st.info("📭 No results entered for today. Use the form above to add results manually.")
+            st.warning("⚠️ No results data available from NSE right now.")
+            st.info("""
+            **Possible reasons:**
+            1. No financial results declared today
+            2. NSE website might be updating
+            3. Weekend / Market holiday
+            
+            **Try:**
+            - Check during market hours (9:15 AM - 3:30 PM)
+            - Results are usually declared after market hours (3:30 PM onwards)
+            """)
+    
     else:
-        st.info("📭 No results available. Please add results manually using the form above.")
+        # Fallback - Manual entry when NSELib is not available
+        st.warning("⚠️ NSELib not available - Using Manual Entry Mode")
+        
+        st.markdown("#### 📝 Manual Result Entry")
+        
+        with st.expander("➕ Click here to add results manually", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                manual_symbol = st.text_input("Symbol", "RELIANCE", key="manual_sym")
+            with col2:
+                manual_amount = st.number_input("Amount (Cr)", value=0.0, step=100.0, key="manual_amt")
+            with col3:
+                manual_growth = st.number_input("YoY Growth (%)", value=0.0, step=5.0, key="manual_growth")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                manual_est = st.number_input("Estimate (Cr)", value=0.0, step=100.0, key="manual_est")
+            with col2:
+                manual_result_date = st.date_input("Result Date", get_ist_now().date(), key="manual_date")
+            
+            if st.button("📊 Add Result", use_container_width=True):
+                surprise = ((manual_amount - manual_est) / manual_est * 100) if manual_est > 0 else manual_growth
+                
+                if surprise > 20:
+                    signal = "STRONG BULLISH 🔥"
+                    trade = "BUY CALL CE"
+                elif surprise > 10:
+                    signal = "BULLISH 📈"
+                    trade = "BUY CALL CE"
+                elif surprise < -20:
+                    signal = "STRONG BEARISH 💀"
+                    trade = "SELL PUT PE"
+                elif surprise < -10:
+                    signal = "BEARISH 📉"
+                    trade = "SELL PUT PE"
+                else:
+                    signal = "NEUTRAL ⚪"
+                    trade = "WAIT"
+                
+                st.session_state.result_alerts.append({
+                    'company': manual_symbol,
+                    'date': manual_result_date.strftime('%Y-%m-%d'),
+                    'time': get_ist_now().strftime('%H:%M:%S'),
+                    'verdict': signal,
+                    'reaction': f"Amount: ₹{manual_amount} Cr | Surprise: {surprise:+.1f}%",
+                    'reason': f"Suggested Trade: {trade}"
+                })
+                st.success(f"✅ Result added for {manual_symbol}")
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # Display manual entries
+        if st.session_state.result_alerts:
+            st.markdown("#### 📊 Today's Results")
+            for alert in st.session_state.result_alerts[-10:]:
+                verdict = alert.get('verdict', '')
+                bg_color = "#00ff44" if "BULLISH" in verdict else "#ff4444" if "BEARISH" in verdict else "#ffaa00"
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {bg_color};">
+                    <b>🏢 {alert['company']}</b> | 📅 {alert['date']} | ⏰ {alert['time']}<br>
+                    🤖 <span style="color:{bg_color}">{verdict}</span><br>
+                    📈 {alert.get('reaction', '')}<br>
+                    💡 {alert.get('reason', '')}
+                </div>
+                """, unsafe_allow_html=True)
     
+    # Display recent alerts
     st.markdown("---")
+    st.markdown("#### 🔔 Recent Trading Alerts")
     
-    # Summary
     if st.session_state.result_alerts:
-        st.markdown("#### 📊 Results Summary")
-        
-        bullish = len([r for r in st.session_state.result_alerts if "BULLISH" in r.get('verdict', '')])
-        bearish = len([r for r in st.session_state.result_alerts if "BEARISH" in r.get('verdict', '')])
-        neutral = len([r for r in st.session_state.result_alerts if "NEUTRAL" in r.get('verdict', '')])
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("📈 Bullish", bullish)
-        with col2:
-            st.metric("📉 Bearish", bearish)
-        with col3:
-            st.metric("⚪ Neutral", neutral)
-        
-        # Total P&L from result-based trades
-        result_trades = [j for j in st.session_state.trade_journal if "OVI" in str(j.get('System', '')) or "RESULT" in str(j.get('Symbol', ''))]
-        if result_trades:
-            total_pnl = sum(float(j.get('P&L (₹)', 0)) for j in result_trades if isinstance(j.get('P&L (₹)'), (int, float)))
-            st.metric("💰 Total P&L from Result Trades", f"₹{total_pnl:,.2f}", delta="Based on OVI signals")
+        for alert in st.session_state.result_alerts[-5:]:
+            verdict = alert.get('verdict', '')
+            verdict_color = "#00ff88" if "BULLISH" in str(verdict) else "#ff4444" if "BEARISH" in str(verdict) else "#ffaa00"
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {verdict_color};">
+                <b>📊 {alert.get('company', 'Unknown')}</b> | 📅 {alert.get('date', '')} ⏰ {alert.get('time', '')}<br>
+                🤖 AI: <span style="color:{verdict_color}">{verdict}</span> | 📈 Action: {alert.get('reaction', 'N/A')}<br>
+                💡 {alert.get('reason', '')}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("📭 No trading alerts yet. Trade signals will appear when results are declared.")
     
+    # Market lesson
     st.markdown("---")
     st.markdown("#### 📚 Important Market Lesson")
     st.info("""
-    **💡 Trading on Results Strategy:**
-    - **Positive Surprise (EPS beats estimate)** → BUY CALL option
-    - **Negative Surprise (EPS misses estimate)** → SELL PUT option
-    - **In-line results** → WAIT for confirmation
+    **💡 Trading on Results Strategy (Based on NSE Data):**
+    - **YoY Growth > 10-20%** → Strong performance → BUY CALL option
+    - **YoY Growth < -10-20%** → Weak performance → SELL PUT option
+    - **In-line results** → Wait for confirmation
     
-    **🎯 How to use:**
-    1. Enter actual EPS and estimate in the form above
-    2. System will calculate surprise percentage
-    3. AI will generate BUY/SELL signal
-    4. Click AUTO TRADE to execute
+    **📊 Data Source:** Directly from NSE India via NSELib (No API Key Required!)
     """)
 
 # ================= TAB 5: SAHYADRI SETTINGS =================
