@@ -2446,6 +2446,255 @@ with st.sidebar:
     auto_color = "#00ff88" if st.session_state.auto_trade_enabled else "#ff4444"
     st.markdown(f'<span style="color:{auto_color}">✅ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
 
+# ================= DAILY TRADE ENTRY & SL/TP CALCULATOR =================
+with st.expander("📊 DAILY TRADE ENTRY - SL/TP CALCULATOR", expanded=False):
+    st.markdown("### 📝 Daily Trade Entry")
+    st.markdown("*Enter your trade details - Auto calculate SL, TP1, TP2, TP3*")
+    
+    st.markdown("---")
+    
+    # Input Form
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📌 TRADE DETAILS")
+        
+        trade_symbol = st.text_input("Symbol", "BRITANNIA", key="daily_symbol")
+        trade_option = st.selectbox("Option Type", ["CALL (CE)", "PUT (PE)"], key="daily_option")
+        strike_price = st.number_input("Strike Price", value=5100, step=50, key="daily_strike")
+        
+        st.markdown("---")
+        st.markdown("#### 💰 ENTRY DETAILS")
+        
+        entry_price = st.number_input("Entry Premium (₹)", value=110.25, step=5.0, format="%.2f", key="daily_entry")
+        lot_size = st.number_input("Lot Size (NIFTY=65, BANKNIFTY=25, CRUDE=100)", value=65, step=1, key="daily_lotsize")
+        num_lots = st.number_input("Number of Lots", value=11, step=1, key="daily_lots")
+        
+    with col2:
+        st.markdown("#### 🎯 RISK & REWARD %")
+        
+        sl_percent = st.slider("Stop Loss %", min_value=5, max_value=50, value=25, step=1, key="daily_sl_pct")
+        tp1_percent = st.slider("TP1 % (Book partial)", min_value=5, max_value=50, value=22, step=1, key="daily_tp1_pct")
+        tp2_percent = st.slider("TP2 % (Book partial)", min_value=10, max_value=100, value=50, step=5, key="daily_tp2_pct")
+        tp3_percent = st.slider("TP3 % (Final target)", min_value=20, max_value=150, value=80, step=10, key="daily_tp3_pct")
+        
+        st.markdown("---")
+        st.markdown("#### 📊 BOOKING %")
+        
+        tp1_book_pct = st.slider("TP1 पर किती % बुक करायचे?", min_value=0, max_value=100, value=30, step=5, key="daily_tp1_book")
+        tp2_book_pct = st.slider("TP2 पर किती % बुक करायचे?", min_value=0, max_value=100, value=40, step=5, key="daily_tp2_book")
+        # Remaining will auto book at TP3
+    
+    # Calculate SL and TP
+    if entry_price > 0:
+        if trade_option == "CALL (CE)":
+            sl_price = entry_price * (1 - sl_percent/100)
+            tp1_price = entry_price * (1 + tp1_percent/100)
+            tp2_price = entry_price * (1 + tp2_percent/100)
+            tp3_price = entry_price * (1 + tp3_percent/100)
+        else:  # PUT (PE)
+            sl_price = entry_price * (1 + sl_percent/100)
+            tp1_price = entry_price * (1 - tp1_percent/100)
+            tp2_price = entry_price * (1 - tp2_percent/100)
+            tp3_price = entry_price * (1 - tp3_percent/100)
+        
+        total_shares = num_lots * lot_size
+        total_investment = entry_price * total_shares
+        
+        # Calculate P&L
+        if trade_option == "CALL (CE)":
+            sl_pl = (sl_price - entry_price) * total_shares
+            tp1_pl = (tp1_price - entry_price) * total_shares * (tp1_book_pct/100)
+            tp2_pl = (tp2_price - entry_price) * total_shares * (tp2_book_pct/100)
+            tp3_pl = (tp3_price - entry_price) * total_shares * ((100 - tp1_book_pct - tp2_book_pct)/100)
+            total_profit = tp1_pl + tp2_pl + tp3_pl
+        else:
+            sl_pl = (entry_price - sl_price) * total_shares
+            tp1_pl = (entry_price - tp1_price) * total_shares * (tp1_book_pct/100)
+            tp2_pl = (entry_price - tp2_price) * total_shares * (tp2_book_pct/100)
+            tp3_pl = (entry_price - tp3_price) * total_shares * ((100 - tp1_book_pct - tp2_book_pct)/100)
+            total_profit = tp1_pl + tp2_pl + tp3_pl
+        
+        # Display Results
+        st.markdown("---")
+        st.markdown("## 📊 YOUR TRADE SUMMARY")
+        
+        # Main Results Table
+        st.markdown(f"""
+        <style>
+        .trade-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }}
+        .trade-table th {{
+            background: linear-gradient(135deg, #00ff88, #00b4d8);
+            color: black;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+        }}
+        .trade-table td {{
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }}
+        .profit {{ color: #00ff88; font-weight: bold; }}
+        .loss {{ color: #ff4444; font-weight: bold; }}
+        .neutral {{ color: #ffaa00; font-weight: bold; }}
+        </style>
+        
+        <table class="trade-table">
+            <tr>
+                <th>Level</th>
+                <th>Premium (₹)</th>
+                <th>Move Pts</th>
+                <th>Total P&L (₹)</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td><b>🎯 ENTRY</b></td>
+                <td><b>₹{entry_price:.2f}</b></td>
+                <td>-</td>
+                <td>-</td>
+                <td>📌 Entry Point</td>
+            </tr>
+            <tr>
+                <td><b>🛡️ STOP LOSS</b></td>
+                <td>₹{sl_price:.2f}</td>
+                <td class="loss">{sl_price - entry_price:+.2f}</td>
+                <td class="loss">₹{sl_pl:,.0f}</td>
+                <td>🔴 EXIT - SL HIT</td>
+            </tr>
+            <tr style="background: rgba(0,255,136,0.1);">
+                <td><b>🎯 TP1 ({tp1_book_pct}%)</b></td>
+                <td>₹{tp1_price:.2f}</td>
+                <td class="profit">{tp1_price - entry_price:+.2f}</td>
+                <td class="profit">+₹{tp1_pl:,.0f}</td>
+                <td>✅ BOOK {tp1_book_pct}%</td>
+            </tr>
+            <tr style="background: rgba(0,255,136,0.05);">
+                <td><b>🎯 TP2 ({tp2_book_pct}%)</b></td>
+                <td>₹{tp2_price:.2f}</td>
+                <td class="profit">{tp2_price - entry_price:+.2f}</td>
+                <td class="profit">+₹{tp2_pl:,.0f}</td>
+                <td>✅ BOOK {tp2_book_pct}%</td>
+            </tr>
+            <tr style="background: rgba(0,255,136,0.02);">
+                <td><b>🎯 TP3 ({100 - tp1_book_pct - tp2_book_pct}%)</b></td>
+                <td>₹{tp3_price:.2f}</td>
+                <td class="profit">{tp3_price - entry_price:+.2f}</td>
+                <td class="profit">+₹{tp3_pl:,.0f}</td>
+                <td>✅ BOOK REMAINING</td>
+            </tr>
+            <tr style="background: rgba(0,0,0,0.3);">
+                <td><b>🏆 TOTAL PROFIT</b></td>
+                <td colspan="2"><b>Risk:Reward = 1:{abs(total_profit/sl_pl):.1f}</b></td>
+                <td class="profit"><b>+₹{total_profit:,.0f}</b></td>
+                <td><b>🎉 NET PROFIT</b></td>
+            </tr>
+        </table>
+        """, unsafe_allow_html=True)
+        
+        # Investment Summary
+        st.markdown("---")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("📊 Total Shares", f"{total_shares:,}")
+        with col2:
+            st.metric("💰 Total Investment", f"₹{total_investment:,.0f}")
+        with col3:
+            st.metric("📉 Max Loss (SL)", f"₹{sl_pl:,.0f}", delta=f"{sl_percent}%")
+        with col4:
+            risk_reward = abs(total_profit/sl_pl) if sl_pl != 0 else 0
+            st.metric("📈 Risk:Reward", f"1:{risk_reward:.1f}")
+        
+        # Lot-wise P&L
+        st.markdown("---")
+        st.markdown("#### 📊 LOT-WISE P&L (Per Lot)")
+        
+        per_lot_shares = lot_size
+        per_lot_investment = entry_price * per_lot_shares
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Per Lot Shares", f"{per_lot_shares}")
+            st.metric("Per Lot Investment", f"₹{per_lot_investment:.0f}")
+        with col2:
+            st.metric("SL Loss per Lot", f"₹{sl_pl/num_lots:,.0f}")
+            st.metric("TP1 Profit per Lot", f"₹{tp1_pl/num_lots:,.0f}")
+        with col3:
+            st.metric("TP2 Profit per Lot", f"₹{tp2_pl/num_lots:,.0f}")
+            st.metric("TP3 Profit per Lot", f"₹{tp3_pl/num_lots:,.0f}")
+        
+        # Order Summary for Copy-Paste
+        st.markdown("---")
+        st.markdown("#### 📋 ORDER SUMMARY (Copy this)")
+        
+        order_summary = f"""
+┌─────────────────────────────────────────────────┐
+│  {trade_symbol} {strike_price} {trade_option}                           │
+├─────────────────────────────────────────────────┤
+│  Entry:     ₹{entry_price:.2f}                                         │
+│  SL:        ₹{sl_price:.2f} ({sl_percent}%)                             │
+│  TP1:       ₹{tp1_price:.2f} (Book {tp1_book_pct}% @ {tp1_percent}%)    │
+│  TP2:       ₹{tp2_price:.2f} (Book {tp2_book_pct}% @ {tp2_percent}%)    │
+│  TP3:       ₹{tp3_price:.2f} (Book {100-tp1_book_pct-tp2_book_pct}%)    │
+├─────────────────────────────────────────────────┤
+│  Lots:      {num_lots} x {lot_size} = {total_shares} shares            │
+│  Investment: ₹{total_investment:,.0f}                                   │
+│  Max Loss:   ₹{sl_pl:,.0f}                                            │
+│  Max Profit: ₹{total_profit:,.0f}                                      │
+│  R:R Ratio:  1:{risk_reward:.1f}                                       │
+└─────────────────────────────────────────────────┘
+"""
+        st.code(order_summary, language="text")
+        
+        # Save to Session State for Journal
+        if st.button("💾 SAVE THIS TRADE TO JOURNAL", use_container_width=True):
+            trade_record = {
+                "Date": get_ist_now().strftime('%Y-%m-%d %H:%M'),
+                "Symbol": f"{trade_symbol} {strike_price} {trade_option}",
+                "Lots": num_lots,
+                "Entry": entry_price,
+                "SL": sl_price,
+                "TP1": tp1_price,
+                "TP2": tp2_price,
+                "TP3": tp3_price,
+                "Investment": total_investment,
+                "Max Loss": sl_pl,
+                "Max Profit": total_profit,
+                "Status": "ACTIVE"
+            }
+            
+            if "daily_trades" not in st.session_state:
+                st.session_state.daily_trades = []
+            
+            st.session_state.daily_trades.append(trade_record)
+            st.success(f"✅ Trade saved for {trade_symbol}!")
+            st.rerun()
+
+# ================= DISPLAY SAVED TRADES =================
+with st.expander("📋 MY DAILY TRADES JOURNAL", expanded=True):
+    st.markdown("### 📋 Today's Trades")
+    
+    if "daily_trades" in st.session_state and st.session_state.daily_trades:
+        df_trades = pd.DataFrame(st.session_state.daily_trades)
+        st.dataframe(df_trades, use_container_width=True)
+        
+        # Delete option
+        for i, trade in enumerate(st.session_state.daily_trades):
+            col1, col2 = st.columns([4,1])
+            with col1:
+                st.markdown(f"**{trade['Symbol']}** | Entry: ₹{trade['Entry']} | SL: ₹{trade['SL']} | TP1: ₹{trade['TP1']} | TP2: ₹{trade['TP2']} | TP3: ₹{trade['TP3']}")
+            with col2:
+                if st.button(f"❌", key=f"del_{i}"):
+                    st.session_state.daily_trades.pop(i)
+                    st.rerun()
+    else:
+        st.info("📭 No trades saved yet. Use the form above to add trades.")
+
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
     check_and_execute_orders_with_journal()
