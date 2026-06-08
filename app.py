@@ -11,6 +11,7 @@ import yfinance as yf
 from datetime import datetime, timedelta, timezone
 import requests
 import math
+import time
 from streamlit_autorefresh import st_autorefresh
 
 # ================= VERSION & INFO =================
@@ -135,6 +136,8 @@ if "auto_trade_sl_percent" not in st.session_state:
     st.session_state.auto_trade_sl_percent = 5
 if "auto_trade_target_percent" not in st.session_state:
     st.session_state.auto_trade_target_percent = 10
+if "show_demo_data" not in st.session_state:
+    st.session_state.show_demo_data = False
 
 # ================= TP SETTINGS =================
 if "nifty_lots" not in st.session_state:
@@ -591,7 +594,8 @@ def calculate_live_pnl():
                 'symbol': order['symbol'], 'option_type': order['option_type'],
                 'strike': order.get('strike_price', 'N/A'), 'entry': entry,
                 'current': current_price, 'pnl_points': pnl_points,
-                'pnl_value': pnl_value, 'qty': qty            })
+                'pnl_value': pnl_value, 'qty': qty
+            })
     return total_pnl, pnl_details
 
 def show_portfolio_dashboard():
@@ -841,10 +845,15 @@ with col_right:
 st.markdown("---")
 
 # ================= TABS =================
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "🐺 WOLF ORDER", "🌸 SANSKRUTI MARKET", "📰 VAISHNAVI NEWS",
-    "📈 OVI RESULTS", "⚙️ SAHYADRI SETTINGS", "💰 VEDASHREE PORTFOLIO",
-    "📊 CONDITIONS DASHBOARD"
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "🐺 WOLF ORDER",
+    "🌸 SANSKRUTI MARKET",
+    "📰 VAISHNAVI NEWS",
+    "📈 OVI RESULTS",
+    "⚙️ SAHYADRI SETTINGS",
+    "💰 VEDASHREE PORTFOLIO",
+    "📊 CONDITIONS DASHBOARD",
+    "🎯 NIFTY SENTIMENT"
 ])
 
 # ================= TAB 1: WOLF ORDER =================
@@ -1697,7 +1706,8 @@ with tab6:
     st.markdown("*Real-time profit/loss tracking*")
     st.markdown("---")
     show_portfolio_dashboard()
-# ================= TAB 7: CONDITIONS DASHBOARD (FIXED) =================
+
+# ================= TAB 7: CONDITIONS DASHBOARD =================
 with tab7:
     st.markdown("### 📊 CONDITIONS DASHBOARD")
     st.markdown("*Multi-Timeframe Trend Analysis & Scoring System*")
@@ -1925,6 +1935,148 @@ with tab7:
             if st.button("🔄 Show Demo Data (For Testing)"):
                 st.session_state.show_demo_data = True
                 st.rerun()
+
+# ================= TAB 8: NIFTY SENTIMENT =================
+with tab8:
+
+    st.markdown("""
+    <style>
+    .glass-card{
+        background:rgba(15,23,42,0.85);
+        border:1px solid rgba(0,255,136,0.25);
+        border-radius:20px;
+        padding:15px;
+        box-shadow:0 0 25px rgba(0,255,136,0.15);
+    }
+
+    .bull-box{
+        background:linear-gradient(135deg,#052e16,#14532d);
+        border-radius:20px;
+        padding:20px;
+        text-align:center;
+    }
+
+    .title-box{
+        background:linear-gradient(135deg,#111827,#1e293b);
+        border-radius:20px;
+        padding:20px;
+        text-align:center;
+        margin-bottom:15px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="title-box">
+        <h1>🎯 NIFTY SENTIMENT DASHBOARD</h1>
+        <h3 style="color:#00ff88;">
+        RUDRANSH MASTER PRO
+        </h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    sentiment_score = 78
+
+    st.progress(sentiment_score)
+
+    st.markdown(f"""
+    <div class="bull-box">
+        <h1 style="font-size:60px;color:#00ff88;">
+        {sentiment_score}%
+        </h1>
+        <h2 style="color:white;">
+        BULLISH
+        </h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    c1,c2 = st.columns(2)
+
+    with c1:
+
+        st.markdown("### 🌍 GLOBAL MARKETS")
+
+        st.dataframe(pd.DataFrame({
+            "INDEX":[
+                "GIFT NIFTY",
+                "NASDAQ",
+                "DOW",
+                "S&P500",
+                "NIKKEI",
+                "HANG SENG"
+            ],
+            "STATUS":[
+                "BULLISH",
+                "BULLISH",
+                "BULLISH",
+                "BULLISH",
+                "BEARISH",
+                "BEARISH"
+            ]
+        }),use_container_width=True)
+
+        st.markdown("### 💰 SMART MONEY")
+
+        st.dataframe(pd.DataFrame({
+            "TYPE":[
+                "FII CASH",
+                "DII CASH",
+                "FII FUTURES",
+                "FII OPTIONS"
+            ],
+            "VALUE":[
+                -1256,
+                2135,
+                -3842,
+                1925
+            ]
+        }),use_container_width=True)
+
+    with c2:
+
+        st.markdown("### 📊 OPTIONS DATA")
+
+        st.dataframe(pd.DataFrame({
+            "PARAMETER":[
+                "PCR",
+                "MAX PAIN",
+                "CE OI",
+                "PE OI"
+            ],
+            "VALUE":[
+                1.15,
+                24800,
+                25000,
+                24500
+            ]
+        }),use_container_width=True)
+
+        st.markdown("### 📈 MARKET INTERNALS")
+
+        st.metric("ADV/DEC","1.35")
+        st.metric("VIX","13.25")
+        st.metric("BANKNIFTY","STRONG")
+        st.metric("FINNIFTY","STRONG")
+
+    st.markdown("---")
+
+    st.markdown("""
+    <div class="glass-card">
+        <h2>🚀 TRADING PLAN</h2>
+
+        <h3 style="color:#00ff88;">
+        BUY ABOVE : 25050
+        </h3>
+
+        <h3>TARGET 1 : 25150</h3>
+        <h3>TARGET 2 : 25250</h3>
+        <h3>TARGET 3 : 25400</h3>
+
+        <h3 style="color:red;">
+        STOP LOSS : 24900
+        </h3>
+    </div>
+    """,unsafe_allow_html=True)
 
 # ================= AUTO TRADE FUNCTIONS =================
 def auto_trade_from_signal_with_journal():
