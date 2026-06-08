@@ -1959,6 +1959,227 @@ with tab4:
     **⏰ Result Time:** Most results are declared **After Market (3:30 PM)**
     """)
 
+# ================= NEW: DYNAMIC TARGET CALCULATOR (Stock Options) =================
+with st.expander("📊 STOCK OPTION TARGET CALCULATOR (Premium Wise)", expanded=False):
+    st.markdown("### 🎯 Premium Wise Target Table")
+    
+    # Premium Wise Target Function
+    def get_premium_targets(premium):
+        if premium <= 25:
+            tp1_points, tp2_points = 2, 4
+        elif premium <= 50:
+            tp1_points, tp2_points = 3, 6
+        elif premium <= 75:
+            tp1_points, tp2_points = 4, 8
+        elif premium <= 100:
+            tp1_points, tp2_points = 5, 10
+        elif premium <= 125:
+            tp1_points, tp2_points = 6, 12
+        elif premium <= 150:
+            tp1_points, tp2_points = 7, 14
+        elif premium <= 175:
+            tp1_points, tp2_points = 8, 16
+        else:
+            tp1_points, tp2_points = 10, 20
+        
+        total_gain = tp1_points + tp2_points
+        return tp1_points, tp2_points, total_gain
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📋 Premium Target Reference Table")
+        target_table = """
+        | Premium | TP1 | TP2 | Total |
+        |---------|-----|-----|-------|
+        | ₹25 | ₹2 | ₹4 | ₹6 |
+        | ₹50 | ₹3 | ₹6 | ₹9 |
+        | ₹75 | ₹4 | ₹8 | ₹12 |
+        | ₹100 | ₹5 | ₹10 | ₹15 |
+        | ₹125 | ₹6 | ₹12 | ₹18 |
+        | ₹150 | ₹7 | ₹14 | ₹21 |
+        | ₹175 | ₹8 | ₹16 | ₹24 |
+        | ₹200+ | ₹10 | ₹20 | ₹30 |
+        """
+        st.markdown(target_table)
+    
+    with col2:
+        st.markdown("#### 🧮 Calculate Your Trade")
+        calc_premium = st.number_input("Enter Premium (₹)", value=110.25, step=10.0, key="calc_premium")
+        calc_lots = st.number_input("Number of Lots", value=11, step=1, key="calc_lots")
+        calc_lot_size = st.number_input("Lot Size", value=65, step=1, key="calc_lot_size")
+        
+        if calc_premium > 0:
+            tp1_pts, tp2_pts, total_pts = get_premium_targets(calc_premium)
+            tp1_price = calc_premium + tp1_pts
+            tp2_price = calc_premium + tp2_pts
+            
+            total_shares = calc_lots * calc_lot_size
+            tp1_profit = tp1_pts * total_shares
+            tp2_profit = tp2_pts * total_shares
+            total_profit = total_pts * total_shares
+            
+            st.markdown(f"""
+            <div style="background: rgba(0,180,216,0.15); border-radius: 15px; padding: 15px; margin: 10px 0;">
+                <b>📊 YOUR TRADE SUMMARY</b><br>
+                💰 Premium: ₹{calc_premium:.2f}<br>
+                🎯 <b>TP1:</b> ₹{tp1_price:.2f} (+{tp1_pts} pts) → <span class="profit">+₹{tp1_profit:,.0f}</span><br>
+                🎯 <b>TP2:</b> ₹{tp2_price:.2f} (+{tp2_pts} pts) → <span class="profit">+₹{tp2_profit:,.0f}</span><br>
+                🎯 <b>Total Target Gain:</b> +{total_pts} pts → <span class="profit">+₹{total_profit:,.0f}</span><br>
+                📦 Total Shares: {total_shares:,} ({calc_lots} lots x {calc_lot_size})
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Booking Strategy for Odd Lots
+            if calc_lots >= 2:
+                if calc_lots == 2:
+                    tp1_lots, tp2_lots = 1, 1
+                elif calc_lots == 3:
+                    tp1_lots, tp2_lots = 2, 1
+                elif calc_lots == 4:
+                    tp1_lots, tp2_lots = 2, 2
+                elif calc_lots == 5:
+                    tp1_lots, tp2_lots = 3, 2
+                elif calc_lots == 6:
+                    tp1_lots, tp2_lots = 3, 3
+                elif calc_lots == 7:
+                    tp1_lots, tp2_lots = 4, 3
+                elif calc_lots == 8:
+                    tp1_lots, tp2_lots = 4, 4
+                elif calc_lots == 9:
+                    tp1_lots, tp2_lots = 5, 4
+                elif calc_lots == 10:
+                    tp1_lots, tp2_lots = 5, 5
+                else:  # 11+
+                    tp1_lots = (calc_lots // 2) + (1 if calc_lots % 2 == 1 else 0)
+                    tp2_lots = calc_lots // 2
+                
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 10px 0;">
+                    <b>📋 BOOKING STRATEGY</b><br>
+                    🎯 TP1 (₹{tp1_price:.2f}): Book {tp1_lots} lots → Profit ₹{tp1_pts * (tp1_lots * calc_lot_size):,.0f}<br>
+                    🎯 TP2 (₹{tp2_price:.2f}): Book {tp2_lots} lots → Profit ₹{tp2_pts * (tp2_lots * calc_lot_size):,.0f}<br>
+                    <b>📈 TOTAL: ₹{total_profit:,.0f}</b>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            if st.button("💾 Save to Journal", key="calc_save"):
+                trade_record = {
+                    "Date": get_ist_now().strftime('%Y-%m-%d %H:%M'),
+                    "Symbol": f"STOCK OPTION",
+                    "Premium": calc_premium,
+                    "Lots": calc_lots,
+                    "TP1": tp1_price,
+                    "TP2": tp2_price,
+                    "Status": "ACTIVE"
+                }
+                if "daily_trades" not in st.session_state:
+                    st.session_state.daily_trades = []
+                st.session_state.daily_trades.append(trade_record)
+                st.success("✅ Saved!")
+                st.rerun()
+
+# ================= NEW: NIFTY/CRUDE/NG FIXED TARGET CALCULATOR =================
+with st.expander("📊 NIFTY/CRUDE/NG TARGET CALCULATOR (Fixed Points)", expanded=False):
+    st.markdown("### 🎯 Fixed Target Calculator")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        calc_instrument = st.selectbox("Select Instrument", ["NIFTY", "BANKNIFTY", "CRUDE OIL", "NATURAL GAS"], key="calc_instrument")
+        
+        if calc_instrument in ["NIFTY", "BANKNIFTY"]:
+            default_target = 30
+            default_sl = 15
+            default_lot_size = 65 if calc_instrument == "NIFTY" else 25
+        elif calc_instrument == "CRUDE OIL":
+            default_target = 20
+            default_sl = 10
+            default_lot_size = 100
+        else:  # NATURAL GAS
+            default_target = 2
+            default_sl = 1
+            default_lot_size = 1000
+        
+        target_points = st.number_input("Target (Points)", value=default_target, step=5 if default_target >= 10 else 1, key="calc_target")
+        sl_points = st.number_input("Stop Loss (Points)", value=default_sl, step=5 if default_sl >= 10 else 1, key="calc_sl")
+        
+    with col2:
+        calc_lots = st.number_input("Number of Lots", value=1, step=1, key="calc_fixed_lots")
+        lot_size = st.number_input("Lot Size", value=default_lot_size, step=1, key="calc_fixed_lot_size")
+        
+        total_shares = calc_lots * lot_size
+        tp_profit = target_points * total_shares
+        sl_loss = sl_points * total_shares
+        
+        st.markdown(f"""
+        <div style="background: rgba(0,255,136,0.1); border-radius: 15px; padding: 15px; margin: 10px 0;">
+            <b>📊 {calc_instrument} TRADE SUMMARY</b><br>
+            🎯 Target: {target_points} points → <span class="profit">+₹{tp_profit:,.0f}</span><br>
+            🛡️ Stop Loss: {sl_points} points → <span class="loss">-₹{sl_loss:,.0f}</span><br>
+            📈 Risk:Reward = 1:{target_points/sl_points:.1f}<br>
+            📦 Total Shares: {total_shares:,}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("💾 Save to Journal", key="fixed_save"):
+            trade_record = {
+                "Date": get_ist_now().strftime('%Y-%m-%d %H:%M'),
+                "Instrument": calc_instrument,
+                "Lots": calc_lots,
+                "Target": target_points,
+                "SL": sl_points,
+                "Status": "ACTIVE"
+            }
+            if "daily_trades" not in st.session_state:
+                st.session_state.daily_trades = []
+            st.session_state.daily_trades.append(trade_record)
+            st.success("✅ Saved!")
+            st.rerun()
+
+# ================= NEW: ALL INSTRUMENTS QUICK REFERENCE =================
+with st.expander("📚 ALL INSTRUMENTS QUICK REFERENCE", expanded=False):
+    st.markdown("### 📚 Complete Target Reference")
+    
+    st.markdown("""
+    #### 📊 Stock Options (Premium Wise)
+    | Premium Range | TP1 (Points) | TP2 (Points) | Total Gain |
+    |---------------|--------------|--------------|------------|
+    | ₹0 - ₹25 | +2 | +4 | +6 |
+    | ₹26 - ₹50 | +3 | +6 | +9 |
+    | ₹51 - ₹75 | +4 | +8 | +12 |
+    | ₹76 - ₹100 | +5 | +10 | +15 |
+    | ₹101 - ₹125 | +6 | +12 | +18 |
+    | ₹126 - ₹150 | +7 | +14 | +21 |
+    | ₹151 - ₹175 | +8 | +16 | +24 |
+    | ₹176 - ₹200+ | +10 | +20 | +30 |
+    
+    #### 📈 NIFTY / BANKNIFTY
+    | Instrument | Target | Stop Loss | Risk:Reward |
+    |------------|--------|-----------|-------------|
+    | NIFTY | 30 points | 15 points | 1:2 |
+    | BANKNIFTY | 30 points | 15 points | 1:2 |
+    
+    #### 🛢️ CRUDE OIL
+    | Instrument | Target | Stop Loss | Risk:Reward |
+    |------------|--------|-----------|-------------|
+    | CRUDE OIL | 20 points | 10 points | 1:2 |
+    
+    #### 🌿 NATURAL GAS
+    | Instrument | Target | Stop Loss | Risk:Reward |
+    |------------|--------|-----------|-------------|
+    | NATURAL GAS | 2 points | 1 point | 1:2 |
+    
+    ### 📌 Lot Size Information
+    | Instrument | Lot Size |
+    |------------|----------|
+    | NIFTY | 65 |
+    | BANKNIFTY | 25 |
+    | CRUDE OIL | 100 |
+    | NATURAL GAS | 1000 |
+    | STOCK OPTIONS | 65 (varies by stock) |
+    """)
+
 # ================= TAB 5: SAHYADRI SETTINGS =================
 with tab5:
     st.markdown("### ⚙️ SAHYADRI SETTINGS")
