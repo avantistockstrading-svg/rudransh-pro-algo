@@ -1096,7 +1096,7 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
-# ================= TAB 2: SANSKRUTI MARKET (FIXED REAL VALUES) =================
+# ================= TAB 2: SANSKRUTI MARKET (SHOWS LAST PRICE EVEN AFTER MARKET CLOSE) =================
 with tab2:
     st_autorefresh(interval=10000, key="sanskriti_refresh")
     
@@ -1106,81 +1106,58 @@ with tab2:
     
     st.markdown("#### 🇮🇳 INDIAN MARKET")
     
-    # Real-time data fetch functions
-    def get_real_nifty():
+    # ================= FUNCTION TO GET LAST PRICE (EVEN AFTER MARKET CLOSE) =================
+    def get_last_price(ticker, period="5d", interval="1d"):
+        """Get last traded price - works even when market is closed"""
         try:
-            df = yf.download("^NSEI", period="1d", interval="1m", progress=False)
-            if not df.empty:
+            df = yf.download(ticker, period=period, interval=interval, progress=False)
+            if not df.empty and 'Close' in df.columns:
+                # Return the last closing price
                 return float(df['Close'].iloc[-1])
         except:
             pass
         return 0
     
-    def get_real_banknifty():
+    def get_last_price_intraday(ticker):
+        """Get last price from intraday data (more accurate)"""
         try:
-            df = yf.download("^NSEBANK", period="1d", interval="1m", progress=False)
-            if not df.empty:
+            df = yf.download(ticker, period="2d", interval="5m", progress=False)
+            if not df.empty and 'Close' in df.columns:
                 return float(df['Close'].iloc[-1])
         except:
             pass
         return 0
     
-    def get_real_crude():
-        """Get real Crude Oil price from multiple sources"""
-        try:
-            # Try MCX first
-            mcx = yf.download("CRUDEOIL.NS", period="1d", interval="5m", progress=False)
-            if not mcx.empty and mcx['Close'].iloc[-1] > 0:
-                return float(mcx['Close'].iloc[-1])
-        except:
-            pass
-        
-        try:
-            # Try USD Crude as fallback
-            usd_crude = yf.download("CL=F", period="1d", interval="5m", progress=False)
-            if not usd_crude.empty and usd_crude['Close'].iloc[-1] > 0:
-                usd_rate = get_usd_inr_rate()
-                return float(usd_crude['Close'].iloc[-1]) * usd_rate
-        except:
-            pass
-        
-        # If both fail, return simulated but with disclaimer
-        return 0
+    # Get last prices (works even after market close)
+    nifty_current = get_last_price("^NSEI")
+    bank_current = get_last_price("^NSEBANK")
     
-    def get_real_ng():
-        """Get real Natural Gas price"""
-        try:
-            ng = yf.download("NG=F", period="1d", interval="5m", progress=False)
-            if not ng.empty and ng['Close'].iloc[-1] > 0:
-                usd_rate = get_usd_inr_rate()
-                return float(ng['Close'].iloc[-1]) * usd_rate
-        except:
-            pass
-        return 0
+    # For commodities, get last price
+    crude_live_inr = get_last_price("CL=F") * get_usd_inr_rate() if get_last_price("CL=F") > 0 else 0
+    ng_live_inr = get_last_price("NG=F") * get_usd_inr_rate() if get_last_price("NG=F") > 0 else 0
     
-    # Fetch real values
-    nifty_current = get_real_nifty()
-    bank_current = get_real_banknifty()
-    crude_live_inr = get_real_crude()
-    ng_live_inr = get_real_ng()
-    
-    # Get USD rate for display
+    # Get USD prices for display
     usd_inr = get_usd_inr_rate()
-    crude_live_usd = crude_live_inr / usd_inr if usd_inr > 0 and crude_live_inr > 0 else 0
-    ng_live_usd = ng_live_inr / usd_inr if usd_inr > 0 and ng_live_inr > 0 else 0
+    crude_live_usd = get_last_price("CL=F")
+    ng_live_usd = get_last_price("NG=F")
     
-    # Calculate changes
-    try:
-        nifty_prev = yf.download("^NSEI", period="2d", interval="1d", progress=False)['Close'].iloc[-2] if len(yf.download("^NSEI", period="2d", interval="1d", progress=False)) > 1 else nifty_current
-        nifty_pct = ((nifty_current - nifty_prev) / nifty_prev) * 100 if nifty_prev > 0 else 0
-    except:
-        nifty_pct = 0
+    # Calculate percentage changes from previous day
+    def get_change_percent(ticker):
+        try:
+            df = yf.download(ticker, period="3d", interval="1d", progress=False)
+            if len(df) >= 2:
+                current = df['Close'].iloc[-1]
+                prev = df['Close'].iloc[-2]
+                if prev > 0:
+                    return ((current - prev) / prev) * 100
+        except:
+            pass
+        return 0
     
-    try:
-        bank_prev = yf.download("^NSEBANK", period="2d", interval="1d", progress=False)['Close'].iloc[-2] if len(yf.download("^NSEBANK", period="2d", interval="1d", progress=False)) > 1 else bank_current
-        bank_pct = ((bank_current - bank_prev) / bank_prev) * 100 if bank_prev > 0 else 0
-    except:
-        bank_pct = 0
+    nifty_pct = get_change_percent("^NSEI")
+    bank_pct = get_change_percent("^NSEBANK")
+    crude_pct = get_change_percent("CL=F")
+    ng_pct = get_change_percent("NG=F")
     
     def get_trend_label(change_pct):
         if change_pct > 1.0:
@@ -1193,6 +1170,10 @@ with tab2:
             return "BEARISH", "📉", "#ff6666"
         else:
             return "SIDEWAYS", "➡️", "#ffaa00"
+    
+    # Market status
+    is_market_open = is_trading_time('NIFTY')
+    market_status = "🟢 OPEN" if is_market_open else "🔴 CLOSED (Showing Last Price)"
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -1209,15 +1190,14 @@ with tab2:
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
                     {trend_icon} {trend_label}
                 </p>
-                <small style="color:#aaa;">🕐 {get_ist_now().strftime('%H:%M:%S')} IST</small>
+                <small style="color:#aaa;">{'🟢 Live' if is_market_open else '🔴 Last Price'}</small>
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#00b4d8;">🇮🇳 NIFTY 50</h3>
-                <p>🟡 Loading...</p>
-                <p style="font-size:12px;">Fetching live data</p>
+                <p>🔴 Data Unavailable</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -1234,37 +1214,20 @@ with tab2:
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
                     {trend_icon} {trend_label}
                 </p>
-                <small style="color:#aaa;">🕐 {get_ist_now().strftime('%H:%M:%S')} IST</small>
+                <small style="color:#aaa;">{'🟢 Live' if is_market_open else '🔴 Last Price'}</small>
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#00b4d8;">🏦 BANK NIFTY</h3>
-                <p>🟡 Loading...</p>
+                <p>🔴 Data Unavailable</p>
             </div>
             """, unsafe_allow_html=True)
     
     with col3:
         if crude_live_inr > 0:
-            crude_pct = 0
-            try:
-                crude_prev = yf.download("CL=F", period="2d", interval="1d", progress=False)['Close'].iloc[-2] if len(yf.download("CL=F", period="2d", interval="1d", progress=False)) > 1 else crude_live_usd
-                crude_pct = ((crude_live_usd - crude_prev) / crude_prev) * 100 if crude_prev > 0 else 0
-            except:
-                pass
-            
-            if crude_pct > 1.0:
-                trend_label, trend_icon, trend_color = "STRONG BULLISH", "🚀", "#00ff44"
-            elif crude_pct > 0.2:
-                trend_label, trend_icon, trend_color = "BULLISH", "📈", "#88ff88"
-            elif crude_pct < -1.0:
-                trend_label, trend_icon, trend_color = "STRONG BEARISH", "💀", "#ff3333"
-            elif crude_pct < -0.2:
-                trend_label, trend_icon, trend_color = "BEARISH", "📉", "#ff6666"
-            else:
-                trend_label, trend_icon, trend_color = "SIDEWAYS", "➡️", "#ffaa00"
-            
+            trend_label, trend_icon, trend_color = get_trend_label(crude_pct)
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
@@ -1275,39 +1238,20 @@ with tab2:
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
                     {trend_icon} {trend_label}
                 </p>
-                <small style="color:#aaa;">{'${:.2f} USD'.format(crude_live_usd) if crude_live_usd > 0 else 'MCX'}</small>
-                <small style="color:#aaa; display:block;">🕐 {get_ist_now().strftime('%H:%M:%S')} IST</small>
+                <small style="color:#aaa;">${crude_live_usd:.2f} USD | {'🟢 Live' if is_trading_time('CRUDE') else '🔴 Last Price'}</small>
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#ff8844;">🛢️ CRUDE OIL</h3>
-                <p>🔴 Market Closed / Loading...</p>
-                <small>Try during market hours (9:00 AM - 11:30 PM)</small>
+                <p>🔴 Data Unavailable</p>
             </div>
             """, unsafe_allow_html=True)
     
     with col4:
         if ng_live_inr > 0:
-            ng_pct = 0
-            try:
-                ng_prev = yf.download("NG=F", period="2d", interval="1d", progress=False)['Close'].iloc[-2] if len(yf.download("NG=F", period="2d", interval="1d", progress=False)) > 1 else ng_live_usd
-                ng_pct = ((ng_live_usd - ng_prev) / ng_prev) * 100 if ng_prev > 0 else 0
-            except:
-                pass
-            
-            if ng_pct > 1.0:
-                trend_label, trend_icon, trend_color = "STRONG BULLISH", "🚀", "#00ff44"
-            elif ng_pct > 0.2:
-                trend_label, trend_icon, trend_color = "BULLISH", "📈", "#88ff88"
-            elif ng_pct < -1.0:
-                trend_label, trend_icon, trend_color = "STRONG BEARISH", "💀", "#ff3333"
-            elif ng_pct < -0.2:
-                trend_label, trend_icon, trend_color = "BEARISH", "📉", "#ff6666"
-            else:
-                trend_label, trend_icon, trend_color = "SIDEWAYS", "➡️", "#ffaa00"
-            
+            trend_label, trend_icon, trend_color = get_trend_label(ng_pct)
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center; border: 1px solid {trend_color}55;">
                 <h3 style="margin:0; color:#88ff88;">🌿 NATURAL GAS</h3>
@@ -1318,38 +1262,37 @@ with tab2:
                 <p style="margin:5px 0 0 0; background:{trend_color}; border-radius:20px; padding:5px; color:black; font-weight:bold;">
                     {trend_icon} {trend_label}
                 </p>
-                <small style="color:#aaa;">${ng_live_usd:.2f} USD</small>
-                <small style="color:#aaa; display:block;">🕐 {get_ist_now().strftime('%H:%M:%S')} IST</small>
+                <small style="color:#aaa;">${ng_live_usd:.2f} USD | {'🟢 Live' if is_trading_time('NATURALGAS') else '🔴 Last Price'}</small>
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 15px; padding: 15px; margin: 5px; text-align: center;">
                 <h3 style="margin:0; color:#88ff88;">🌿 NATURAL GAS</h3>
-                <p>🔴 Market Closed / Loading...</p>
+                <p>🔴 Data Unavailable</p>
             </div>
             """, unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Market Status Info
+    # Market Status Info with Last Price
     st.markdown("#### 📊 MARKET STATUS")
     col1, col2 = st.columns(2)
     with col1:
         if nifty_current > 0:
-            st.success(f"✅ NIFTY: ₹{nifty_current:,.2f} (Live)")
+            st.success(f"✅ NIFTY: ₹{nifty_current:,.2f} ({'Live' if is_market_open else 'Last Close'})")
         else:
-            st.warning("⚠️ NIFTY: Market Closed / Loading")
+            st.warning("⚠️ NIFTY: Data unavailable")
     with col2:
         if bank_current > 0:
-            st.success(f"✅ BANKNIFTY: ₹{bank_current:,.2f} (Live)")
+            st.success(f"✅ BANKNIFTY: ₹{bank_current:,.2f} ({'Live' if is_market_open else 'Last Close'})")
         else:
-            st.warning("⚠️ BANKNIFTY: Market Closed / Loading")
+            st.warning("⚠️ BANKNIFTY: Data unavailable")
     
     st.markdown("---")
     
     st.markdown("#### 🌍 GLOBAL MARKET TRENDS")
-    st.markdown("*Real-time global indices with AI trend analysis*")
+    st.markdown("*Real-time global indices*")
     
     global_indices = {
         "S&P 500": "^GSPC", 
@@ -1379,8 +1322,9 @@ with tab2:
                 flag = flag_map.get(name, "🌍")
                 
                 try:
-                    df = yf.download(symbol, period="2d", interval="1m", progress=False)
-                    if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
+                    # Get last price (works even when market closed)
+                    df = yf.download(symbol, period="3d", interval="1d", progress=False)
+                    if df is not None and not df.empty and 'Close' in df.columns and len(df) >= 2:
                         current = float(df['Close'].iloc[-1])
                         prev = float(df['Close'].iloc[-2])
                         change_pct = ((current - prev) / prev) * 100 if prev > 0 else 0
@@ -1420,7 +1364,7 @@ with tab2:
                                     <span style="font-size: 16px; font-weight: bold;">{'₹' if 'GOLD' not in name and 'SILVER' not in name else '$'}{current:,.2f}</span>
                                     <span style="color:{change_color}; margin-left: 10px;">{change_icon} {change_pct:+.2f}%</span>
                                 </div>
-                                <small style="color:#aaa;">{symbol}</small>
+                                <small style="color:#aaa;">Last Price</small>
                             </div>
                             """, unsafe_allow_html=True)
                     else:
@@ -1428,7 +1372,7 @@ with tab2:
                             st.markdown(f"""
                             <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; margin: 5px;">
                                 <div style="font-weight:bold;">{flag} {name}</div>
-                                <div style="color:#ffaa00;">🟡 Loading...</div>
+                                <div style="color:#ffaa00;">🔴 Data Unavailable</div>
                                 <small style="color:#aaa;">{symbol}</small>
                             </div>
                             """, unsafe_allow_html=True)
@@ -1445,13 +1389,14 @@ with tab2:
     st.markdown("---")
     
     st.markdown("#### 🌏 Market Summary")
-    market_status = "🟢 OPEN" if is_trading_time('NIFTY') else "🔴 CLOSED"
     st.info(f"""
     📊 **Market Status:**
-    - 🇮🇳 Indian Markets: {market_status}
-    - 🛢️ CRUDE OIL: {'₹' + f'{crude_live_inr:,.2f}' if crude_live_inr > 0 else 'Loading...'}
-    - 🌿 NATURAL GAS: {'₹' + f'{ng_live_inr:,.2f}' if ng_live_inr > 0 else 'Loading...'}
-    - 🌍 Global Markets: Real-time data above
+    - 🇮🇳 Indian Markets: {'🟢 OPEN (Live Data)' if is_market_open else '🔴 CLOSED (Showing Last Close Price)'}
+    - 🛢️ CRUDE OIL: ₹{crude_live_inr:,.2f} (${crude_live_usd:.2f})
+    - 🌿 NATURAL GAS: ₹{ng_live_inr:,.2f} (${ng_live_usd:.2f})
+    - 🌍 Global Markets: Showing last closing prices
+    
+    📌 **Note:** When markets are closed, last traded prices are displayed.
     """)
 
 # ================= TAB 3: VAISHNAVI NEWS =================
