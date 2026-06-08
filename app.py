@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 import math
 import time
-from streamlit_autorefresh import st_autorefresh
+from streamlit_autorefresh import 
 
 # ================= VERSION & INFO =================
 APP_VERSION = "6.0.0"
@@ -1057,7 +1057,7 @@ with st.spinner("🔄 Fetching Live Market Data..."):
     q4_results = get_q4_results_predictions()
 
 # ================= TABS =================
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🎯 NIFTY SENTIMENT", "📰 LIVE NEWS", "📈 Q4 RESULTS", "🐺 WOLF ORDER", "⚙️ SETTINGS", "💰 PORTFOLIO"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🎯 NIFTY SENTIMENT", "📰 LIVE NEWS", "📈 Q4 RESULTS", "🔍 STOCK SCREENER", "🐺 WOLF ORDER", "⚙️ SETTINGS", "💰 PORTFOLIO"])
 
 # ================= TAB 1: NIFTY SENTIMENT DASHBOARD =================
 with tab1:
@@ -1260,6 +1260,220 @@ with tab3:
             <div style="color:#aaa; font-size:12px;">💡 {result['reason']}</div>
         </div>
         ''', unsafe_allow_html=True)
+
+# ================= STOCK SCREENER FUNCTIONS =================
+
+def get_nse_stock_list():
+    """Complete NSE Stock List for Screening"""
+    return {
+        "NIFTY50": [
+            "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR",
+            "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT",
+            "SUNPHARMA", "BAJFINANCE", "TITAN", "MARUTI", "TATAMOTORS",
+            "WIPRO", "HCLTECH", "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO",
+            "ADANIPORTS", "ADANIENT", "ASIANPAINT", "BRITANNIA", "CIPLA",
+            "DRREDDY", "DIVISLAB", "NESTLE", "BAJAJFINSV", "TATASTEEL",
+            "JSWSTEEL", "HINDALCO", "M&M", "HEROMOTOCO", "EICHERMOT"
+        ],
+        "BANKING": [
+            "HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK", "AXISBANK",
+            "PNB", "BANKBARODA", "CANBK", "UNIONBANK", "IDFCFIRSTBANK",
+            "FEDERALBNK", "INDUSINDBK", "RBLBANK", "YESBANK"
+        ],
+        "IT": [
+            "TCS", "INFY", "HCLTECH", "WIPRO", "TECHM", "LTTS", "MPHASIS"
+        ],
+        "AUTO": [
+            "MARUTI", "TATAMOTORS", "M&M", "HEROMOTOCO", "EICHERMOT", "BAJAJ-AUTO"
+        ],
+        "PHARMA": [
+            "SUNPHARMA", "DRREDDY", "CIPLA", "DIVISLAB", "TORNTPHARM", "BIOCON"
+        ],
+        "METAL": [
+            "TATASTEEL", "JSWSTEEL", "HINDALCO", "COALINDIA", "NMDC", "SAIL"
+        ]
+    }
+
+
+@st.cache_data(ttl=300)
+def scan_all_stocks(selected_sectors=None):
+    """Complete stock screener with multiple filters"""
+    all_sectors = get_nse_stock_list()
+    
+    if selected_sectors is None or "ALL" in selected_sectors:
+        stock_list = []
+        for sector, stocks in all_sectors.items():
+            stock_list.extend(stocks)
+        stock_list = list(set(stock_list))
+    else:
+        stock_list = []
+        for sector in selected_sectors:
+            if sector in all_sectors:
+                stock_list.extend(all_sectors[sector])
+        stock_list = list(set(stock_list))
+    
+    results = {"strong_buy": [], "buy": [], "watch": [], "avoid": [], "strong_sell": []}
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for idx, stock in enumerate(stock_list):
+        status_text.text(f"Scanning: {stock} ({idx+1}/{len(stock_list)})")
+        progress_bar.progress((idx + 1) / len(stock_list))
+        
+        try:
+            ticker = f"{stock}.NS"
+            df = yf.download(ticker, period="50d", interval="1d", progress=False)
+            
+            if df.empty or len(df) < 30:
+                continue
+            
+            current_price = float(df['Close'].iloc[-1])
+            prev_close = float(df['Close'].iloc[-2])
+            volume = int(df['Volume'].iloc[-1])
+            avg_volume_20 = int(df['Volume'].tail(20).mean())
+            
+            # EMAs
+            ema9 = df['Close'].ewm(span=9).mean().iloc[-1]
+            ema20 = df['Close'].ewm(span=20).mean().iloc[-1]
+            ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
+            ema200 = df['Close'].ewm(span=200).mean().iloc[-1] if len(df) >= 200 else current_price
+            
+            # RSI
+            delta = df['Close'].diff()
+            gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+            current_rsi = rsi.iloc[-1] if not rsi.isna().iloc[-1] else 50
+            
+            day_change = ((current_price - prev_close) / prev_close) * 100
+            high_volume = volume > avg_volume_20 * 1.5
+            
+            # Trend detection
+            strong_bullish = (current_price > ema9 > ema20 > ema50 and 
+                            current_price > ema200 and current_rsi > 60 and day_change > 0 and high_volume)
+            bullish = (current_price > ema20 and current_rsi > 50 and day_change > -0.5)
+            strong_bearish = (current_price < ema9 < ema20 < ema50 and current_rsi < 40 and day_change < 0 and high_volume)
+            bearish = (current_price < ema20 and current_rsi < 45 and day_change < 0)
+            
+            stock_info = {
+                "symbol": stock, "price": round(current_price, 2), "change": round(day_change, 2),
+                "volume_ratio": round(volume / avg_volume_20, 2) if avg_volume_20 > 0 else 1,
+                "rsi": round(current_rsi, 1), "trend": ""
+            }
+            
+            if strong_bullish:
+                stock_info["trend"] = "STRONG BUY"
+                results["strong_buy"].append(stock_info)
+            elif bullish:
+                stock_info["trend"] = "BUY"
+                results["buy"].append(stock_info)
+            elif strong_bearish:
+                stock_info["trend"] = "STRONG SELL"
+                results["strong_sell"].append(stock_info)
+            elif bearish:
+                stock_info["trend"] = "AVOID"
+                results["avoid"].append(stock_info)
+            else:
+                stock_info["trend"] = "WATCH"
+                results["watch"].append(stock_info)
+                
+        except Exception as e:
+            continue
+        
+        time.sleep(0.05)
+    
+    progress_bar.empty()
+    status_text.empty()
+    return results
+
+
+def create_screener_tab():
+    """Stock Screener Tab UI"""
+    st.markdown('<h1>🔍 BEST STOCK SCREENER</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Volume + Trend + RSI Analysis | 200+ NSE Stocks</p>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        sector_options = ["ALL", "NIFTY50", "BANKING", "IT", "AUTO", "PHARMA", "METAL"]
+        selected_sectors = st.multiselect("Select Sectors", sector_options, default=["ALL"])
+    
+    with col2:
+        min_volume = st.slider("Minimum Volume Ratio (x Avg)", 0.5, 3.0, 1.0, 0.1)
+        min_rsi = st.slider("Minimum RSI", 30, 70, 40)
+        max_rsi = st.slider("Maximum RSI", 30, 85, 70)
+    
+    if st.button("🔍 START SCANNING", use_container_width=True):
+        with st.spinner("🔄 Scanning 200+ stocks..."):
+            results = scan_all_stocks(selected_sectors)
+            
+            # Apply filters
+            for category in results.keys():
+                results[category] = [s for s in results[category] if s['volume_ratio'] >= min_volume and min_rsi <= s['rsi'] <= max_rsi]
+            
+            # Display Summary
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.markdown(f'<div class="metric-card"><div>🚀 STRONG BUY</div><div style="font-size:32px; color:#00ff44;">{len(results["strong_buy"])}</div></div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f'<div class="metric-card"><div>📈 BUY</div><div style="font-size:32px; color:#88ff88;">{len(results["buy"])}</div></div>', unsafe_allow_html=True)
+            with col3:
+                st.markdown(f'<div class="metric-card"><div>👀 WATCH</div><div style="font-size:32px; color:#ffaa00;">{len(results["watch"])}</div></div>', unsafe_allow_html=True)
+            with col4:
+                st.markdown(f'<div class="metric-card"><div>⚠️ AVOID</div><div style="font-size:32px; color:#ff6666;">{len(results["avoid"])}</div></div>', unsafe_allow_html=True)
+            with col5:
+                st.markdown(f'<div class="metric-card"><div>💀 STRONG SELL</div><div style="font-size:32px; color:#ff3333;">{len(results["strong_sell"])}</div></div>', unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # Display results
+            if results["strong_buy"]:
+                st.markdown("### 🚀 STRONG BUY STOCKS")
+                df = pd.DataFrame(results["strong_buy"])
+                st.dataframe(df, use_container_width=True)
+            
+            if results["buy"]:
+                st.markdown("### 📈 BUY STOCKS")
+                df = pd.DataFrame(results["buy"])
+                st.dataframe(df, use_container_width=True)
+            
+            if results["watch"]:
+                with st.expander("👀 WATCH LIST (Consolidating)"):
+                    df = pd.DataFrame(results["watch"])
+                    st.dataframe(df, use_container_width=True)
+            
+            if results["avoid"]:
+                with st.expander("⚠️ AVOID LIST (Downtrend)"):
+                    df = pd.DataFrame(results["avoid"])
+                    st.dataframe(df, use_container_width=True)
+            
+            if results["strong_sell"]:
+                with st.expander("💀 STRONG SELL LIST"):
+                    df = pd.DataFrame(results["strong_sell"])
+                    st.dataframe(df, use_container_width=True)
+    
+    st.markdown("---")
+    st.markdown("""
+    <div class="glass-3d">
+        <h3>📖 Screener Guide</h3>
+        <div style="display: grid; grid-template-columns: repeat(2,1fr); gap:10px;">
+            <div><span style="color:#00ff44;">🚀 STRONG BUY</span> - Price > EMA9>20>50, RSI>60, High Volume</div>
+            <div><span style="color:#88ff88;">📈 BUY</span> - Emerging uptrend, RSI>50</div>
+            <div><span style="color:#ffaa00;">👀 WATCH</span> - Consolidation, wait for breakout</div>
+            <div><span style="color:#ff6666;">⚠️ AVOID</span> - Downtrend, RSI declining</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ================= NEW TAB 7: STOCK SCREENER कोडमध्ये जोडा =================
+# हा कोड TAB 7 साठी आहे - तुमच्या कोडमध्ये TAB 6 (PORTFOLIO) नंतर जोडा
+
+with tab4:  # Stock Screener Tab
+    create_screener_tab()
 
 # ================= TAB 4: WOLF ORDER =================
 with tab4:
