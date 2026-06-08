@@ -1096,6 +1096,22 @@ with tab1:
                        f'Entry: {order["entry_price"]} | Current: {current:.2f}<br>'
                        f'SL: {order["sl"]} | Target: {order["target"]}</div>', unsafe_allow_html=True)
 
+# Rate limiting
+import time
+last_request_time = 0
+
+def rate_limited_download(ticker, period="1d", interval="1m"):
+    global last_request_time
+    current_time = time.time()
+    if current_time - last_request_time < 2:  # 2 seconds gap
+        time.sleep(2)
+    last_request_time = time.time()
+    
+    try:
+        return yf.download(ticker, period=period, interval=interval, progress=False)
+    except:
+        return pd.DataFrame()
+
 # ================= TAB 2: SANSKRUTI MARKET (NSE INDIA DIRECT) =================
 with tab2:
     st_autorefresh(interval=15000, key="sanskriti_refresh")
