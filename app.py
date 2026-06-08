@@ -1560,292 +1560,198 @@ with tab3:
 # ================= TAB 4: OVI RESULTS (REAL TIME) =================
 with tab4:
     st.markdown("### 📈 OVI RESULTS - REAL TIME Q4 FY26 MONITORING")
-    st.markdown("*Live earnings data from FMP API with AI predictions & trading signals*")
-    
-    # Check API status first
-    fmp_status, fmp_level, fmp_msg = check_fmp_api()
-    
-    if fmp_status:
-        st.success(f"✅ FMP API Connected: {fmp_msg}")
-    else:
-        st.error(f"❌ FMP API Error: {fmp_msg}")
-        st.info("Please check your API key or upgrade to paid plan for real-time data")
+    st.markdown("*Live earnings data from Yahoo Finance with AI predictions & trading signals*")
     
     st.markdown("---")
     
-    # Fetch real earnings data from API
-    def get_real_earnings_data():
-        """Fetch real earnings data from FMP API"""
+    # Yahoo Finance वरून रिअल डेटा मिळवा
+    def get_earnings_from_yahoo(symbol):
+        """Fetch earnings from Yahoo Finance"""
         try:
-            today = get_ist_now().strftime('%Y-%m-%d')
-            # Get earnings for last 30 days and next 30 days
-            url = f"https://financialmodelingprep.com/api/v3/earnings-calendar?from=2026-04-01&to=2026-06-30&apikey={FMP_API_KEY}"
-            response = requests.get(url, timeout=15)
-            
-            if response.status_code == 200:
-                data = response.json()
-                earnings_list = []
-                
-                for item in data:
-                    symbol = item.get('symbol', '').replace('.NS', '').replace('.BO', '')
-                    # Filter only Indian stocks (NSE/BSE symbols typically end with .NS or have Indian names)
-                    if '.NS' in item.get('symbol', '') or symbol in INDIAN_STOCKS_LIST:
-                        earnings_list.append({
-                            'symbol': symbol,
-                            'name': item.get('name', symbol),
-                            'date': item.get('date', today),
-                            'eps_estimate': item.get('epsEstimated'),
-                            'eps_actual': item.get('epsActual'),
-                            'revenue_estimate': item.get('revenueEstimated'),
-                            'revenue_actual': item.get('revenueActual'),
-                            'time': item.get('time', 'After Market'),
-                            'fiscal_date_ending': item.get('fiscalDateEnding', '')
-                        })
-                
-                return earnings_list
-            return []
+            ticker = yf.Ticker(f"{symbol}.NS")
+            earnings = ticker.earnings
+            if earnings is not None and not earnings.empty:
+                latest = earnings.iloc[-1]
+                return {
+                    'symbol': symbol,
+                    'eps_actual': latest.get('earnings', 0) if hasattr(latest, 'get') else latest.iloc[0] if len(latest) > 0 else 0,
+                    'date': latest.name.strftime('%Y-%m-%d') if hasattr(latest.name, 'strftime') else str(latest.name),
+                    'revenue': ticker.financials.loc['Total Revenue'].iloc[0] if 'Total Revenue' in ticker.financials.index else None
+                }
         except Exception as e:
-            st.error(f"Error fetching earnings: {e}")
-            return []
+            pass
+        return None
     
-    # Indian stocks list for filtering
-    INDIAN_STOCKS_LIST = [
+    # Indian stocks list
+    EARNINGS_WATCHLIST = [
         "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC", "SBIN",
-        "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "DMART", "SUNPHARMA", "BAJFINANCE",
-        "TITAN", "MARUTI", "TATAMOTORS", "TATASTEEL", "WIPRO", "HCLTECH", "ONGC", "NTPC",
-        "POWERGRID", "ULTRACEMCO", "ADANIPORTS", "ADANIENT", "ASIANPAINT", "BRITANNIA",
-        "CIPLA", "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HAL", "HEROMOTOC", "HINDALCO",
-        "JSWSTEEL", "M&M", "NESTLEIND", "PIDILITIND", "SIEMENS", "TATACONSUM", "TECHM", "TRENT",
-        "BEL", "BPCL", "ZYDUSLIFE", "MANKIND", "PIIND"
+        "BHARTIARTL", "AXISBANK", "LT", "DMART", "SUNPHARMA", "BAJFINANCE", "TITAN",
+        "MARUTI", "TATAMOTORS", "WIPRO", "HCLTECH", "ONGC", "ULTRACEMCO", "ADANIPORTS",
+        "ADANIENT", "ASIANPAINT", "BRITANNIA", "CIPLA", "DRREDDY", "M&M", "NESTLEIND"
     ]
     
-    # Function to analyze earnings and generate signal
-    def analyze_earnings_signal(eps_estimate, eps_actual, revenue_estimate, revenue_actual):
-        """Generate trading signal based on earnings data"""
-        signal = "NEUTRAL"
-        confidence = 50
-        reason = ""
-        
-        if eps_actual and eps_estimate:
-            eps_surprise = ((eps_actual - eps_estimate) / abs(eps_estimate)) * 100
-        else:
-            eps_surprise = 0
-        
-        if revenue_actual and revenue_estimate:
-            revenue_surprise = ((revenue_actual - revenue_estimate) / abs(revenue_estimate)) * 100
-        else:
-            revenue_surprise = 0
-        
-        # Generate signal based on surprises
-        if eps_surprise > 10 and revenue_surprise > 5:
-            signal = "STRONG BULLISH"
-            confidence = 85 + min(10, eps_surprise / 5)
-            reason = f"EPS Beat by {eps_surprise:.1f}% & Revenue Beat by {revenue_surprise:.1f}%"
-        elif eps_surprise > 5 or revenue_surprise > 10:
-            signal = "BULLISH"
-            confidence = 70 + min(10, max(eps_surprise, revenue_surprise) / 3)
-            reason = f"Positive surprise - EPS: {eps_surprise:+.1f}%, Revenue: {revenue_surprise:+.1f}%"
-        elif eps_surprise < -10 and revenue_surprise < -5:
-            signal = "STRONG BEARISH"
-            confidence = 85 + min(10, abs(eps_surprise) / 5)
-            reason = f"EPS Miss by {abs(eps_surprise):.1f}% & Revenue Miss by {abs(revenue_surprise):.1f}%"
-        elif eps_surprise < -5 or revenue_surprise < -10:
-            signal = "BEARISH"
-            confidence = 70 + min(10, abs(max(eps_surprise, revenue_surprise)) / 3)
-            reason = f"Negative surprise - EPS: {eps_surprise:+.1f}%, Revenue: {revenue_surprise:+.1f}%"
-        else:
-            signal = "NEUTRAL"
-            confidence = 50
-            reason = f"In-line performance - EPS: {eps_surprise:+.1f}%, Revenue: {revenue_surprise:+.1f}%"
-        
-        return signal, min(95, int(confidence)), reason, eps_surprise, revenue_surprise
+    # मॅन्युअल एंट्री साठी - तुम्ही स्वतः निकाल टाकू शकता
+    st.markdown("#### 📝 Manual Result Entry (जर API काम करत नसेल तर)")
     
-    # Fetch real earnings data
-    with st.spinner("Fetching real-time earnings data from FMP API..."):
-        real_earnings = get_real_earnings_data()
-    
-    if real_earnings:
-        st.markdown(f"#### 📊 Live Earnings Data - {len(real_earnings)} Companies Found")
-        
-        # Create dataframe for display
-        earnings_df_data = []
-        for company in real_earnings:
-            signal, confidence, reason, eps_surprise, rev_surprise = analyze_earnings_signal(
-                company.get('eps_estimate'), company.get('eps_actual'),
-                company.get('revenue_estimate'), company.get('revenue_actual')
-            )
-            
-            earnings_df_data.append({
-                "Company": company['name'],
-                "Symbol": company['symbol'],
-                "Date": company['date'],
-                "Time": company.get('time', '-'),
-                "EPS Est": company.get('eps_estimate', '-'),
-                "EPS Act": company.get('eps_actual', '-'),
-                "EPS Surprise": f"{eps_surprise:+.1f}%" if eps_surprise != 0 else "-",
-                "AI Signal": signal,
-                "Confidence": f"{confidence}%"
-            })
-        
-        st.dataframe(pd.DataFrame(earnings_df_data), use_container_width=True, height=400)
-        st.markdown("---")
-        
-        # Display individual company cards
-        st.markdown("#### 📊 Company-wise Earnings Analysis")
-        
-        for company in real_earnings:
-            signal, confidence, reason, eps_surprise, rev_surprise = analyze_earnings_signal(
-                company.get('eps_estimate'), company.get('eps_actual'),
-                company.get('revenue_estimate'), company.get('revenue_actual')
-            )
-            
-            # Color coding based on signal
-            if signal == "STRONG BULLISH":
-                bg_color = "#00ff44"
-                border_color = "#00cc33"
-                icon = "🚀"
-                trade_signal = "BUY CALL (CE)"
-            elif signal == "BULLISH":
-                bg_color = "#88ff88"
-                border_color = "#55aa55"
-                icon = "📈"
-                trade_signal = "BUY CALL (CE)"
-            elif signal == "NEUTRAL":
-                bg_color = "#ffaa00"
-                border_color = "#cc8800"
-                icon = "⚪"
-                trade_signal = "WAIT / HOLD"
-            elif signal == "BEARISH":
-                bg_color = "#ff6666"
-                border_color = "#cc4444"
-                icon = "📉"
-                trade_signal = "SELL PUT (PE)"
-            else:
-                bg_color = "#ff3333"
-                border_color = "#cc2222"
-                icon = "💀"
-                trade_signal = "SELL PUT (PE)"
-            
-            # Determine if earnings are released
-            eps_actual = company.get('eps_actual')
-            earnings_released = eps_actual is not None
-            
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 5px solid {border_color};">
-                <table style="width:100%;">
-                    <tr>
-                        <td style="width:20%;"><b>🏢 {company['name']}</b><br><small>{company['symbol']}</small></td>
-                        <td style="width:15%;"><b>📅 Date</b><br>{company['date']}</td>
-                        <td style="width:15%;"><b>⏰ Time</b><br>{company.get('time', 'After Market')}</td>
-                        <td style="width:25%;"><b>🤖 AI Signal</b><br><span style="background:{bg_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{icon} {signal} ({confidence}%)</span></td>
-                        <td style="width:25%;"><b>🎯 Trade Signal</b><br><span style="background:{'#00ff88' if 'BUY' in trade_signal else '#ff4444' if 'SELL' in trade_signal else '#ffaa00'}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{trade_signal}</span></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2"><b>📊 EPS</b><br>Est: {company.get('eps_estimate', '-')}<br>Act: {company.get('eps_actual', 'Pending')}</td>
-                        <td colspan="2"><b>💰 Revenue</b><br>Est: {company.get('revenue_estimate', '-')}<br>Act: {company.get('revenue_actual', 'Pending')}</td>
-                        <td><b>📈 Surprise</b><br>EPS: {eps_surprise:+.1f}%<br>Revenue: {rev_surprise:+.1f}%</td>
-                    </tr>
-                    <tr>
-                        <td colspan="5"><b>💡 Analysis:</b> {reason}</td>
-                    </tr>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Auto-trade button for each company
-            if earnings_released and signal in ["STRONG BULLISH", "BULLISH", "BEARISH", "STRONG BEARISH"]:
-                col1, col2 = st.columns([3,1])
-                with col2:
-                    if st.button(f"📈 Trade {company['symbol']}", key=f"trade_{company['symbol']}"):
-                        nifty_trend = get_nifty_trend()
-                        result_type = "POSITIVE" if "BULLISH" in signal else "NEGATIVE"
-                        
-                        success, msg = process_result_and_trade(company['name'], company['symbol'], result_type)
-                        if success:
-                            st.success(f"✅ {msg}")
-                            st.session_state.result_alerts.append({
-                                'company': company['name'],
-                                'date': company['date'],
-                                'time': get_ist_now().strftime('%H:%M:%S'),
-                                'verdict': signal,
-                                'reaction': f"{trade_signal} order placed",
-                                'reason': reason
-                            })
-                            st.rerun()
-                        else:
-                            st.warning(f"⏳ {msg}")
-        
-        st.markdown("---")
-        
-        # Summary statistics
-        bullish_count = len([c for c in real_earnings if "BULLISH" in analyze_earnings_signal(
-            c.get('eps_estimate'), c.get('eps_actual'),
-            c.get('revenue_estimate'), c.get('revenue_actual')
-        )[0]])
-        
-        bearish_count = len([c for c in real_earnings if "BEARISH" in analyze_earnings_signal(
-            c.get('eps_estimate'), c.get('eps_actual'),
-            c.get('revenue_estimate'), c.get('revenue_actual')
-        )[0]])
-        
-        neutral_count = len(real_earnings) - bullish_count - bearish_count
-        
-        st.markdown("#### 📊 Earnings Season Summary")
+    with st.expander("➕ Click here to add results manually", expanded=False):
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📈 Bullish Signals", bullish_count)
+            manual_symbol = st.selectbox("Symbol", EARNINGS_WATCHLIST, key="manual_sym")
         with col2:
-            st.metric("📉 Bearish Signals", bearish_count)
+            manual_eps = st.number_input("EPS Actual", value=0.0, step=5.0, key="manual_eps")
         with col3:
-            st.metric("⚪ Neutral", neutral_count)
+            manual_eps_est = st.number_input("EPS Estimate", value=0.0, step=5.0, key="manual_est")
         with col4:
-            st.metric("📊 Total Companies", len(real_earnings))
+            manual_reaction = st.selectbox("Market Reaction", ["POSITIVE", "NEUTRAL", "NEGATIVE"], key="manual_reaction")
         
-    else:
-        st.warning("⚠️ No earnings data available from API. Possible reasons:")
-        st.markdown("""
-        1. **API Key Issue** - Your API key might be invalid or expired
-        2. **No Earnings Today** - No companies have declared results today
-        3. **API Rate Limit** - Free tier may have limited calls
-        
-        **Try these solutions:**
-        - Check if your FMP API key is valid
-        - Upgrade to paid plan for more data
-        - Check back during earnings season (Jan/Feb, Apr/May, Jul/Aug, Oct/Nov)
-        """)
-        
-        # Show sample of what API returns for debugging
-        with st.expander("🔧 Debug: Check API Response"):
-            test_url = f"https://financialmodelingprep.com/api/v3/earnings-calendar?from=2026-04-01&to=2026-06-30&apikey={FMP_API_KEY[:5]}...{FMP_API_KEY[-5:]}"
-            st.code(f"API URL: {test_url}")
-            st.info("Check if your API key has access to earnings-calendar endpoint")
+        if st.button("📊 Add Result", use_container_width=True):
+            # Calculate surprise
+            if manual_eps_est > 0:
+                surprise = ((manual_eps - manual_eps_est) / manual_eps_est) * 100
+            else:
+                surprise = 0
+            
+            # Generate signal
+            if surprise > 10:
+                signal = "STRONG BULLISH 🔥"
+                trade = "BUY CALL CE"
+            elif surprise > 5:
+                signal = "BULLISH 📈"
+                trade = "BUY CALL CE"
+            elif surprise < -10:
+                signal = "STRONG BEARISH 💀"
+                trade = "SELL PUT PE"
+            elif surprise < -5:
+                signal = "BEARISH 📉"
+                trade = "SELL PUT PE"
+            else:
+                signal = "NEUTRAL ⚪"
+                trade = "WAIT"
+            
+            st.session_state.result_alerts.append({
+                'company': manual_symbol,
+                'date': get_ist_now().strftime('%Y-%m-%d'),
+                'time': get_ist_now().strftime('%H:%M:%S'),
+                'verdict': signal,
+                'reaction': f"EPS: {manual_eps} | Surprise: {surprise:+.1f}%",
+                'reason': f"Suggested Trade: {trade}",
+                'eps_actual': manual_eps,
+                'eps_estimate': manual_eps_est,
+                'surprise': surprise
+            })
+            st.success(f"✅ Result added for {manual_symbol}")
+            st.rerun()
     
-    # Display recent alerts
     st.markdown("---")
-    st.markdown("#### 🔔 Recent Trading Alerts")
-    if st.session_state.result_alerts:
-        for alert in st.session_state.result_alerts[-5:]:
-            verdict_color = "#00ff88" if "BULLISH" in str(alert.get('verdict', '')) else "#ff4444" if "BEARISH" in str(alert.get('verdict', '')) else "#ffaa00"
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; margin: 5px 0; border-left: 4px solid {verdict_color};">
-                <b>📊 {alert.get('company', 'Unknown')}</b> | 📅 {alert.get('date', '')} ⏰ {alert.get('time', '')}<br>
-                🤖 AI: <span style="color:{verdict_color}">{alert.get('verdict', 'N/A')}</span> | 📈 Action: {alert.get('reaction', 'N/A')}<br>
-                💡 {alert.get('reason', '')}
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("📭 No trading alerts yet. Trade signals will appear here when earnings are released.")
     
-    # Market lesson
+    # Display manually entered results
+    st.markdown("#### 📊 Today's Results & Trading Signals")
+    
+    if st.session_state.result_alerts:
+        # Filter today's results
+        today = get_ist_now().strftime('%Y-%m-%d')
+        today_results = [r for r in st.session_state.result_alerts if r.get('date') == today]
+        
+        if today_results:
+            for alert in today_results[-10:]:
+                verdict = alert.get('verdict', '')
+                eps_act = alert.get('eps_actual', 'N/A')
+                eps_est = alert.get('eps_estimate', 'N/A')
+                surprise = alert.get('surprise', 0)
+                
+                # Color coding
+                if "BULLISH" in verdict:
+                    bg_color = "#00ff44"
+                    border_color = "#00cc33"
+                    icon = "🚀" if "STRONG" in verdict else "📈"
+                    trade_signal = "🟢 BUY CALL (CE)"
+                    trade_color = "#00ff88"
+                elif "BEARISH" in verdict:
+                    bg_color = "#ff4444"
+                    border_color = "#cc3333"
+                    icon = "💀" if "STRONG" in verdict else "📉"
+                    trade_signal = "🔴 SELL PUT (PE)"
+                    trade_color = "#ff4444"
+                else:
+                    bg_color = "#ffaa00"
+                    border_color = "#cc8800"
+                    icon = "⚪"
+                    trade_signal = "🟡 WAIT"
+                    trade_color = "#ffaa00"
+                
+                st.markdown(f"""
+                <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin: 10px 0; border-left: 5px solid {border_color};">
+                    <table style="width:100%;">
+                        <tr>
+                            <td style="width:20%;"><b>🏢 {alert['company']}</b></td>
+                            <td style="width:15%;"><b>📅 Date</b><br>{alert['date']}</td>
+                            <td style="width:15%;"><b>⏰ Time</b><br>{alert['time']}</td>
+                            <td style="width:25%;"><b>🤖 AI Signal</b><br><span style="background:{bg_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{icon} {verdict}</span></td>
+                            <td style="width:25%;"><b>🎯 Trade Signal</b><br><span style="background:{trade_color}; padding:5px 10px; border-radius:15px; color:black; font-weight:bold;">{trade_signal}</span></td>
+                        </tr>
+                        <tr>
+                            <td colspan="2"><b>📊 EPS</b><br>Actual: {eps_act}<br>Estimate: {eps_est}</td>
+                            <td colspan="2"><b>📈 Surprise</b><br>{surprise:+.1f}%</td>
+                            <td><b>📉 Action</b><br>{alert.get('reaction', '')}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5"><b>💡 Analysis:</b> {alert.get('reason', '')}</td>
+                        </tr>
+                    </table>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Auto Trade Button
+                if "BULLISH" in verdict or "BEARISH" in verdict:
+                    if st.button(f"📈 AUTO TRADE {alert['company']}", key=f"auto_trade_{alert['company']}_{alert['time']}"):
+                        result_type = "POSITIVE" if "BULLISH" in verdict else "NEGATIVE"
+                        success, msg = process_result_and_trade(alert['company'], alert['company'], result_type)
+                        if success:
+                            st.success(f"✅ {msg}")
+                        else:
+                            st.warning(f"⏳ {msg}")
+        else:
+            st.info("📭 No results entered for today. Use the form above to add results manually.")
+    else:
+        st.info("📭 No results available. Please add results manually using the form above.")
+    
+    st.markdown("---")
+    
+    # Summary
+    if st.session_state.result_alerts:
+        st.markdown("#### 📊 Results Summary")
+        
+        bullish = len([r for r in st.session_state.result_alerts if "BULLISH" in r.get('verdict', '')])
+        bearish = len([r for r in st.session_state.result_alerts if "BEARISH" in r.get('verdict', '')])
+        neutral = len([r for r in st.session_state.result_alerts if "NEUTRAL" in r.get('verdict', '')])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📈 Bullish", bullish)
+        with col2:
+            st.metric("📉 Bearish", bearish)
+        with col3:
+            st.metric("⚪ Neutral", neutral)
+        
+        # Total P&L from result-based trades
+        result_trades = [j for j in st.session_state.trade_journal if "OVI" in str(j.get('System', '')) or "RESULT" in str(j.get('Symbol', ''))]
+        if result_trades:
+            total_pnl = sum(float(j.get('P&L (₹)', 0)) for j in result_trades if isinstance(j.get('P&L (₹)'), (int, float)))
+            st.metric("💰 Total P&L from Result Trades", f"₹{total_pnl:,.2f}", delta="Based on OVI signals")
+    
     st.markdown("---")
     st.markdown("#### 📚 Important Market Lesson")
     st.info("""
     **💡 Trading on Results Strategy:**
-    - **Positive Surprise (EPS/Revenue beat estimates)** → Expected to go UP
-    - **Negative Surprise (EPS/Revenue miss)** → Expected to go DOWN
-    - **In-line results** → Usually sideways, WAIT for confirmation
+    - **Positive Surprise (EPS beats estimate)** → BUY CALL option
+    - **Negative Surprise (EPS misses estimate)** → SELL PUT option
+    - **In-line results** → WAIT for confirmation
     
-    **🚀 Strategy:** Buy CALL options on BULLISH results, Buy PUT options on BEARISH results
+    **🎯 How to use:**
+    1. Enter actual EPS and estimate in the form above
+    2. System will calculate surprise percentage
+    3. AI will generate BUY/SELL signal
+    4. Click AUTO TRADE to execute
     """)
 
 # ================= TAB 5: SAHYADRI SETTINGS =================
