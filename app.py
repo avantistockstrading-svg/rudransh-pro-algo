@@ -13,7 +13,6 @@ import requests
 import math
 import time
 from streamlit_autorefresh import st_autorefresh
-import plotly.graph_objects as go
 
 # ================= VERSION & INFO =================
 APP_VERSION = "6.0.0"
@@ -120,6 +119,40 @@ st.markdown("""
         box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
     }
     
+    /* Circular Gauge CSS */
+    .gauge-container {
+        position: relative;
+        width: 100%;
+        max-width: 250px;
+        margin: 0 auto;
+    }
+    
+    .gauge {
+        width: 100%;
+        height: auto;
+    }
+    
+    .gauge-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 36px;
+        font-weight: bold;
+        font-family: 'Orbitron', monospace;
+        color: white;
+        text-align: center;
+    }
+    
+    .gauge-label {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 12px;
+        color: #888;
+    }
+    
     h1, h2, h3 {
         font-family: 'Orbitron', monospace;
         background: linear-gradient(135deg, #00ff88, #00b4d8);
@@ -171,6 +204,20 @@ st.markdown("""
         margin: 10px 0;
     }
     
+    /* Bull/Bear Card */
+    .bull-bear-card {
+        text-align: center;
+        padding: 20px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+    }
+    
+    .sentiment-score {
+        font-size: 72px;
+        font-weight: bold;
+        font-family: 'Orbitron', monospace;
+    }
+    
     @media only screen and (max-width: 768px) {
         .stApp { padding: 5px !important; }
         h1 { font-size: 24px !important; }
@@ -178,6 +225,7 @@ st.markdown("""
         h3 { font-size: 18px !important; }
         .live-ticker { font-size: 28px !important; }
         .live-time { font-size: 18px !important; }
+        .sentiment-score { font-size: 48px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -286,6 +334,9 @@ def get_trading_recommendation():
     elif fii_net < -2000:
         score -= 10
     
+    # Clamp score between 0 and 100
+    score = max(0, min(100, score))
+    
     if score >= 70:
         recommendation = "STRONG BUY"
         color = "#00ff44"
@@ -314,40 +365,54 @@ def get_trading_recommendation():
     
     return {"score": score, "recommendation": recommendation, "color": color, "icon": icon, "action": action}
 
-def create_bull_bear_gauge(score):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=score,
-        domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': "BULL/BEAR METER", 'font': {'size': 20, 'color': "white"}},
-        gauge={
-            'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
-            'bar': {'color': "black"},
-            'bgcolor': "rgba(0,0,0,0.5)",
-            'borderwidth': 2,
-            'bordercolor': "rgba(0,255,136,0.3)",
-            'steps': [
-                {'range': [0, 30], 'color': 'rgba(255,51,51,0.3)'},
-                {'range': [30, 45], 'color': 'rgba(255,102,102,0.3)'},
-                {'range': [45, 55], 'color': 'rgba(255,170,0,0.3)'},
-                {'range': [55, 70], 'color': 'rgba(136,255,136,0.3)'},
-                {'range': [70, 100], 'color': 'rgba(0,255,68,0.3)'}
-            ],
-            'threshold': {
-                'line': {'color': "white", 'width': 4},
-                'thickness': 0.75,
-                'value': score
-            }
-        }
-    ))
-    fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font={'color': "white", 'family': "Orbitron"},
-        height=280,
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
-    return fig
+def create_bull_bear_meter(score):
+    """Create HTML/CSS bull/bear meter"""
+    if score >= 70:
+        sentiment = "STRONG BULLISH"
+        sentiment_color = "#00ff44"
+        bg_gradient = "linear-gradient(135deg, #00ff44, #00cc33)"
+    elif score >= 55:
+        sentiment = "BULLISH"
+        sentiment_color = "#88ff88"
+        bg_gradient = "linear-gradient(135deg, #88ff88, #55aa55)"
+    elif score >= 45:
+        sentiment = "NEUTRAL"
+        sentiment_color = "#ffaa00"
+        bg_gradient = "linear-gradient(135deg, #ffaa00, #cc8800)"
+    elif score >= 30:
+        sentiment = "BEARISH"
+        sentiment_color = "#ff6666"
+        bg_gradient = "linear-gradient(135deg, #ff6666, #cc4444)"
+    else:
+        sentiment = "STRONG BEARISH"
+        sentiment_color = "#ff3333"
+        bg_gradient = "linear-gradient(135deg, #ff3333, #cc2222)"
+    
+    # Create circular progress using conic-gradient
+    rotation = (score / 100) * 360
+    gauge_html = f"""
+    <div class="bull-bear-card">
+        <h3>🐂 / 🐻 MARKET METER</h3>
+        <div class="sentiment-score" style="color: {sentiment_color};">{score}%</div>
+        <div class="meter-container" style="margin: 15px 0;">
+            <div class="meter-fill" style="width: {score}%; background: {bg_gradient};">
+                {score}%
+            </div>
+        </div>
+        <div style="font-size: 24px; margin-top: 10px;">
+            <span style="color: {sentiment_color};">{sentiment}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+            <span style="color: #ff3333;">BEARISH</span>
+            <span style="color: #ffaa00;">NEUTRAL</span>
+            <span style="color: #00ff44;">BULLISH</span>
+        </div>
+        <div style="margin-top: 10px; font-size: 12px; color: #888;">
+            Based on NIFTY momentum, PCR, and FII/DII flows
+        </div>
+    </div>
+    """
+    return gauge_html
 
 def is_trading_time(symbol):
     now = get_ist_now()
@@ -508,6 +573,36 @@ def get_news_with_sentiment():
             'time': get_ist_now().strftime('%Y-%m-%d'), 'sentiment': 'BULLISH',
             'icon': '📈', 'color': '#88ff88'}]
 
+def add_to_journal(order, exit_price=None, exit_reason=None):
+    entry_price = order['entry_price']
+    qty = order['qty']
+    multiplier = 50 if order['symbol'] == "NIFTY" else 25
+    
+    if exit_price:
+        if order['option_type'] == "CALL (CE)":
+            pnl_points = exit_price - entry_price
+        else:
+            pnl_points = entry_price - exit_price
+        pnl_value = pnl_points * qty * multiplier
+        status = exit_reason
+    else:
+        pnl_value = 0
+        status = "OPEN"
+        exit_price = 0
+    
+    trade_record = {
+        "No": len(st.session_state.trade_journal) + 1,
+        "Time": order.get('entry_time', get_ist_now().strftime('%H:%M:%S')),
+        "Symbol": f"{order['symbol']} {order['option_type']}",
+        "Type": order.get('signal_type', 'MANUAL'),
+        "Lots": qty,
+        "Entry": round(entry_price, 2),
+        "Exit": round(exit_price, 2) if exit_price else "-",
+        "P&L (₹)": round(pnl_value, 2),
+        "Status": status
+    }
+    st.session_state.trade_journal.append(trade_record)
+
 # ================= UI HEADER =================
 st.markdown(f"""
 <div style="text-align:center; padding:20px;">
@@ -576,8 +671,8 @@ with col2:
 col1, col2 = st.columns(2)
 
 with col1:
-    fig_gauge = create_bull_bear_gauge(recommendation['score'])
-    st.plotly_chart(fig_gauge, use_container_width=True)
+    bull_bear_html = create_bull_bear_meter(recommendation['score'])
+    st.markdown(bull_bear_html, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
@@ -987,6 +1082,67 @@ with tab6:
                     P&L: <span style="color: {pnl_color};">₹{pnl:,.2f}</span>
                 </div>
                 """, unsafe_allow_html=True)
+    
+    if st.session_state.trade_journal:
+        st.markdown("---")
+        st.markdown("#### Trade Journal")
+        st.dataframe(pd.DataFrame(st.session_state.trade_journal[::-1]), use_container_width=True)
+
+# ================= AUTO EXECUTION =================
+def check_and_execute_orders():
+    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
+    for order in pending_orders:
+        current_price = get_live_price(order['symbol'])
+        if current_price > 0 and current_price >= order.get('buy_above', 0):
+            order['status'] = 'EXECUTED'
+            order['entry_price'] = current_price
+            active_order = {
+                'symbol': order['symbol'],
+                'option_type': order.get('option_type', 'CALL (CE)'),
+                'strike_price': order.get('strike_price', 0),
+                'qty': order.get('qty', 1),
+                'entry_price': current_price,
+                'entry_time': get_ist_now().strftime('%H:%M:%S'),
+                'sl': order.get('sl', current_price * 0.95),
+                'target': order.get('target', current_price * 1.05),
+                'signal_type': '🐺 WOLF'
+            }
+            st.session_state.active_orders.append(active_order)
+            add_to_journal(active_order)
+            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
+
+def monitor_active_orders():
+    orders_to_remove = []
+    for i, order in enumerate(st.session_state.active_orders):
+        current_price = get_live_price(order['symbol'])
+        if current_price <= 0:
+            continue
+        
+        # Check SL
+        if order['option_type'] == "CALL (CE)":
+            if current_price <= order.get('sl', 0):
+                orders_to_remove.append((i, order, current_price, "SL HIT"))
+        else:
+            if current_price >= order.get('sl', 999999):
+                orders_to_remove.append((i, order, current_price, "SL HIT"))
+        
+        # Check Target
+        if order['option_type'] == "CALL (CE)":
+            if current_price >= order.get('target', 999999):
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+        else:
+            if current_price <= order.get('target', 0):
+                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
+    
+    for idx, order, exit_price, reason in reversed(orders_to_remove):
+        add_to_journal(order, exit_price, reason)
+        st.session_state.active_orders.pop(idx)
+        send_telegram(f"{'✅' if reason == 'TARGET HIT' else '❌'} {reason}: {order['symbol']} @ {exit_price:.2f}")
+
+if st.session_state.algo_running and st.session_state.totp_verified:
+    check_and_execute_orders()
+    monitor_active_orders()
+    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -1036,78 +1192,6 @@ with st.sidebar:
     auto_text = "ON" if st.session_state.auto_trade_enabled else "OFF"
     auto_color = "#00ff88" if st.session_state.auto_trade_enabled else "#ff4444"
     st.markdown(f'<span style="color:{auto_color}">⚙️ Auto Trade: {auto_text}</span>', unsafe_allow_html=True)
-
-# ================= AUTO EXECUTION =================
-def check_and_execute_orders():
-    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
-    for order in pending_orders:
-        current_price = get_live_price(order['symbol'])
-        if current_price > 0 and current_price >= order.get('buy_above', 0):
-            order['status'] = 'EXECUTED'
-            order['entry_price'] = current_price
-            active_order = {
-                'symbol': order['symbol'],
-                'option_type': order.get('option_type', 'CALL (CE)'),
-                'strike_price': order.get('strike_price', 0),
-                'qty': order.get('qty', 1),
-                'entry_price': current_price,
-                'entry_time': get_ist_now().strftime('%H:%M:%S'),
-                'sl': order.get('sl', current_price * 0.95),
-                'target': order.get('target', current_price * 1.05),
-                'signal_type': '🐺 WOLF'
-            }
-            st.session_state.active_orders.append(active_order)
-            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
-
-def monitor_active_orders():
-    orders_to_remove = []
-    for i, order in enumerate(st.session_state.active_orders):
-        current_price = get_live_price(order['symbol'])
-        if current_price <= 0:
-            continue
-        
-        # Check SL
-        if order['option_type'] == "CALL (CE)":
-            if current_price <= order.get('sl', 0):
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-        else:
-            if current_price >= order.get('sl', 999999):
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-        
-        # Check Target
-        if order['option_type'] == "CALL (CE)":
-            if current_price >= order.get('target', 999999):
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-        else:
-            if current_price <= order.get('target', 0):
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-    
-    for idx, order, exit_price, reason in reversed(orders_to_remove):
-        # Calculate P&L for journal
-        if order['option_type'] == "CALL (CE)":
-            pnl_points = exit_price - order['entry_price']
-        else:
-            pnl_points = order['entry_price'] - exit_price
-        pnl_value = pnl_points * order['qty'] * 50
-        
-        st.session_state.trade_journal.append({
-            "Time": order.get('entry_time', ''),
-            "Exit Time": get_ist_now().strftime('%H:%M:%S'),
-            "Symbol": order['symbol'],
-            "Type": order['option_type'],
-            "Lots": order['qty'],
-            "Entry": order['entry_price'],
-            "Exit": exit_price,
-            "P&L": round(pnl_value, 2),
-            "Status": reason
-        })
-        st.session_state.active_orders.pop(idx)
-        send_telegram(f"{'✅' if reason == 'TARGET HIT' else '❌'} {reason}: {order['symbol']} @ {exit_price:.2f} | P&L: ₹{round(pnl_value, 2)}")
-
-if st.session_state.algo_running and st.session_state.totp_verified:
-    check_and_execute_orders()
-    monitor_active_orders()
-    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
 # ================= FOOTER =================
 st.markdown("---")
