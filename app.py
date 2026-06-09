@@ -2186,6 +2186,33 @@ def calculate_safe_levels_for_top_stocks(top_stocks_data):
     
     return top_stocks_data
 
+# ================= AUTO CALCULATE SAFE LEVELS =================
+def calculate_safe_levels_for_top_stocks(top_stocks_data):
+    for stock in top_stocks_data:
+        ltp = stock.get('ltp', 0)
+        option_type = stock.get('option_type', 'CE')
+        signal = stock.get('signal', '')
+        
+        if ltp <= 0:
+            continue
+        
+        if option_type == 'CE' and ('LONG BUILDUP' in signal or 'CALL BUYER' in signal):
+            stock['safe_buy_above'] = round(ltp * 0.97, 2)
+            stock['sl'] = round(stock['safe_buy_above'] * 0.95, 2)
+            stock['tp1'] = round(stock['safe_buy_above'] * 1.10, 2)
+            stock['tp2'] = round(stock['safe_buy_above'] * 1.20, 2)
+        elif option_type == 'PE' and ('PUT BUYER' in signal or 'SHORT BUILDUP' in signal):
+            stock['safe_buy_above'] = round(ltp * 0.97, 2)
+            stock['sl'] = round(stock['safe_buy_above'] * 1.05, 2)
+            stock['tp1'] = round(stock['safe_buy_above'] * 0.90, 2)
+            stock['tp2'] = round(stock['safe_buy_above'] * 0.80, 2)
+        else:
+            stock['safe_buy_above'] = round(ltp * 0.98, 2)
+            stock['sl'] = round(ltp * 0.94, 2)
+            stock['tp1'] = round(ltp * 1.08, 2)
+            stock['tp2'] = round(ltp * 1.15, 2)
+    return top_stocks_data
+
 # ================= TAB 7: OPTION SCANNER =================
 with tab7:
     st.markdown("### 📊 OPTION SCANNER DASHBOARD")
@@ -2201,13 +2228,24 @@ with tab7:
     
     st.markdown("---")
     
-    with st.spinner("🔍 Scanning all F&O stocks... Please wait (30-60 seconds)"):
-        # तुमचा सध्याचा scanning कोड येथे असेल
-        # (हे तुमचे existing scanning code आहे)
+    with st.spinner("🔍 Loading scanner data..."):
+        # ========== DEMO DATA (हे लाईव्ह डेटाने बदला) ==========
+        # तुमचा लाईव्ह स्कॅनिंग कोड येथे असेल
+        # सध्या सॅम्पल डेटा देत आहे
         
-        # ========== नवीन भाग: Safe Levels साठी ==========
-        if 'filtered_options' in locals() and filtered_options:
-            # Top 10 stocks साठी Safe Levels दाखवा
+        filtered_options = [
+            {'symbol': 'NIFTY', 'sector': '📈 Index', 'strike': 23150, 'option_type': 'CE', 'ltp': 125.50, 'delta': 0.62, 'theta': -2.8, 'volume': 1250000, 'oi': 4580000, 'oi_change': 125000, 'signal': '🔵 LONG BUILDUP'},
+            {'symbol': 'BANKNIFTY', 'sector': '📈 Index', 'strike': 54100, 'option_type': 'CE', 'ltp': 185.30, 'delta': 0.58, 'theta': -3.2, 'volume': 980000, 'oi': 3250000, 'oi_change': 85000, 'signal': '🔵 LONG BUILDUP'},
+            {'symbol': 'ICICIBANK', 'sector': '🏦 Banking', 'strike': 1270, 'option_type': 'CE', 'ltp': 32.80, 'delta': 0.60, 'theta': -2.5, 'volume': 520000, 'oi': 2100000, 'oi_change': 55000, 'signal': '🔵 LONG BUILDUP'},
+            {'symbol': 'RELIANCE', 'sector': '⚡ Energy', 'strike': 1260, 'option_type': 'CE', 'ltp': 28.50, 'delta': 0.55, 'theta': -2.1, 'volume': 450000, 'oi': 1850000, 'oi_change': 42000, 'signal': '🔵 LONG BUILDUP'},
+            {'symbol': 'SBIN', 'sector': '🏦 Banking', 'strike': 1000, 'option_type': 'CE', 'ltp': 22.40, 'delta': 0.58, 'theta': -2.3, 'volume': 310000, 'oi': 1250000, 'oi_change': 28000, 'signal': '🔵 LONG BUILDUP'},
+            {'symbol': 'HDFCBANK', 'sector': '🏦 Banking', 'strike': 740, 'option_type': 'PE', 'ltp': 18.20, 'delta': -0.52, 'theta': -1.9, 'volume': 380000, 'oi': 1650000, 'oi_change': -25000, 'signal': '🟡 PUT BUYER'},
+            {'symbol': 'TCS', 'sector': '💻 IT', 'strike': 2140, 'option_type': 'PE', 'ltp': 35.60, 'delta': -0.55, 'theta': -2.7, 'volume': 290000, 'oi': 980000, 'oi_change': 32000, 'signal': '🔴 SHORT BUILDUP'},
+            {'symbol': 'INFY', 'sector': '💻 IT', 'strike': 1170, 'option_type': 'PE', 'ltp': 25.30, 'delta': -0.53, 'theta': -2.4, 'volume': 270000, 'oi': 890000, 'oi_change': 28000, 'signal': '🔴 SHORT BUILDUP'},
+        ]
+        
+        # ========== येथे डेटा आहे की नाही ते तपासा ==========
+        if filtered_options:
             stocks_with_levels = calculate_safe_levels_for_top_stocks(filtered_options[:10])
             
             # Main Table Display
@@ -2222,8 +2260,7 @@ with tab7:
                 'Safe Buy Above (₹)': s.get('safe_buy_above', 0),
                 'SL (₹)': s.get('sl', 0),
                 'TP1 (₹)': s.get('tp1', 0),
-                'TP2 (₹)': s.get('tp2', 0),
-                'Risk': s.get('risk_level', '')
+                'TP2 (₹)': s.get('tp2', 0)
             } for s in stocks_with_levels])
             
             st.dataframe(df_levels, use_container_width=True, height=400)
@@ -2232,27 +2269,24 @@ with tab7:
             st.markdown("## 📊 DETAILED TRADING PLAN")
             
             for s in stocks_with_levels:
-                if s['option_type'] == 'CE' and s.get('signal') in ['🔵 LONG BUILDUP', '🟢 CALL BUYER']:
+                if s['option_type'] == 'CE' and 'LONG BUILDUP' in str(s.get('signal', '')):
                     st.markdown(f"""
                     <div style="background: #00ff8822; border-left: 4px solid #00ff88; border-radius: 10px; padding: 15px; margin: 10px 0;">
                         <b>🟢 {s['symbol']}</b> | {s.get('sector', '')} | CE | Signal: {s.get('signal', '')}<br>
                         📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
                         🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
                         🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
-                        ⚠️ <b>Risk Level:</b> {s.get('risk_level', '')}<br>
-                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल. TP1 वर 50% बुक करा.
+                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल.
                     </div>
                     """, unsafe_allow_html=True)
-                
-                elif s['option_type'] == 'PE' and s.get('signal') in ['🔴 SHORT BUILDUP', '🟡 PUT BUYER']:
+                elif s['option_type'] == 'PE' and ('PUT BUYER' in str(s.get('signal', '')) or 'SHORT BUILDUP' in str(s.get('signal', ''))):
                     st.markdown(f"""
                     <div style="background: #ff444422; border-left: 4px solid #ff4444; border-radius: 10px; padding: 15px; margin: 10px 0;">
                         <b>🔴 {s['symbol']}</b> | {s.get('sector', '')} | PE | Signal: {s.get('signal', '')}<br>
                         📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
                         🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
                         🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
-                        ⚠️ <b>Risk Level:</b> {s.get('risk_level', '')}<br>
-                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल. TP1 वर 50% बुक करा.
+                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल.
                     </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -2264,65 +2298,11 @@ with tab7:
                     </div>
                     """, unsafe_allow_html=True)
         else:
-            st.info("⚠️ No options found matching your criteria.")
+            st.error("⚠️ No options found matching your criteria.")
+            st.info("💡 Tips:\n- Check if Delta/Theta ranges are correct\n- Market hours: 9:15 AM - 3:30 PM\n- Try clicking 'SCAN NOW' button")
     
     st.markdown("---")
     st.caption("📌 Safe Buy Above = LTP च्या 3% खाली | SL = 5% | TP1 = 10% | TP2 = 20%")
-
-# ================= AUTO CALCULATE SAFE LEVELS FOR TOP STOCKS =================
-def calculate_safe_levels_for_top_stocks(top_stocks_data):
-    """Auto-calculate Safe Buy Above, SL, TP1, TP2 for Top 10 stocks"""
-    
-    for stock in top_stocks_data:
-        ltp = stock.get('ltp', 0)
-        option_type = stock.get('option_type', 'CE')
-        signal = stock.get('signal', '')
-        
-        if ltp <= 0:
-            stock['safe_buy_above'] = 0
-            stock['sl'] = 0
-            stock['tp1'] = 0
-            stock['tp2'] = 0
-            stock['risk_level'] = 'N/A'
-            continue
-        
-        # CALL BUY (CE) साठी
-        if option_type == 'CE' and signal in ['🔵 LONG BUILDUP', '🟢 CALL BUYER']:
-            stock['safe_buy_above'] = round(ltp * 0.97, 2)
-            stock['sl'] = round(stock['safe_buy_above'] * 0.95, 2)
-            stock['tp1'] = round(stock['safe_buy_above'] * 1.10, 2)
-            stock['tp2'] = round(stock['safe_buy_above'] * 1.20, 2)
-            stock['tp3'] = round(stock['safe_buy_above'] * 1.30, 2)
-            stock['risk_level'] = 'MODERATE'
-        
-        # PUT BUY (PE) साठी
-        elif option_type == 'PE' and signal in ['🔴 SHORT BUILDUP', '🟡 PUT BUYER']:
-            stock['safe_buy_above'] = round(ltp * 0.97, 2)
-            stock['sl'] = round(stock['safe_buy_above'] * 1.05, 2)
-            stock['tp1'] = round(stock['safe_buy_above'] * 0.90, 2)
-            stock['tp2'] = round(stock['safe_buy_above'] * 0.80, 2)
-            stock['tp3'] = round(stock['safe_buy_above'] * 0.70, 2)
-            stock['risk_level'] = 'MODERATE'
-        
-        else:
-            stock['safe_buy_above'] = round(ltp * 0.98, 2)
-            stock['sl'] = round(ltp * 0.94, 2)
-            stock['tp1'] = round(ltp * 1.08, 2)
-            stock['tp2'] = round(ltp * 1.15, 2)
-            stock['risk_level'] = 'AVERAGE'
-    
-    return top_stocks_data
-
-# ================= AUTO EXECUTION =================
-if st.session_state.algo_running and st.session_state.totp_verified:
-    check_and_execute_orders_with_journal()
-    monitor_active_orders_with_pnl()
-    
-    if st.session_state.auto_trade_enabled:
-        auto_trade_from_signal_with_journal()
-        wolf_auto_fo_trade()
-    
-    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
