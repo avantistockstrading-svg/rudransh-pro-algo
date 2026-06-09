@@ -2269,6 +2269,61 @@ with tab7:
     st.markdown("---")
     st.caption("📌 Safe Buy Above = LTP च्या 3% खाली | SL = 5% | TP1 = 10% | TP2 = 20%")
 
+# ================= AUTO CALCULATE SAFE LEVELS FOR TOP STOCKS =================
+def calculate_safe_levels_for_top_stocks(top_stocks_data):
+    """Auto-calculate Safe Buy Above, SL, TP1, TP2 for Top 10 stocks"""
+    
+    for stock in top_stocks_data:
+        ltp = stock.get('ltp', 0)
+        option_type = stock.get('option_type', 'CE')
+        signal = stock.get('signal', '')
+        
+        if ltp <= 0:
+            stock['safe_buy_above'] = 0
+            stock['sl'] = 0
+            stock['tp1'] = 0
+            stock['tp2'] = 0
+            stock['risk_level'] = 'N/A'
+            continue
+        
+        # CALL BUY (CE) साठी
+        if option_type == 'CE' and signal in ['🔵 LONG BUILDUP', '🟢 CALL BUYER']:
+            stock['safe_buy_above'] = round(ltp * 0.97, 2)
+            stock['sl'] = round(stock['safe_buy_above'] * 0.95, 2)
+            stock['tp1'] = round(stock['safe_buy_above'] * 1.10, 2)
+            stock['tp2'] = round(stock['safe_buy_above'] * 1.20, 2)
+            stock['tp3'] = round(stock['safe_buy_above'] * 1.30, 2)
+            stock['risk_level'] = 'MODERATE'
+        
+        # PUT BUY (PE) साठी
+        elif option_type == 'PE' and signal in ['🔴 SHORT BUILDUP', '🟡 PUT BUYER']:
+            stock['safe_buy_above'] = round(ltp * 0.97, 2)
+            stock['sl'] = round(stock['safe_buy_above'] * 1.05, 2)
+            stock['tp1'] = round(stock['safe_buy_above'] * 0.90, 2)
+            stock['tp2'] = round(stock['safe_buy_above'] * 0.80, 2)
+            stock['tp3'] = round(stock['safe_buy_above'] * 0.70, 2)
+            stock['risk_level'] = 'MODERATE'
+        
+        else:
+            stock['safe_buy_above'] = round(ltp * 0.98, 2)
+            stock['sl'] = round(ltp * 0.94, 2)
+            stock['tp1'] = round(ltp * 1.08, 2)
+            stock['tp2'] = round(ltp * 1.15, 2)
+            stock['risk_level'] = 'AVERAGE'
+    
+    return top_stocks_data
+
+# ================= AUTO EXECUTION =================
+if st.session_state.algo_running and st.session_state.totp_verified:
+    check_and_execute_orders_with_journal()
+    monitor_active_orders_with_pnl()
+    
+    if st.session_state.auto_trade_enabled:
+        auto_trade_from_signal_with_journal()
+        wolf_auto_fo_trade()
+    
+    st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
+
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
     check_and_execute_orders_with_journal()
