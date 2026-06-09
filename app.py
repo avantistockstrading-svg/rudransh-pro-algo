@@ -2532,6 +2532,7 @@ def check_and_execute_orders_with_journal():
 
 # ================= MONITOR ACTIVE ORDERS WITH P&L =================
 def monitor_active_orders_with_pnl():
+    """Monitor active orders with TP1, TP2, TP3 and proper color coding"""
     orders_to_remove = []
     
     for i, order in enumerate(st.session_state.active_orders):
@@ -2541,6 +2542,7 @@ def monitor_active_orders_with_pnl():
         if current_price <= 0:
             continue
         
+        # ========== TP1 CHECK ==========
         if not order.get('tp1_booked', False) and order.get('tp1'):
             if order['option_type'] == "CALL (CE)":
                 tp1_hit = current_price >= order.get('tp1', 999999)
@@ -2549,10 +2551,12 @@ def monitor_active_orders_with_pnl():
             
             if tp1_hit:
                 order['tp1_booked'] = True
+                order['tp1_hit_time'] = get_ist_now().strftime('%H:%M:%S')
                 send_telegram(f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f}")
                 if st.session_state.voice_enabled:
                     voice_alert(f"TP1 hit for {symbol}")
         
+        # ========== TP2 CHECK ==========
         if not order.get('tp2_booked', False) and order.get('tp2'):
             if order['option_type'] == "CALL (CE)":
                 tp2_hit = current_price >= order.get('tp2', 999999)
@@ -2561,11 +2565,14 @@ def monitor_active_orders_with_pnl():
             
             if tp2_hit:
                 order['tp2_booked'] = True
-                order['sl'] = order['entry_price']
-                send_telegram(f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | SL Shifted to Entry")
+                order['tp2_hit_time'] = get_ist_now().strftime('%H:%M:%S')
+                # TP2 hit झाल्यावर SL कॅन्सल करा
+                order['sl'] = None
+                send_telegram(f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | Target Complete")
                 if st.session_state.voice_enabled:
-                    voice_alert(f"TP2 hit for {symbol}, stop loss shifted to entry")
+                    voice_alert(f"TP2 hit for {symbol}, target achieved")
         
+        # ========== TP3 CHECK (जर असेल तर) ==========
         if not order.get('tp3_booked', False) and order.get('tp3'):
             if order['option_type'] == "CALL (CE)":
                 tp3_hit = current_price >= order.get('tp3', 999999)
@@ -2580,16 +2587,75 @@ def monitor_active_orders_with_pnl():
                 orders_to_remove.append((i, order, current_price, "TARGET HIT"))
                 continue
         
-        if order['option_type'] == "CALL (CE)":
-            if current_price <= order.get('sl', 0):
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-        else:
-            if current_price >= order.get('sl', 999999):
+        # ========== SL CHECK (फक्त जर TP hit नसेल तरच) ==========
+        tp_hit_already = order.get('tp1_booked', False) or order.get('tp2_booked', False) or order.get('tp3_booked', False)
+        
+        if not tp_hit_already and order.get('sl'):
+            if order['option_type'] == "CALL (CE)":
+                sl_hit = current_price <= order.get('sl', 0)
+            else:
+                sl_hit = current_price >= order.get('sl', 999999)
+            
+            if sl_hit and order.get('sl'):
                 orders_to_remove.append((i, order, current_price, "SL HIT"))
     
     for idx, order, exit_price, reason in reversed(orders_to_remove):
         add_to_journal(order, exit_price, reason)
         st.session_state.active_orders.pop(idx)
+    
+    # ========== ACTIVE ORDERS DISPLAY WITH COLOR CODING ==========
+    if st.session_state.active_orders:
+        st.markdown("#### 🔴 ACTIVE ORDERS")
+        
+        for order in st.session_state.active_orders:
+            current_price = get_live_price(order['symbol'])
+            symbol = order['symbol']
+            option_type = order['option_type']
+            entry = order['entry_price']
+            sl = order.get('sl', 0)
+            tp1 = order.get('tp1', 0)
+            tp2 = order.get('tp2', 0)
+            tp3 = order.get('tp3', 0)
+            
+            tp1_booked = order.get('tp1_booked', False)
+            tp2_booked = order.get('tp2_booked', False)
+            tp3_booked = order.get('tp3_booked', False)
+            
+            # TP1 ला Green Box?
+            tp1_color = "#00ff88" if tp1_booked else "#ffaa00"
+            tp1_text = "✅ HIT" if tp1_booked else "Pending"
+            
+            # TP2 ला Green Box?
+            tp2_color = "#00ff88" if tp2_booked else "#ffaa00"
+            tp2_text = "✅ HIT" if tp2_booked else "Pending"
+            
+            # TP3 ला Green Box?
+            tp3_color = "#00ff88" if tp3_booked else "#ffaa00"
+            tp3_text = "✅ HIT" if tp3_booked else "Pending"
+            
+            # SL Color - फक्त TP काहीही hit नसेल तरच Red दाखवा
+            show_sl_red = False
+            if sl > 0:
+                if option_type == "CALL (CE)":
+                    sl_active = current_price <= sl
+                else:
+                    sl_active = current_price >= sl
+                
+                if sl_active and not tp1_booked and not tp2_booked and not tp3_booked:
+                    show_sl_red = True
+            
+            sl_color = "#ff4444" if show_sl_red else "#ffaa00"
+            sl_status = "⚠️ NEAR" if show_sl_red else ("✅ HIT" if tp1_booked or tp2_booked else "Active")
+            
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.4); border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid #00b4d8;">
+                <b>📌 {symbol}</b> | {option_type} | Entry: ₹{entry:.2f} | Current: ₹{current_price:.2f}<br>
+                <span style="color: {tp1_color}; background: {tp1_color}22; padding: 3px 8px; border-radius: 10px;">🎯 TP1: {tp1:.2f} ({tp1_text})</span>
+                <span style="color: {tp2_color}; background: {tp2_color}22; padding: 3px 8px; border-radius: 10px; margin-left: 5px;">🎯 TP2: {tp2:.2f} ({tp2_text})</span>
+                {f'<span style="color: ' + tp3_color + '; background: ' + tp3_color + '22; padding: 3px 8px; border-radius: 10px; margin-left: 5px;">🎯 TP3: ' + f"{tp3:.2f}" + ' (' + tp3_text + ')</span>' if tp3 > 0 else ''}
+                <span style="color: {sl_color}; background: {sl_color}22; padding: 3px 8px; border-radius: 10px; margin-left: 5px;">🛑 SL: {sl:.2f} ({sl_status})</span>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
