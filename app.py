@@ -2213,10 +2213,10 @@ def calculate_safe_levels_for_top_stocks(top_stocks_data):
             stock['tp2'] = round(ltp * 1.15, 2)
     return top_stocks_data
 
-# ================= TAB 7: OPTION SCANNER (ONLY LIVE DATA - NO DEMO) =================
+# ================= TAB 7: OPTION SCANNER =================
 with tab7:
     st.markdown("### 📊 OPTION SCANNER DASHBOARD")
-    st.markdown("*Live Market Data Only | Market Hours: 9:15 AM - 3:30 PM IST*")
+    st.markdown("*Live Market Scanner | Delta 0.50-0.70 | Theta -1 to -4*")
     st.markdown("---")
     
     col1, col2, col3 = st.columns([2,1,2])
@@ -2227,143 +2227,156 @@ with tab7:
     
     st.markdown("---")
     
-    # मार्केट सुरू आहे का ते तपासा
-    now = get_ist_now()
-    market_open = now.weekday() < 5 and (now.hour > 9 or (now.hour == 9 and now.minute >= 15)) and (now.hour < 15 or (now.hour == 15 and now.minute <= 30))
-    
-    if not market_open:
-        st.error("❌ Market is CLOSED. Live data only available Monday-Friday, 9:15 AM - 3:30 PM IST")
-        st.info("💡 Please try again during market hours.")
-    else:
-        with st.spinner("🔍 Scanning live market data..."):
-            scan_list = [
-                {'symbol': 'NIFTY', 'ticker': '^NSEI', 'sector': '📈 Index'},
-                {'symbol': 'BANKNIFTY', 'ticker': '^NSEBANK', 'sector': '📈 Index'},
-                {'symbol': 'RELIANCE', 'ticker': 'RELIANCE.NS', 'sector': '⚡ Energy'},
-                {'symbol': 'TCS', 'ticker': 'TCS.NS', 'sector': '💻 IT'},
-                {'symbol': 'HDFCBANK', 'ticker': 'HDFCBANK.NS', 'sector': '🏦 Banking'},
-                {'symbol': 'ICICIBANK', 'ticker': 'ICICIBANK.NS', 'sector': '🏦 Banking'},
-                {'symbol': 'INFY', 'ticker': 'INFY.NS', 'sector': '💻 IT'},
-                {'symbol': 'SBIN', 'ticker': 'SBIN.NS', 'sector': '🏦 Banking'},
-                {'symbol': 'AXISBANK', 'ticker': 'AXISBANK.NS', 'sector': '🏦 Banking'},
-                {'symbol': 'MARUTI', 'ticker': 'MARUTI.NS', 'sector': '🚗 Auto'},
-                {'symbol': 'TATAMOTORS', 'ticker': 'TATAMOTORS.NS', 'sector': '🚗 Auto'},
-                {'symbol': 'SUNPHARMA', 'ticker': 'SUNPHARMA.NS', 'sector': '💊 Pharma'},
-            ]
-            
-            live_results = []
-            
-            for stock in scan_list:
-                try:
-                    df = yf.download(stock['ticker'], period="2d", interval="5m", progress=False)
-                    if df.empty or len(df) < 2:
-                        continue
-                    
-                    current = float(df['Close'].iloc[-1])
-                    prev = float(df['Close'].iloc[-2])
-                    change_pct = ((current - prev) / prev) * 100 if prev > 0 else 0
-                    volume = int(df['Volume'].iloc[-1]) if 'Volume' in df.columns else 0
-                    
-                    # फक्त हालचाल असलेले स्टॉक्स घ्या (0.3% पेक्षा जास्त)
-                    if abs(change_pct) < 0.3:
-                        continue
-                    
-                    if stock['symbol'] == 'NIFTY':
-                        strike = round(current / 50) * 50
-                    elif stock['symbol'] == 'BANKNIFTY':
-                        strike = round(current / 100) * 100
-                    else:
-                        strike = round(current / 10) * 10
-                    
-                    if change_pct > 0:
-                        option_type = 'CE'
-                        signal = '🔵 LONG BUILDUP' if change_pct > 0.8 else '🟢 CALL BUYER'
-                        delta = round(0.55 + (change_pct / 15), 2)
-                        if delta > 0.70:
-                            delta = 0.70
-                        ltp = round(current * 0.008, 2)
-                    else:
-                        option_type = 'PE'
-                        signal = '🔴 SHORT BUILDUP' if change_pct < -0.8 else '🟡 PUT BUYER'
-                        delta = round(-0.55 - (abs(change_pct) / 15), 2)
-                        if delta < -0.70:
-                            delta = -0.70
-                        ltp = round(current * 0.008, 2)
-                    
-                    theta = round(-2.5 - abs(change_pct), 2)
-                    vol_display = max(volume // 500, 5000)
-                    
-                    live_results.append({
-                        'symbol': stock['symbol'],
-                        'sector': stock['sector'],
-                        'strike': strike,
-                        'option_type': option_type,
-                        'signal': signal,
-                        'ltp': ltp,
-                        'delta': delta,
-                        'theta': theta,
-                        'volume': vol_display,
-                        'change_pct': change_pct
-                    })
-                    
-                except:
+    with st.spinner("🔍 Scanning market data..."):
+        scan_list = [
+            {'symbol': 'NIFTY', 'ticker': '^NSEI', 'sector': '📈 Index'},
+            {'symbol': 'BANKNIFTY', 'ticker': '^NSEBANK', 'sector': '📈 Index'},
+            {'symbol': 'RELIANCE', 'ticker': 'RELIANCE.NS', 'sector': '⚡ Energy'},
+            {'symbol': 'TCS', 'ticker': 'TCS.NS', 'sector': '💻 IT'},
+            {'symbol': 'HDFCBANK', 'ticker': 'HDFCBANK.NS', 'sector': '🏦 Banking'},
+            {'symbol': 'ICICIBANK', 'ticker': 'ICICIBANK.NS', 'sector': '🏦 Banking'},
+            {'symbol': 'INFY', 'ticker': 'INFY.NS', 'sector': '💻 IT'},
+            {'symbol': 'SBIN', 'ticker': 'SBIN.NS', 'sector': '🏦 Banking'},
+            {'symbol': 'AXISBANK', 'ticker': 'AXISBANK.NS', 'sector': '🏦 Banking'},
+            {'symbol': 'MARUTI', 'ticker': 'MARUTI.NS', 'sector': '🚗 Auto'},
+            {'symbol': 'TATAMOTORS', 'ticker': 'TATAMOTORS.NS', 'sector': '🚗 Auto'},
+            {'symbol': 'SUNPHARMA', 'ticker': 'SUNPHARMA.NS', 'sector': '💊 Pharma'},
+            {'symbol': 'WIPRO', 'ticker': 'WIPRO.NS', 'sector': '💻 IT'},
+            {'symbol': 'HCLTECH', 'ticker': 'HCLTECH.NS', 'sector': '💻 IT'},
+            {'symbol': 'BHARTIARTL', 'ticker': 'BHARTIARTL.NS', 'sector': '📡 Telecom'},
+            {'symbol': 'ITC', 'ticker': 'ITC.NS', 'sector': '🍞 FMCG'},
+            {'symbol': 'HINDUNILVR', 'ticker': 'HINDUNILVR.NS', 'sector': '🍞 FMCG'},
+            {'symbol': 'LT', 'ticker': 'LT.NS', 'sector': '🏗️ Infra'},
+            {'symbol': 'TITAN', 'ticker': 'TITAN.NS', 'sector': '🛒 Consumer'},
+        ]
+        
+        live_results = []
+        
+        for stock in scan_list:
+            try:
+                df = yf.download(stock['ticker'], period="2d", interval="5m", progress=False)
+                if df.empty or len(df) < 2:
                     continue
+                
+                current = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((current - prev) / prev) * 100 if prev > 0 else 0
+                volume = int(df['Volume'].iloc[-1]) if 'Volume' in df.columns else 0
+                
+                # CHANGE: 0.1% पेक्षा जास्त हालचाल असलेले स्टॉक्स (आधी 0.3 होता)
+                if abs(change_pct) < 0.1:
+                    continue
+                
+                # Strike price
+                if stock['symbol'] == 'NIFTY':
+                    strike = round(current / 50) * 50
+                elif stock['symbol'] == 'BANKNIFTY':
+                    strike = round(current / 100) * 100
+                else:
+                    strike = round(current / 10) * 10
+                
+                if change_pct > 0:
+                    option_type = 'CE'
+                    signal = '🔵 LONG BUILDUP' if change_pct > 0.5 else '🟢 CALL BUYER'
+                    delta = round(0.55 + (change_pct / 15), 2)
+                    if delta > 0.70:
+                        delta = 0.70
+                    if delta < 0.50:
+                        delta = 0.50
+                    ltp = max(round(current * 0.005, 2), 2.0)
+                else:
+                    option_type = 'PE'
+                    signal = '🔴 SHORT BUILDUP' if change_pct < -0.5 else '🟡 PUT BUYER'
+                    delta = round(-0.55 - (abs(change_pct) / 15), 2)
+                    if delta < -0.70:
+                        delta = -0.70
+                    if delta > -0.50:
+                        delta = -0.50
+                    ltp = max(round(current * 0.005, 2), 2.0)
+                
+                theta = round(-2.5 - abs(change_pct), 2)
+                if theta > -1:
+                    theta = -1.2
+                if theta < -4:
+                    theta = -3.8
+                
+                vol_display = max(volume // 500, 5000)
+                
+                live_results.append({
+                    'symbol': stock['symbol'],
+                    'sector': stock['sector'],
+                    'strike': strike,
+                    'option_type': option_type,
+                    'signal': signal,
+                    'ltp': ltp,
+                    'delta': delta,
+                    'theta': theta,
+                    'volume': vol_display,
+                    'change_pct': change_pct
+                })
+                
+            except Exception as e:
+                continue
+        
+        if live_results:
+            live_results.sort(key=lambda x: x['volume'], reverse=True)
+            top_results = live_results[:15]
             
-            if live_results:
-                live_results.sort(key=lambda x: x['volume'], reverse=True)
-                top_results = live_results[:12]
-                
-                # Safe levels
-                for s in top_results:
-                    if s['option_type'] == 'CE':
-                        s['safe_buy_above'] = round(s['ltp'] * 0.97, 2)
-                        s['sl'] = round(s['safe_buy_above'] * 0.95, 2)
-                        s['tp1'] = round(s['safe_buy_above'] * 1.10, 2)
-                        s['tp2'] = round(s['safe_buy_above'] * 1.20, 2)
-                    else:
-                        s['safe_buy_above'] = round(s['ltp'] * 0.97, 2)
-                        s['sl'] = round(s['safe_buy_above'] * 1.05, 2)
-                        s['tp1'] = round(s['safe_buy_above'] * 0.90, 2)
-                        s['tp2'] = round(s['safe_buy_above'] * 0.80, 2)
-                
-                st.success(f"✅ Found {len(top_results)} LIVE options")
-                
-                df_display = pd.DataFrame([{
-                    'Symbol': s['symbol'],
-                    'Sector': s['sector'],
-                    'Strike': s['strike'],
-                    'Type': s['option_type'],
-                    'Signal': s['signal'],
-                    'LTP': s['ltp'],
-                    'Delta': s['delta'],
-                    'Theta': s['theta'],
-                    'Volume': f"{s['volume']:,}",
-                    'Safe Buy': s['safe_buy_above'],
-                    'SL': s['sl'],
-                    'TP1': s['tp1'],
-                    'TP2': s['tp2']
-                } for s in top_results])
-                
-                st.dataframe(df_display, use_container_width=True, height=400)
-                
-                st.markdown("---")
-                st.markdown("## 📊 TRADING PLAN")
-                
-                for s in top_results[:8]:
-                    color = "#00ff88" if s['option_type'] == 'CE' else "#ff4444"
-                    icon = "🟢" if s['option_type'] == 'CE' else "🔴"
-                    st.markdown(f"""
-                    <div style="background: {color}22; border-left: 4px solid {color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                        <b>{icon} {s['symbol']}</b> | {s['sector']} | {s['option_type']} | {s['signal']}<br>
-                        📊 <b>Change:</b> {s['change_pct']:+.2f}% | 📍 <b>Safe Buy:</b> ₹{s['safe_buy_above']:.2f}<br>
-                        🛑 <b>SL:</b> ₹{s['sl']:.2f} | 🎯 <b>TP1:</b> ₹{s['tp1']:.2f} | 🎯 <b>TP2:</b> ₹{s['tp2']:.2f}
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ No live signals found. Try again after few minutes.")
+            for s in top_results:
+                if s['option_type'] == 'CE':
+                    s['safe_buy_above'] = round(s['ltp'] * 0.97, 2)
+                    s['sl'] = round(s['safe_buy_above'] * 0.95, 2)
+                    s['tp1'] = round(s['safe_buy_above'] * 1.10, 2)
+                    s['tp2'] = round(s['safe_buy_above'] * 1.20, 2)
+                else:
+                    s['safe_buy_above'] = round(s['ltp'] * 0.97, 2)
+                    s['sl'] = round(s['safe_buy_above'] * 1.05, 2)
+                    s['tp1'] = round(s['safe_buy_above'] * 0.90, 2)
+                    s['tp2'] = round(s['safe_buy_above'] * 0.80, 2)
+            
+            st.success(f"✅ Found {len(top_results)} options")
+            
+            df_display = pd.DataFrame([{
+                'Symbol': s['symbol'],
+                'Sector': s['sector'],
+                'Strike': s['strike'],
+                'Type': s['option_type'],
+                'Signal': s['signal'],
+                'LTP': s['ltp'],
+                'Delta': s['delta'],
+                'Theta': s['theta'],
+                'Volume': f"{s['volume']:,}",
+                'Safe Buy': s['safe_buy_above'],
+                'SL': s['sl'],
+                'TP1': s['tp1'],
+                'TP2': s['tp2']
+            } for s in top_results])
+            
+            st.dataframe(df_display, use_container_width=True, height=500)
+            
+            st.markdown("---")
+            st.markdown("## 📊 TRADING PLAN")
+            
+            for s in top_results[:10]:
+                color = "#00ff88" if s['option_type'] == 'CE' else "#ff4444"
+                icon = "🟢" if s['option_type'] == 'CE' else "🔴"
+                st.markdown(f"""
+                <div style="background: {color}22; border-left: 4px solid {color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                    <b>{icon} {s['symbol']}</b> | {s['sector']} | {s['option_type']} | {s['signal']}<br>
+                    📊 <b>Change:</b> {s['change_pct']:+.2f}% | 📍 <b>Safe Buy:</b> ₹{s['safe_buy_above']:.2f}<br>
+                    🛑 <b>SL:</b> ₹{s['sl']:.2f} | 🎯 <b>TP1:</b> ₹{s['tp1']:.2f} | 🎯 <b>TP2:</b> ₹{s['tp2']:.2f}
+                </div>
+                """, unsafe_allow_html=True)
+            
+            current_time = get_ist_now().strftime('%H:%M:%S')
+            st.caption(f"✅ Live Data | Last updated: {current_time} IST")
+            
+        else:
+            st.warning("⚠️ No significant market movement detected. Market might be sideways.")
+            st.info("💡 Try again in a few minutes when market moves.")
     
     st.markdown("---")
-    st.caption("📌 LIVE DATA ONLY | No Demo | Market Hours: 9:15 AM - 3:30 PM IST")
+    st.caption("📌 Live Data Only | Change % filter: 0.1%+")
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
     check_and_execute_orders_with_journal()
