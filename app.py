@@ -2213,11 +2213,15 @@ def calculate_safe_levels_for_top_stocks(top_stocks_data):
             stock['tp2'] = round(ltp * 1.15, 2)
     return top_stocks_data
 
-# ================= TAB 7: OPTION SCANNER =================
+# ================= TAB 7: OPTION SCANNER (LIVE DATA) =================
 with tab7:
     st.markdown("### 📊 OPTION SCANNER DASHBOARD")
-    st.markdown("*Real-time option chain scanner | Delta 0.50-0.70 | Theta -1 to -4 | Top by Volume*")
+    st.markdown("*Live NSE Option Chain | Delta 0.50-0.70 | Theta -1 to -4 | Top by Volume*")
     st.markdown("---")
+    
+    # स्कॅन करायचे स्टॉक्स (तुमच्या FO_SCRIPTS मधून)
+    scan_symbols = ['NIFTY', 'BANKNIFTY', 'ICICIBANK', 'HDFCBANK', 'SBIN', 
+                    'RELIANCE', 'TCS', 'INFY', 'AXISBANK', 'KOTAKBANK']
     
     # Refresh button
     col1, col2, col3 = st.columns([2,1,2])
@@ -2228,81 +2232,170 @@ with tab7:
     
     st.markdown("---")
     
-    with st.spinner("🔍 Loading scanner data..."):
-        # ========== DEMO DATA (हे लाईव्ह डेटाने बदला) ==========
-        # तुमचा लाईव्ह स्कॅनिंग कोड येथे असेल
-        # सध्या सॅम्पल डेटा देत आहे
+    with st.spinner("🔍 Fetching live option chain data from NSE..."):
+        try:
+            from nselib import derivatives
+            import time
+            
+            all_options = []
+            
+            # प्रोग्रेस बार
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i, symbol in enumerate(scan_symbols):
+                status_text.text(f"Scanning: {symbol} ({i+1}/{len(scan_symbols)})")
+                progress_bar.progress((i + 1) / len(scan_symbols))
+                
+                try:
+                    # Live Option Chain डेटा मिळवा [citation:4]
+                    oc = derivatives.nse_live_option_chain(symbol=symbol)
+                    
+                    if oc is not None and not oc.empty:
+                        for idx, row in oc.iterrows():
+                            try:
+                                # CE डेटा
+                                if 'CE' in str(row.get('option_type', '')):
+                                    ltp = float(row.get('lastPrice', 0)) if row.get('lastPrice') else 0
+                                    delta = float(row.get('delta', 0.5)) if row.get('delta') else 0.5
+                                    theta = float(row.get('theta', -2)) if row.get('theta') else -2
+                                    volume = int(row.get('totalTradedVolume', 0)) if row.get('totalTradedVolume') else 0
+                                    oi = int(row.get('openInterest', 0)) if row.get('openInterest') else 0
+                                    strike = int(row.get('strikePrice', 0)) if row.get('strikePrice') else 0
+                                    
+                                    # Delta आणि Theta निकष तपासा
+                                    if 0.50 <= delta <= 0.70 and -4 <= theta <= -1 and volume > 10000:
+                                        # Long Buildup check (OI change वरून)
+                                        oi_change = int(row.get('changeinOpenInterest', 0)) if row.get('changeinOpenInterest') else 0
+                                        if oi_change > 0:
+                                            signal = '🔵 LONG BUILDUP'
+                                        else:
+                                            signal = '🟢 CALL BUYER'
+                                        
+                                        all_options.append({
+                                            'symbol': symbol,
+                                            'sector': SECTOR_MAPPING.get(symbol, 'Other'),
+                                            'strike': strike,
+                                            'option_type': 'CE',
+                                            'ltp': ltp,
+                                            'delta': round(delta, 3),
+                                            'theta': round(theta, 2),
+                                            'volume': volume,
+                                            'oi': oi,
+                                            'oi_change': oi_change,
+                                            'signal': signal
+                                        })
+                                
+                                # PE डेटा
+                                elif 'PE' in str(row.get('option_type', '')):
+                                    ltp = float(row.get('lastPrice', 0)) if row.get('lastPrice') else 0
+                                    delta = float(row.get('delta', -0.5)) if row.get('delta') else -0.5
+                                    theta = float(row.get('theta', -2)) if row.get('theta') else -2
+                                    volume = int(row.get('totalTradedVolume', 0)) if row.get('totalTradedVolume') else 0
+                                    oi = int(row.get('openInterest', 0)) if row.get('openInterest') else 0
+                                    strike = int(row.get('strikePrice', 0)) if row.get('strikePrice') else 0
+                                    
+                                    if -0.70 <= delta <= -0.50 and -4 <= theta <= -1 and volume > 10000:
+                                        oi_change = int(row.get('changeinOpenInterest', 0)) if row.get('changeinOpenInterest') else 0
+                                        if oi_change > 0 and ltp > 0:
+                                            signal = '🔴 SHORT BUILDUP'
+                                        else:
+                                            signal = '🟡 PUT BUYER'
+                                        
+                                        all_options.append({
+                                            'symbol': symbol,
+                                            'sector': SECTOR_MAPPING.get(symbol, 'Other'),
+                                            'strike': strike,
+                                            'option_type': 'PE',
+                                            'ltp': ltp,
+                                            'delta': round(delta, 3),
+                                            'theta': round(theta, 2),
+                                            'volume': volume,
+                                            'oi': oi,
+                                            'oi_change': oi_change,
+                                            'signal': signal
+                                        })
+                            except Exception as e:
+                                continue
+                except Exception as e:
+                    st.warning(f"Could not fetch data for {symbol}: {str(e)[:100]}")
+                    continue
+                
+                # Rate limiting - API ला वारंवार hit करू नका [citation:9]
+                time.sleep(1)
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+            # Volume नुसार क्रमवारी आणि Top 20
+            all_options.sort(key=lambda x: x.get('volume', 0), reverse=True)
+            filtered_options = all_options[:20]
+            
+        except ImportError:
+            st.error("❌ nselib library not installed. Run: pip install nselib")
+            filtered_options = []
+        except Exception as e:
+            st.error(f"Error fetching live data: {str(e)}")
+            filtered_options = []
+    
+    # ========== DISPLAY RESULTS ==========
+    if filtered_options:
+        # Safe Levels calculate करा
+        stocks_with_levels = calculate_safe_levels_for_top_stocks(filtered_options[:10])
         
-        filtered_options = [
-            {'symbol': 'NIFTY', 'sector': '📈 Index', 'strike': 23150, 'option_type': 'CE', 'ltp': 125.50, 'delta': 0.62, 'theta': -2.8, 'volume': 1250000, 'oi': 4580000, 'oi_change': 125000, 'signal': '🔵 LONG BUILDUP'},
-            {'symbol': 'BANKNIFTY', 'sector': '📈 Index', 'strike': 54100, 'option_type': 'CE', 'ltp': 185.30, 'delta': 0.58, 'theta': -3.2, 'volume': 980000, 'oi': 3250000, 'oi_change': 85000, 'signal': '🔵 LONG BUILDUP'},
-            {'symbol': 'ICICIBANK', 'sector': '🏦 Banking', 'strike': 1270, 'option_type': 'CE', 'ltp': 32.80, 'delta': 0.60, 'theta': -2.5, 'volume': 520000, 'oi': 2100000, 'oi_change': 55000, 'signal': '🔵 LONG BUILDUP'},
-            {'symbol': 'RELIANCE', 'sector': '⚡ Energy', 'strike': 1260, 'option_type': 'CE', 'ltp': 28.50, 'delta': 0.55, 'theta': -2.1, 'volume': 450000, 'oi': 1850000, 'oi_change': 42000, 'signal': '🔵 LONG BUILDUP'},
-            {'symbol': 'SBIN', 'sector': '🏦 Banking', 'strike': 1000, 'option_type': 'CE', 'ltp': 22.40, 'delta': 0.58, 'theta': -2.3, 'volume': 310000, 'oi': 1250000, 'oi_change': 28000, 'signal': '🔵 LONG BUILDUP'},
-            {'symbol': 'HDFCBANK', 'sector': '🏦 Banking', 'strike': 740, 'option_type': 'PE', 'ltp': 18.20, 'delta': -0.52, 'theta': -1.9, 'volume': 380000, 'oi': 1650000, 'oi_change': -25000, 'signal': '🟡 PUT BUYER'},
-            {'symbol': 'TCS', 'sector': '💻 IT', 'strike': 2140, 'option_type': 'PE', 'ltp': 35.60, 'delta': -0.55, 'theta': -2.7, 'volume': 290000, 'oi': 980000, 'oi_change': 32000, 'signal': '🔴 SHORT BUILDUP'},
-            {'symbol': 'INFY', 'sector': '💻 IT', 'strike': 1170, 'option_type': 'PE', 'ltp': 25.30, 'delta': -0.53, 'theta': -2.4, 'volume': 270000, 'oi': 890000, 'oi_change': 28000, 'signal': '🔴 SHORT BUILDUP'},
-        ]
+        # Main Table Display
+        st.markdown("## 🏆 TOP 10 STOCKS WITH SAFE LEVELS (LIVE DATA)")
         
-        # ========== येथे डेटा आहे की नाही ते तपासा ==========
-        if filtered_options:
-            stocks_with_levels = calculate_safe_levels_for_top_stocks(filtered_options[:10])
-            
-            # Main Table Display
-            st.markdown("## 🏆 TOP 10 STOCKS WITH SAFE LEVELS")
-            
-            df_levels = pd.DataFrame([{
-                'Symbol': s['symbol'],
-                'Sector': s.get('sector', ''),
-                'Type': s['option_type'],
-                'Signal': s.get('signal', ''),
-                'LTP (₹)': s['ltp'],
-                'Safe Buy Above (₹)': s.get('safe_buy_above', 0),
-                'SL (₹)': s.get('sl', 0),
-                'TP1 (₹)': s.get('tp1', 0),
-                'TP2 (₹)': s.get('tp2', 0)
-            } for s in stocks_with_levels])
-            
-            st.dataframe(df_levels, use_container_width=True, height=400)
-            
-            st.markdown("---")
-            st.markdown("## 📊 DETAILED TRADING PLAN")
-            
-            for s in stocks_with_levels:
-                if s['option_type'] == 'CE' and 'LONG BUILDUP' in str(s.get('signal', '')):
-                    st.markdown(f"""
-                    <div style="background: #00ff8822; border-left: 4px solid #00ff88; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                        <b>🟢 {s['symbol']}</b> | {s.get('sector', '')} | CE | Signal: {s.get('signal', '')}<br>
-                        📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
-                        🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
-                        🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
-                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल.
-                    </div>
-                    """, unsafe_allow_html=True)
-                elif s['option_type'] == 'PE' and ('PUT BUYER' in str(s.get('signal', '')) or 'SHORT BUILDUP' in str(s.get('signal', ''))):
-                    st.markdown(f"""
-                    <div style="background: #ff444422; border-left: 4px solid #ff4444; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                        <b>🔴 {s['symbol']}</b> | {s.get('sector', '')} | PE | Signal: {s.get('signal', '')}<br>
-                        📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
-                        🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
-                        🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
-                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल.
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style="background: #ffaa0022; border-left: 4px solid #ffaa00; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                        <b>🟡 {s['symbol']}</b> | {s.get('sector', '')} | {s['option_type']}<br>
-                        📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
-                        🛑 <b>SL:</b> ₹{s.get('sl', 0):.2f} | 🎯 <b>TP1:</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2:</b> ₹{s.get('tp2', 0):.2f}
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.error("⚠️ No options found matching your criteria.")
-            st.info("💡 Tips:\n- Check if Delta/Theta ranges are correct\n- Market hours: 9:15 AM - 3:30 PM\n- Try clicking 'SCAN NOW' button")
+        df_levels = pd.DataFrame([{
+            'Symbol': s['symbol'],
+            'Sector': s.get('sector', ''),
+            'Strike': s.get('strike', ''),
+            'Type': s['option_type'],
+            'Signal': s.get('signal', ''),
+            'LTP (₹)': s['ltp'],
+            'Delta': s.get('delta', 0),
+            'Theta': s.get('theta', 0),
+            'Volume': s.get('volume', 0),
+            'Safe Buy Above (₹)': s.get('safe_buy_above', 0),
+            'SL (₹)': s.get('sl', 0),
+            'TP1 (₹)': s.get('tp1', 0),
+            'TP2 (₹)': s.get('tp2', 0)
+        } for s in stocks_with_levels])
+        
+        st.dataframe(df_levels, use_container_width=True, height=400)
+        
+        st.markdown("---")
+        st.markdown("## 📊 DETAILED TRADING PLAN")
+        
+        for s in stocks_with_levels:
+            if s['option_type'] == 'CE' and 'LONG BUILDUP' in str(s.get('signal', '')):
+                st.markdown(f"""
+                <div style="background: #00ff8822; border-left: 4px solid #00ff88; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                    <b>🟢 {s['symbol']}</b> | {s.get('sector', '')} | CE | Signal: {s.get('signal', '')}<br>
+                    📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
+                    🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
+                    🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
+                    📊 <b>Live Data:</b> LTP: ₹{s['ltp']:.2f} | Delta: {s.get('delta', 0)} | Theta: {s.get('theta', 0)} | Volume: {s.get('volume', 0):,}<br>
+                    💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल. TP1 वर 50% बुक करा.
+                </div>
+                """, unsafe_allow_html=True)
+            elif s['option_type'] == 'PE' and ('PUT BUYER' in str(s.get('signal', '')) or 'SHORT BUILDUP' in str(s.get('signal', ''))):
+                st.markdown(f"""
+                <div style="background: #ff444422; border-left: 4px solid #ff4444; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                    <b>🔴 {s['symbol']}</b> | {s.get('sector', '')} | PE | Signal: {s.get('signal', '')}<br>
+                    📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
+                    🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
+                    🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
+                    📊 <b>Live Data:</b> LTP: ₹{s['ltp']:.2f} | Delta: {s.get('delta', 0)} | Theta: {s.get('theta', 0)} | Volume: {s.get('volume', 0):,}<br>
+                    💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल.
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ No options found matching your criteria. Try again during market hours (9:15 AM - 3:30 PM).")
+        st.info("💡 Make sure: nselib is installed | Market is open | Symbols are correct")
     
     st.markdown("---")
-    st.caption("📌 Safe Buy Above = LTP च्या 3% खाली | SL = 5% | TP1 = 10% | TP2 = 20%")
+    st.caption("📌 Data Source: NSE Live Option Chain API | Updates on 'SCAN NOW' click")
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
