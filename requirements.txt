@@ -1,4 +1,4 @@
-pyotp
-logzero
-websocket-client
-git+https://github.com/angel-one/smartapi-python.git
+yfinance==0.2.4
+streamlit==1.53.0
+pandas==2.3.3
+plotly==6.5.2
