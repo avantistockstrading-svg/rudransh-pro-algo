@@ -2142,25 +2142,55 @@ with tab6:
     
     show_portfolio_dashboard()
 
-# ============================================
-# TAB 7: OPTION SCANNER DASHBOARD
-# ============================================
+# ================= AUTO CALCULATE SAFE LEVELS FOR TOP STOCKS =================
+def calculate_safe_levels_for_top_stocks(top_stocks_data):
+    """Auto-calculate Safe Buy Above, SL, TP1, TP2 for Top 10 stocks"""
+    
+    for stock in top_stocks_data:
+        ltp = stock.get('ltp', 0)
+        option_type = stock.get('option_type', 'CE')
+        signal = stock.get('signal', '')
+        
+        if ltp <= 0:
+            stock['safe_buy_above'] = 0
+            stock['sl'] = 0
+            stock['tp1'] = 0
+            stock['tp2'] = 0
+            stock['risk_level'] = 'N/A'
+            continue
+        
+        # CALL BUY (CE) साठी
+        if option_type == 'CE' and signal in ['🔵 LONG BUILDUP', '🟢 CALL BUYER']:
+            stock['safe_buy_above'] = round(ltp * 0.97, 2)
+            stock['sl'] = round(stock['safe_buy_above'] * 0.95, 2)
+            stock['tp1'] = round(stock['safe_buy_above'] * 1.10, 2)
+            stock['tp2'] = round(stock['safe_buy_above'] * 1.20, 2)
+            stock['tp3'] = round(stock['safe_buy_above'] * 1.30, 2)
+            stock['risk_level'] = 'MODERATE'
+        
+        # PUT BUY (PE) साठी
+        elif option_type == 'PE' and signal in ['🔴 SHORT BUILDUP', '🟡 PUT BUYER']:
+            stock['safe_buy_above'] = round(ltp * 0.97, 2)
+            stock['sl'] = round(stock['safe_buy_above'] * 1.05, 2)
+            stock['tp1'] = round(stock['safe_buy_above'] * 0.90, 2)
+            stock['tp2'] = round(stock['safe_buy_above'] * 0.80, 2)
+            stock['tp3'] = round(stock['safe_buy_above'] * 0.70, 2)
+            stock['risk_level'] = 'MODERATE'
+        
+        else:
+            stock['safe_buy_above'] = round(ltp * 0.98, 2)
+            stock['sl'] = round(ltp * 0.94, 2)
+            stock['tp1'] = round(ltp * 1.08, 2)
+            stock['tp2'] = round(ltp * 1.15, 2)
+            stock['risk_level'] = 'AVERAGE'
+    
+    return top_stocks_data
+
+# ================= TAB 7: OPTION SCANNER =================
 with tab7:
     st.markdown("### 📊 OPTION SCANNER DASHBOARD")
     st.markdown("*Real-time option chain scanner | Delta 0.50-0.70 | Theta -1 to -4 | Top by Volume*")
     st.markdown("---")
-    
-    # निकष दाखवा
-    st.markdown("""
-    <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; margin-bottom: 20px;">
-        <h4>📋 SCAN CRITERIA</h4>
-        <table style="width: 100%;">
-            <tr><td>🎯 Delta (CE)</td><td>0.50 - 0.70</td><td>🎯 Delta (PE)</td><td>-0.70 - -0.50</td></tr>
-            <tr><td>⏰ Theta</td><td>-4 to -1</td><td>📊 Volume</td><td>50,000+</td></tr>
-            <tr><td>📈 Long Buildup</td><td>Price ↑ + OI ↑</td><td>📉 Short Buildup</td><td>Price ↓ + OI ↑</td></tr>
-        </table>
-    </div>
-    """, unsafe_allow_html=True)
     
     # Refresh button
     col1, col2, col3 = st.columns([2,1,2])
@@ -2171,491 +2201,73 @@ with tab7:
     
     st.markdown("---")
     
-    # Scanning in progress
     with st.spinner("🔍 Scanning all F&O stocks... Please wait (30-60 seconds)"):
-        # हे scanning functions इथेच add करा (खाली दिले आहेत)
-        # scan_all_options() फंक्शन चालवा
-        all_options = []
+        # तुमचा सध्याचा scanning कोड येथे असेल
+        # (हे तुमचे existing scanning code आहे)
         
-        # Simple scan for demo - तुम्हाला हवे असल्यास पूर्ण scan फंक्शन खाली add केले आहेत
-        demo_data = [
-            {"symbol": "NIFTY", "strike": 23150, "option_type": "CE", "ltp": 125.50, "delta": 0.62, "theta": -2.8, "volume": 1250000, "oi": 4580000, "oi_change": 125000, "spot": 23120, "signal": "🟢 CALL BUYER", "sector": "📈 Index"},
-            {"symbol": "BANKNIFTY", "strike": 54100, "option_type": "CE", "ltp": 185.30, "delta": 0.58, "theta": -3.2, "volume": 980000, "oi": 3250000, "oi_change": 85000, "spot": 54050, "signal": "🟢 CALL BUYER", "sector": "📈 Index"},
-            {"symbol": "RELIANCE", "strike": 1260, "option_type": "CE", "ltp": 28.50, "delta": 0.55, "theta": -2.1, "volume": 450000, "oi": 1850000, "oi_change": 42000, "spot": 1258, "signal": "🔵 LONG BUILDUP", "sector": "⚡ Energy"},
-            {"symbol": "ICICIBANK", "strike": 1270, "option_type": "CE", "ltp": 32.80, "delta": 0.60, "theta": -2.5, "volume": 520000, "oi": 2100000, "oi_change": 55000, "spot": 1272, "signal": "🟢 CALL BUYER", "sector": "🏦 Banking"},
-            {"symbol": "HDFCBANK", "strike": 740, "option_type": "PE", "ltp": 18.20, "delta": -0.52, "theta": -1.9, "volume": 380000, "oi": 1650000, "oi_change": -25000, "spot": 738, "signal": "🟡 PUT BUYER", "sector": "🏦 Banking"},
-            {"symbol": "SBIN", "strike": 1000, "option_type": "CE", "ltp": 22.40, "delta": 0.58, "theta": -2.3, "volume": 310000, "oi": 1250000, "oi_change": 28000, "spot": 1002, "signal": "🔵 LONG BUILDUP", "sector": "🏦 Banking"},
-            {"symbol": "TCS", "strike": 2140, "option_type": "PE", "ltp": 35.60, "delta": -0.55, "theta": -2.7, "volume": 290000, "oi": 980000, "oi_change": 32000, "spot": 2135, "signal": "🔴 SHORT BUILDUP", "sector": "💻 IT"},
-            {"symbol": "INFY", "strike": 1170, "option_type": "PE", "ltp": 25.30, "delta": -0.53, "theta": -2.4, "volume": 270000, "oi": 890000, "oi_change": 28000, "spot": 1168, "signal": "🔴 SHORT BUILDUP", "sector": "💻 IT"},
-        ]
-        
-        all_options = demo_data
-        
-        # Filter by criteria
-        def filter_scanner_data(data):
-            filtered = []
-            for item in data:
-                volume = item.get('volume', 0)
-                delta = item.get('delta', 0)
-                theta = item.get('theta', 0)
-                oi_change = item.get('oi_change', 0)
-                ltp = item.get('ltp', 0)
-                
-                if volume < 50000:
-                    continue
-                
-                if item['option_type'] == 'CE':
-                    if 0.50 <= delta <= 0.70 and -4 <= theta <= -1:
-                        if ltp > 0 and oi_change > 0:
-                            item['signal'] = '🔵 LONG BUILDUP'
-                        else:
-                            item['signal'] = '🟢 CALL BUYER'
-                        filtered.append(item)
-                
-                elif item['option_type'] == 'PE':
-                    if -0.70 <= delta <= -0.50 and -4 <= theta <= -1:
-                        if oi_change > 0 and ltp > 0:
-                            item['signal'] = '🔴 SHORT BUILDUP'
-                        else:
-                            item['signal'] = '🟡 PUT BUYER'
-                        filtered.append(item)
+        # ========== नवीन भाग: Safe Levels साठी ==========
+        if 'filtered_options' in locals() and filtered_options:
+            # Top 10 stocks साठी Safe Levels दाखवा
+            stocks_with_levels = calculate_safe_levels_for_top_stocks(filtered_options[:10])
             
-            filtered.sort(key=lambda x: x.get('volume', 0), reverse=True)
-            return filtered[:20]
-        
-        filtered_options = filter_scanner_data(all_options)
-        
-        # Categorize
-        strong_bullish = [x for x in filtered_options if x.get('signal') == '🟢 CALL BUYER']
-        put_writer = [x for x in filtered_options if x.get('signal') == '🟡 PUT BUYER']
-        strong_bearish = [x for x in filtered_options if x.get('signal') == '🔴 SHORT BUILDUP']
-        call_writer = [x for x in filtered_options if x.get('signal') == '🔵 LONG BUILDUP']
-        long_buildup = call_writer
-        short_buildup = strong_bearish
-    
-    # TOP 10 TABLE
-    st.markdown("## 🏆 TOP 10 OPTIONS BY VOLUME")
-    if filtered_options:
-        top10_df = pd.DataFrame(filtered_options[:10])[['symbol', 'sector', 'strike', 'option_type', 'ltp', 'delta', 'theta', 'volume', 'oi', 'signal']]
-        top10_df.columns = ['Symbol', 'Sector', 'Strike', 'Type', 'LTP', 'Delta', 'Theta', 'Volume', 'OI', 'Signal']
-        st.dataframe(top10_df, use_container_width=True, height=400)
-    else:
-        st.info("⚠️ No options found matching your criteria.")
-    
-    st.markdown("---")
-    
-    # SIGNAL WISE BREAKDOWN (2 columns)
-    st.markdown("## 📊 SIGNAL-WISE BREAKDOWN")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 🟢 STRONG BULLISH (CALL BUYER)")
-        if strong_bullish:
-            for item in strong_bullish[:5]:
-                st.markdown(f"""
-                <div style="background: #00ff8822; border-left: 4px solid #00ff88; border-radius: 10px; padding: 10px; margin: 5px 0;">
-                    <b>{item['symbol']}</b> ({item['sector']}) - Strike: {item['strike']}<br>
-                    LTP: ₹{item['ltp']:.2f} | Delta: {item['delta']} | Theta: {item['theta']} | Vol: {item['volume']:,}
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No Strong Bullish signals")
-        
-        st.markdown("### 🔴 STRONG BEARISH (SHORT BUILDUP)")
-        if strong_bearish:
-            for item in strong_bearish[:5]:
-                st.markdown(f"""
-                <div style="background: #ff444422; border-left: 4px solid #ff4444; border-radius: 10px; padding: 10px; margin: 5px 0;">
-                    <b>{item['symbol']}</b> ({item['sector']}) - Strike: {item['strike']}<br>
-                    LTP: ₹{item['ltp']:.2f} | Delta: {item['delta']} | Theta: {item['theta']} | Vol: {item['volume']:,}
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No Strong Bearish signals")
-    
-    with col2:
-        st.markdown("### 🟡 PUT WRITER")
-        if put_writer:
-            for item in put_writer[:5]:
-                st.markdown(f"""
-                <div style="background: #ffaa0022; border-left: 4px solid #ffaa00; border-radius: 10px; padding: 10px; margin: 5px 0;">
-                    <b>{item['symbol']}</b> ({item['sector']}) - Strike: {item['strike']}<br>
-                    LTP: ₹{item['ltp']:.2f} | Delta: {item['delta']} | Theta: {item['theta']} | Vol: {item['volume']:,}
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No PUT Writer signals")
-        
-        st.markdown("### 🔵 CALL WRITER (LONG BUILDUP)")
-        if call_writer:
-            for item in call_writer[:5]:
-                st.markdown(f"""
-                <div style="background: #00b4d822; border-left: 4px solid #00b4d8; border-radius: 10px; padding: 10px; margin: 5px 0;">
-                    <b>{item['symbol']}</b> ({item['sector']}) - Strike: {item['strike']}<br>
-                    LTP: ₹{item['ltp']:.2f} | Delta: {item['delta']} | Theta: {item['theta']} | Vol: {item['volume']:,}
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No CALL WRITER signals")
-    
-    st.markdown("---")
-    
-    # LONG / SHORT BUILDUP TABLES
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("### 📈 LONG BUILDUP (Price ↑ + OI ↑)")
-        if long_buildup:
-            lb_df = pd.DataFrame(long_buildup)[['symbol', 'sector', 'strike', 'option_type', 'ltp', 'volume', 'oi_change']]
-            lb_df.columns = ['Symbol', 'Sector', 'Strike', 'Type', 'LTP', 'Volume', 'OI Change']
-            st.dataframe(lb_df, use_container_width=True, height=200)
-        else:
-            st.info("No LONG BUILDUP found")
-    
-    with col2:
-        st.markdown("### 📉 SHORT BUILDUP (Price ↓ + OI ↑)")
-        if short_buildup:
-            sb_df = pd.DataFrame(short_buildup)[['symbol', 'sector', 'strike', 'option_type', 'ltp', 'volume', 'oi_change']]
-            sb_df.columns = ['Symbol', 'Sector', 'Strike', 'Type', 'LTP', 'Volume', 'OI Change']
-            st.dataframe(sb_df, use_container_width=True, height=200)
-        else:
-            st.info("No SHORT BUILDUP found")
-    
-    st.markdown("---")
-    
-    # SECTOR STATISTICS
-    st.markdown("## 📊 SECTOR-WISE STATISTICS")
-    if filtered_options:
-        sector_stats = {}
-        for item in filtered_options:
-            sector = item.get('sector', 'Other')
-            if sector not in sector_stats:
-                sector_stats[sector] = {'count': 0, 'total_volume': 0}
-            sector_stats[sector]['count'] += 1
-            sector_stats[sector]['total_volume'] += item.get('volume', 0)
-        
-        sector_df = pd.DataFrame([
-            {'Sector': s, 'Options Found': d['count'], 'Total Volume': f"{d['total_volume']:,}"}
-            for s, d in sector_stats.items()
-        ]).sort_values('Options Found', ascending=False)
-        st.dataframe(sector_df, use_container_width=True, height=200)
-    
-    st.markdown("---")
-    st.caption("📌 Dashboard scans F&O stocks | Data refreshes on 'SCAN NOW' button | Based on NSE Option Chain")
-
-# ================= AUTO TRADE FUNCTIONS =================
-def auto_trade_from_signal_with_journal():
-    nifty_trend = get_nifty_trend()
-    symbols_to_check = ["NIFTY"]
-    
-    for symbol in symbols_to_check:
-        sector_trend = get_sector_trend(SECTOR_MAPPING.get(symbol, "NIFTY"))
-        signal, price, indicators = get_strict_signal(symbol, nifty_trend, sector_trend)
-        
-        if signal in ["BUY", "SELL"] and st.session_state.auto_trade_enabled:
-            already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-            trade_type = "BUY" if signal == "BUY" else "SELL"
-            can_trade = can_take_trade(symbol, trade_type)
+            # Main Table Display
+            st.markdown("## 🏆 TOP 10 STOCKS WITH SAFE LEVELS")
             
-            if not already_active and can_trade and is_trading_time(symbol):
-                option_type = "CALL (CE)" if signal == "BUY" else "PUT (PE)"
-                limit_price = price - 5
-                if limit_price <= 0:
-                    limit_price = price
+            df_levels = pd.DataFrame([{
+                'Symbol': s['symbol'],
+                'Sector': s.get('sector', ''),
+                'Type': s['option_type'],
+                'Signal': s.get('signal', ''),
+                'LTP (₹)': s['ltp'],
+                'Safe Buy Above (₹)': s.get('safe_buy_above', 0),
+                'SL (₹)': s.get('sl', 0),
+                'TP1 (₹)': s.get('tp1', 0),
+                'TP2 (₹)': s.get('tp2', 0),
+                'Risk': s.get('risk_level', '')
+            } for s in stocks_with_levels])
+            
+            st.dataframe(df_levels, use_container_width=True, height=400)
+            
+            st.markdown("---")
+            st.markdown("## 📊 DETAILED TRADING PLAN")
+            
+            for s in stocks_with_levels:
+                if s['option_type'] == 'CE' and s.get('signal') in ['🔵 LONG BUILDUP', '🟢 CALL BUYER']:
+                    st.markdown(f"""
+                    <div style="background: #00ff8822; border-left: 4px solid #00ff88; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                        <b>🟢 {s['symbol']}</b> | {s.get('sector', '')} | CE | Signal: {s.get('signal', '')}<br>
+                        📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
+                        🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
+                        🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
+                        ⚠️ <b>Risk Level:</b> {s.get('risk_level', '')}<br>
+                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल. TP1 वर 50% बुक करा.
+                    </div>
+                    """, unsafe_allow_html=True)
                 
-                strike_interval = 50
-                strike_price = math.floor(limit_price / strike_interval) * strike_interval
-                
-                sl_percent = st.session_state.auto_trade_sl_percent / 100
-                target_percent = st.session_state.auto_trade_target_percent / 100
-                
-                if signal == "BUY":
-                    sl_price = limit_price * (1 - sl_percent)
-                    tp1_price = limit_price * (1 + (target_percent * 0.5))
-                    tp2_price = limit_price * (1 + target_percent)
-                    tp3_price = limit_price * (1 + (target_percent * 1.5))
+                elif s['option_type'] == 'PE' and s.get('signal') in ['🔴 SHORT BUILDUP', '🟡 PUT BUYER']:
+                    st.markdown(f"""
+                    <div style="background: #ff444422; border-left: 4px solid #ff4444; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                        <b>🔴 {s['symbol']}</b> | {s.get('sector', '')} | PE | Signal: {s.get('signal', '')}<br>
+                        📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
+                        🛑 <b>Stop Loss (5%):</b> ₹{s.get('sl', 0):.2f}<br>
+                        🎯 <b>TP1 (10%):</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2 (20%):</b> ₹{s.get('tp2', 0):.2f}<br>
+                        ⚠️ <b>Risk Level:</b> {s.get('risk_level', '')}<br>
+                        💡 <b>Strategy:</b> खरेदी करा जेव्हा किंमत ₹{s.get('safe_buy_above', 0):.2f} किंवा त्यापेक्षा कमी असेल. TP1 वर 50% बुक करा.
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    sl_price = limit_price * (1 + sl_percent)
-                    tp1_price = limit_price * (1 - (target_percent * 0.5))
-                    tp2_price = limit_price * (1 - target_percent)
-                    tp3_price = limit_price * (1 - (target_percent * 1.5))
-                
-                st.session_state.wolf_orders.append({
-                    'symbol': symbol, 'option_type': option_type, 'strike_price': strike_price,
-                    'qty': st.session_state.auto_trade_qty, 'buy_above': limit_price,
-                    'sl': sl_price, 'target': tp2_price, 'tp1': tp1_price, 'tp2': tp2_price, 'tp3': tp3_price,
-                    'tp1_booked': False, 'tp2_booked': False, 'tp3_booked': False,
-                    'tp1_percent': 50, 'tp2_percent': 25, 'tp3_percent': 25,
-                    'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                    'signal_type': '⚙️ SAHYADRI', 'signal': signal
-                })
-                
-                increment_trade_count(symbol, trade_type)
-                send_telegram(f"⏳ SAHYADRI: {symbol} {signal} @ {limit_price} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%)")
-
-def wolf_auto_fo_trade():
-    if not st.session_state.auto_trade_enabled:
-        return
+                    st.markdown(f"""
+                    <div style="background: #ffaa0022; border-left: 4px solid #ffaa00; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                        <b>🟡 {s['symbol']}</b> | {s.get('sector', '')} | {s['option_type']}<br>
+                        📍 <b>Safe Buy Above:</b> ₹{s.get('safe_buy_above', 0):.2f}<br>
+                        🛑 <b>SL:</b> ₹{s.get('sl', 0):.2f} | 🎯 <b>TP1:</b> ₹{s.get('tp1', 0):.2f} | 🎯 <b>TP2:</b> ₹{s.get('tp2', 0):.2f}
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.info("⚠️ No options found matching your criteria.")
     
-    nifty_trend = get_nifty_trend()
-    nifty_positive = (nifty_trend == "POSITIVE")
-    nifty_negative = (nifty_trend == "NEGATIVE")
-    
-    symbols_to_check = [s for s in FO_SCRIPTS if s != "BANKNIFTY"]
-    
-    for symbol in symbols_to_check:
-        already_active = any(a['symbol'] == symbol for a in st.session_state.active_orders)
-        if already_active:
-            continue
-        
-        already_pending = any(o.get('symbol') == symbol and o.get('status') == 'PENDING' for o in st.session_state.wolf_orders)
-        if already_pending:
-            continue
-        
-        if not is_trading_time(symbol):
-            continue
-        
-        indicators = get_technical_indicators(symbol)
-        if indicators is None:
-            continue
-        
-        sector = SECTOR_MAPPING.get(symbol, "NIFTY")
-        sector_trend = get_sector_trend(sector)
-        sector_bullish = (sector_trend == "BULLISH")
-        sector_bearish = (sector_trend == "BEARISH")
-        
-        trend5_up = get_mtf_trend(symbol, "5m") == "UP"
-        trend15_up = get_mtf_trend(symbol, "15m") == "UP"
-        trend1h_up = get_mtf_trend(symbol, "60m") == "UP"
-        
-        ema_buy = (nifty_positive and not indicators["sideways"] and sector_bullish and
-                   indicators["ema9"] > indicators["ema20"] and indicators["current_price"] > indicators["ema200"] and
-                   indicators["rsi"] >= 60 and indicators["adx"] >= 25 and indicators["volume_filter"] and
-                   indicators["strong_bull"] and indicators["current_price"] > indicators["c1_high"] and
-                   trend5_up and trend15_up and trend1h_up)
-        
-        ema_sell = (nifty_negative and not indicators["sideways"] and sector_bearish and
-                    indicators["ema9"] < indicators["ema20"] and indicators["current_price"] < indicators["ema200"] and
-                    indicators["rsi"] <= 40 and indicators["adx"] >= 25 and indicators["volume_filter"] and
-                    indicators["strong_bear"] and indicators["current_price"] < indicators["c1_low"] and
-                    not trend5_up and not trend15_up and not trend1h_up)
-        
-        if ema_buy:
-            current_price = indicators["current_price"]
-            option_type = "CALL (CE)"
-            
-            if symbol == "NIFTY":
-                strike_interval = 50
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_interval = 100
-            else:
-                strike_interval = 10
-            
-            strike_price = math.floor(current_price / strike_interval) * strike_interval
-            
-            entry_price = current_price
-            tp1_price = entry_price * 1.10
-            tp2_price = entry_price * 1.20
-            tp3_price = entry_price * 1.30
-            sl_price = entry_price * 0.90
-            
-            st.session_state.wolf_orders.append({
-                'symbol': symbol, 'option_type': option_type, 'strike_price': strike_price,
-                'qty': st.session_state.auto_trade_qty, 'buy_above': current_price,
-                'sl': sl_price, 'target': tp2_price, 'tp1': tp1_price, 'tp2': tp2_price, 'tp3': tp3_price,
-                'tp1_booked': False, 'tp2_booked': False, 'tp3_booked': False,
-                'tp1_percent': 50, 'tp2_percent': 25, 'tp3_percent': 25,
-                'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True, 'signal_type': '🐺 WOLF AUTO', 'signal': 'BUY'
-            })
-            
-            send_telegram(f"🐺 WOLF AUTO BUY: {symbol} CE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
-            voice_alert(f"Wolf auto buy order placed for {symbol}")
-        
-        elif ema_sell:
-            current_price = indicators["current_price"]
-            option_type = "PUT (PE)"
-            
-            if symbol == "NIFTY":
-                strike_interval = 50
-            elif symbol in ["CRUDE", "NATURALGAS"]:
-                strike_interval = 100
-            else:
-                strike_interval = 10
-            
-            strike_price = math.floor(current_price / strike_interval) * strike_interval
-            
-            entry_price = current_price
-            tp1_price = entry_price * 0.90
-            tp2_price = entry_price * 0.80
-            tp3_price = entry_price * 0.70
-            sl_price = entry_price * 1.10
-            
-            st.session_state.wolf_orders.append({
-                'symbol': symbol, 'option_type': option_type, 'strike_price': strike_price,
-                'qty': st.session_state.auto_trade_qty, 'buy_above': current_price,
-                'sl': sl_price, 'target': tp2_price, 'tp1': tp1_price, 'tp2': tp2_price, 'tp3': tp3_price,
-                'tp1_booked': False, 'tp2_booked': False, 'tp3_booked': False,
-                'tp1_percent': 50, 'tp2_percent': 25, 'tp3_percent': 25,
-                'status': 'PENDING', 'placed_time': get_ist_now().strftime('%H:%M:%S'),
-                'auto_trade': True, 'signal_type': '🐺 WOLF AUTO', 'signal': 'SELL'
-            })
-            
-            send_telegram(f"🐺 WOLF AUTO SELL: {symbol} PE @{entry_price:.2f} | TP1:{tp1_price:.2f}(50%) | TP2:{tp2_price:.2f}(25%) | TP3:{tp3_price:.2f}(25%) | Qty:{st.session_state.auto_trade_qty}")
-            voice_alert(f"Wolf auto sell order placed for {symbol}")
-
-# ================= CHECK & EXECUTE WOLF ORDERS =================
-def check_and_execute_orders_with_journal():
-    pending_orders = [o for o in st.session_state.wolf_orders if o.get('status') == 'PENDING']
-    
-    for order in pending_orders:
-        current_price = get_live_price(order['symbol'])
-        
-        if current_price > 0 and current_price >= order.get('buy_above', 0):
-            order['status'] = 'EXECUTED'
-            order['entry_price'] = current_price
-            order['entry_time'] = get_ist_now().strftime('%H:%M:%S')
-            
-            active_order = {
-                'symbol': order['symbol'], 'option_type': order.get('option_type', 'CALL (CE)'),
-                'strike_price': order.get('strike_price', 0), 'qty': order.get('qty', 1),
-                'entry_price': current_price, 'entry_time': order['entry_time'],
-                'sl': order.get('sl', current_price * 0.95), 'target': order.get('target', current_price * 1.05),
-                'tp1': order.get('tp1', current_price * 1.05), 'tp2': order.get('tp2', current_price * 1.10),
-                'tp3': order.get('tp3', current_price * 1.15), 'tp1_booked': order.get('tp1_booked', False),
-                'tp2_booked': order.get('tp2_booked', False), 'tp3_booked': order.get('tp3_booked', False),
-                'signal_type': order.get('signal_type', '🐺 WOLF'), 'signal': order.get('signal', 'BUY')
-            }
-            st.session_state.active_orders.append(active_order)
-            add_to_journal(active_order)
-            send_telegram(f"✅ ORDER EXECUTED: {order['symbol']} at ₹{current_price:.2f}")
-
-# ================= MONITOR ACTIVE ORDERS WITH P&L =================
-def monitor_active_orders_with_pnl():
-    """Monitor active orders with TP1, TP2, TP3 and proper color coding"""
-    orders_to_remove = []
-    
-    for i, order in enumerate(st.session_state.active_orders):
-        symbol = order['symbol']
-        current_price = get_live_price(symbol)
-        
-        if current_price <= 0:
-            continue
-        
-        # ========== TP1 CHECK ==========
-        if not order.get('tp1_booked', False) and order.get('tp1'):
-            if order['option_type'] == "CALL (CE)":
-                tp1_hit = current_price >= order.get('tp1', 999999)
-            else:
-                tp1_hit = current_price <= order.get('tp1', 0)
-            
-            if tp1_hit:
-                order['tp1_booked'] = True
-                order['tp1_hit_time'] = get_ist_now().strftime('%H:%M:%S')
-                send_telegram(f"✅ TP1 HIT: {symbol} at ₹{current_price:.2f}")
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP1 hit for {symbol}")
-        
-        # ========== TP2 CHECK ==========
-        if not order.get('tp2_booked', False) and order.get('tp2'):
-            if order['option_type'] == "CALL (CE)":
-                tp2_hit = current_price >= order.get('tp2', 999999)
-            else:
-                tp2_hit = current_price <= order.get('tp2', 0)
-            
-            if tp2_hit:
-                order['tp2_booked'] = True
-                order['tp2_hit_time'] = get_ist_now().strftime('%H:%M:%S')
-                # TP2 hit झाल्यावर SL कॅन्सल करा
-                order['sl'] = None
-                send_telegram(f"✅ TP2 HIT: {symbol} at ₹{current_price:.2f} | Target Complete")
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP2 hit for {symbol}, target achieved")
-        
-        # ========== TP3 CHECK (जर असेल तर) ==========
-        if not order.get('tp3_booked', False) and order.get('tp3'):
-            if order['option_type'] == "CALL (CE)":
-                tp3_hit = current_price >= order.get('tp3', 999999)
-            else:
-                tp3_hit = current_price <= order.get('tp3', 0)
-            
-            if tp3_hit:
-                order['tp3_booked'] = True
-                send_telegram(f"✅ TP3 HIT: {symbol} at ₹{current_price:.2f} | TRADE COMPLETE")
-                if st.session_state.voice_enabled:
-                    voice_alert(f"TP3 hit for {symbol}, trade complete")
-                orders_to_remove.append((i, order, current_price, "TARGET HIT"))
-                continue
-        
-        # ========== SL CHECK (फक्त जर TP hit नसेल तरच) ==========
-        tp_hit_already = order.get('tp1_booked', False) or order.get('tp2_booked', False) or order.get('tp3_booked', False)
-        
-        if not tp_hit_already and order.get('sl'):
-            if order['option_type'] == "CALL (CE)":
-                sl_hit = current_price <= order.get('sl', 0)
-            else:
-                sl_hit = current_price >= order.get('sl', 999999)
-            
-            if sl_hit and order.get('sl'):
-                orders_to_remove.append((i, order, current_price, "SL HIT"))
-    
-    for idx, order, exit_price, reason in reversed(orders_to_remove):
-        add_to_journal(order, exit_price, reason)
-        st.session_state.active_orders.pop(idx)
-    
-    # ========== ACTIVE ORDERS DISPLAY WITH COLOR CODING ==========
-    if st.session_state.active_orders:
-        st.markdown("#### 🔴 ACTIVE ORDERS")
-        
-        for order in st.session_state.active_orders:
-            current_price = get_live_price(order['symbol'])
-            symbol = order['symbol']
-            option_type = order['option_type']
-            entry = order['entry_price']
-            sl = order.get('sl', 0)
-            tp1 = order.get('tp1', 0)
-            tp2 = order.get('tp2', 0)
-            tp3 = order.get('tp3', 0)
-            
-            tp1_booked = order.get('tp1_booked', False)
-            tp2_booked = order.get('tp2_booked', False)
-            tp3_booked = order.get('tp3_booked', False)
-            
-            # TP1 ला Green Box?
-            tp1_color = "#00ff88" if tp1_booked else "#ffaa00"
-            tp1_text = "✅ HIT" if tp1_booked else "Pending"
-            
-            # TP2 ला Green Box?
-            tp2_color = "#00ff88" if tp2_booked else "#ffaa00"
-            tp2_text = "✅ HIT" if tp2_booked else "Pending"
-            
-            # TP3 ला Green Box?
-            tp3_color = "#00ff88" if tp3_booked else "#ffaa00"
-            tp3_text = "✅ HIT" if tp3_booked else "Pending"
-            
-            # SL Color - फक्त TP काहीही hit नसेल तरच Red दाखवा
-            show_sl_red = False
-            if sl > 0:
-                if option_type == "CALL (CE)":
-                    sl_active = current_price <= sl
-                else:
-                    sl_active = current_price >= sl
-                
-                if sl_active and not tp1_booked and not tp2_booked and not tp3_booked:
-                    show_sl_red = True
-            
-            sl_color = "#ff4444" if show_sl_red else "#ffaa00"
-            sl_status = "⚠️ NEAR" if show_sl_red else ("✅ HIT" if tp1_booked or tp2_booked else "Active")
-            
-            st.markdown(f"""
-            <div style="background: rgba(0,0,0,0.4); border-radius: 15px; padding: 15px; margin: 10px 0; border: 1px solid #00b4d8;">
-                <b>📌 {symbol}</b> | {option_type} | Entry: ₹{entry:.2f} | Current: ₹{current_price:.2f}<br>
-                <span style="color: {tp1_color}; background: {tp1_color}22; padding: 3px 8px; border-radius: 10px;">🎯 TP1: {tp1:.2f} ({tp1_text})</span>
-                <span style="color: {tp2_color}; background: {tp2_color}22; padding: 3px 8px; border-radius: 10px; margin-left: 5px;">🎯 TP2: {tp2:.2f} ({tp2_text})</span>
-                {f'<span style="color: ' + tp3_color + '; background: ' + tp3_color + '22; padding: 3px 8px; border-radius: 10px; margin-left: 5px;">🎯 TP3: ' + f"{tp3:.2f}" + ' (' + tp3_text + ')</span>' if tp3 > 0 else ''}
-                <span style="color: {sl_color}; background: {sl_color}22; padding: 3px 8px; border-radius: 10px; margin-left: 5px;">🛑 SL: {sl:.2f} ({sl_status})</span>
-            </div>
-            """, unsafe_allow_html=True)
+    st.markdown("---")
+    st.caption("📌 Safe Buy Above = LTP च्या 3% खाली | SL = 5% | TP1 = 10% | TP2 = 20%")
 
 # ================= AUTO EXECUTION =================
 if st.session_state.algo_running and st.session_state.totp_verified:
@@ -2667,4 +2279,3 @@ if st.session_state.algo_running and st.session_state.totp_verified:
         wolf_auto_fo_trade()
     
     st.info("🐺 Wolf is hunting... Live P&L Active 🤖")
-
